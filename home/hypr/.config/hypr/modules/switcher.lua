@@ -88,6 +88,21 @@ end
 ---- KEY HANDLING ----
 -----------------------
 
+-- Which keys count as "⌘ held" / "⌥ held" (names and key codes)
+local MOD_KEYS = {
+    apps    = { "Super_L", "Super_R", 133, 134 },
+    windows = { "Alt_L", "Alt_R", 64, 108 },
+}
+
+local function held(mode)
+    for _, k in ipairs(MOD_KEYS[mode]) do
+        local ok, down = pcall(hl.is_key_down, k)
+        if ok and down == true then return true end
+    end
+    return false
+end
+
+
 local function step(mode, direction)
     return function()
         if not state or state.mode ~= mode then
@@ -113,19 +128,6 @@ hl.bind("SUPER + SHIFT + Tab", step("apps", -1))
 --   2. while the panel is open, a short timer asks Hyprland whether the key is still
 --      held (hl.is_key_down) – only trusted once it has reported the key as held,
 --      so a missing key name can never close the panel at once.
-local MOD_KEYS = {
-    apps    = { "Super_L", "Super_R", 133, 134 },
-    windows = { "Alt_L", "Alt_R", 64, 108 },
-}
-
-local function held(mode)
-    for _, k in ipairs(MOD_KEYS[mode]) do
-        local ok, down = pcall(hl.is_key_down, k)
-        if ok and down == true then return true end
-    end
-    return false
-end
-
 local seen_held = false
 local poll = hl.timer(function()
     if not state then return end
