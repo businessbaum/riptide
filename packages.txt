@@ -95,6 +95,8 @@ capitaine-cursors
 
 ## Apps
 libnotify
+archlinux-appstream-data
+pacman-contrib
 thunderbird
 thunderbird-i18n-de
 discord

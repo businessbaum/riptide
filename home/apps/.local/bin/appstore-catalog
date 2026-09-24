@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""Build the App Store's list of apps from Arch's official AppStream catalog.
+
+    appstore-catalog          write ~/.cache/appstore/catalog.json if the catalog changed
+    appstore-catalog --force  always rewrite
+
+Source: /usr/share/swcatalog/xml/*.xml.gz (package archlinux-appstream-data), which lists
+every desktop app in the official repositories with names, descriptions (German where
+translated), categories and icons. Only desktop applications are kept.
+"""
+
+import gzip
+import json
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+SOURCE = Path("/usr/share/swcatalog/xml")
+ICONS = Path("/usr/share/swcatalog/icons")
+OUT = Path.home() / ".cache/appstore/catalog.json"
+LANG = "de"
+XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
+
+# freedesktop main categories → the App Store's German categories
+CATEGORIES = [
+    ("Audio & Video", {"AudioVideo", "Audio", "Video"}),
+    ("Büro", {"Office"}),
+    ("Grafik & Foto", {"Graphics", "Photography"}),
+    ("Internet", {"Network", "WebBrowser", "Email", "Chat", "InstantMessaging"}),
+    ("Spiele", {"Game"}),
+    ("Entwicklung", {"Development"}),
+    ("Bildung & Wissenschaft", {"Education", "Science"}),
+    ("Werkzeuge", {"Utility"}),
+    ("System", {"System", "Settings"}),
+]
+
+
+def localized(component, tag):
+    """German text if there is one, otherwise the untranslated one."""
+    plain = None
+    for el in component.findall(tag):
+        lang = el.get(XML_LANG)
+        if lang == LANG:
+            return (el.text or "").strip()
+        if lang is None:
+            plain = (el.text or "").strip()
+    return plain or ""
+
+
+def description(component):
+    """Description as plain paragraphs (German if translated)."""
+    chosen = None
+    for el in component.findall("description"):
+        lang = el.get(XML_LANG)
+        if lang == LANG:
+            chosen = el
+            break
+        if lang is None and chosen is None:
+            chosen = el
+    if chosen is None:
+        return ""
+    parts = []
+    for child in chosen:
+        if child.tag == "p":
+            parts.append(" ".join("".join(child.itertext()).split()))
+        elif child.tag in ("ul", "ol"):
+            parts += ["• " + " ".join("".join(li.itertext()).split()) for li in child]
+    return "\n\n".join(p for p in parts if p)
+
+
+def icon(component, origin):
+    """Path of the best cached icon, else a theme icon name."""
+    best, stock = None, None
+    for el in component.findall("icon"):
+        kind = el.get("type")
+        if kind == "cached":
+            size = int(el.get("width") or 0)
+            path = ICONS / origin / f"{size}x{size}" / (el.text or "")
+            if path.is_file() and (best is None or size > best[0]):
+                best = (size, str(path))
+        elif kind == "stock":
+            stock = (el.text or "").strip()
+    return best[1] if best else (stock or "")
+
+
+def categories(component):
+    found = {c.text for c in component.findall("categories/category") if c.text}
+    return [name for name, keys in CATEGORIES if found & keys]
+
+
+def read(path):
+    root = ET.parse(gzip.open(path)).getroot()
+    origin = root.get("origin", "")
+    repo = origin.rsplit("-", 1)[-1]  # archlinux-arch-extra → extra
+    for c in root.findall("component"):
+        if c.get("type") != "desktop-application":
+            continue
+        pkg = (c.findtext("pkgname") or "").strip()
+        name = localized(c, "name")
+        if not pkg or not name:
+            continue
+        developer = localized(c, "developer/name") or localized(c, "developer_name")
+        yield {
+            "id": (c.findtext("id") or pkg).strip(),
+            "pkg": pkg,
+            "repo": repo,
+            "name": name,
+            "summary": localized(c, "summary"),
+            "description": description(c),
+            "developer": developer,
+            "license": (c.findtext("project_license") or "").strip(),
+            "homepage": next((u.text.strip() for u in c.findall("url") if u.get("type") == "homepage" and u.text), ""),
+            "desktop": next((l.text.strip() for l in c.findall("launchable") if l.get("type") == "desktop-id" and l.text), ""),
+            "icon": icon(c, origin),
+            "categories": categories(c),
+            "keywords": " ".join(k.text for k in c.findall("keywords/keyword") if k.text),
+        }
+
+
+def main():
+    sources = sorted(SOURCE.glob("*.xml.gz"))
+    if not sources:
+        sys.exit("App-Katalog fehlt (Paket archlinux-appstream-data).")
+    newest = max(p.stat().st_mtime for p in sources)
+    if "--force" not in sys.argv and OUT.exists() and OUT.stat().st_mtime >= newest:
+        return
+
+    apps = {}
+    for path in sources:
+        for app in read(path):
+            apps.setdefault(app["pkg"] + "|" + app["id"], app)
+    result = sorted(apps.values(), key=lambda a: a["name"].lower())
+
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    tmp = OUT.with_suffix(".tmp")
+    tmp.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(OUT)
+    print(f"{len(result)} Apps im Katalog")
+
+
+if __name__ == "__main__":
+    main()

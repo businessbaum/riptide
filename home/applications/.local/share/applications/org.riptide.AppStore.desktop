@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=App Store
+GenericName=Apps installieren
+Comment=Apps aus den offiziellen Arch-Paketquellen suchen, installieren und aktualisieren
+Keywords=Apps;Installieren;Programme;Software;Updates;Pakete;pacman;
+Icon=org.riptide.AppStore
+Exec=/home/user/.config/quickshell/scripts/app-store.sh
+StartupWMClass=org.riptide.AppStore
+Categories=System;PackageManager;
