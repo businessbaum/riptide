@@ -11,6 +11,7 @@
 //   Dock.qml           dock on every screen
 //   Spotlight.qml      ⌘Space app search
 //   Launchpad.qml      all apps as a grid (dock)
+//   Clipboard.qml      SUPER+V clipboard history (cliphist)
 //   Switcher.qml       ⌘Tab / ⌥Tab panel (logic in Hyprland)
 //   ControlCenter.qml  + NotificationCenter.qml: panels from the menu bar
 //   Notifications.qml  notification server + banners
@@ -41,6 +42,7 @@ ShellRoot {
 
     Spotlight {}
     Launchpad {}
+    Clipboard {}
     Switcher {}
     Notifications {}
     Osd {}

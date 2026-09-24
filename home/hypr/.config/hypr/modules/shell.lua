@@ -41,8 +41,9 @@ function macos.quit_app(class)
     return hl.dsp.no_op()
 end
 
--- ⌘Space: Spotlight (pressed again it closes)
+-- ⌘Space: Spotlight (pressed again it closes), SUPER+V: clipboard history
 hl.bind("SUPER + space", hl.dsp.exec_cmd("qs ipc call spotlight toggle"))
+hl.bind("SUPER + V",     hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 
 -- Start the shell with the session. It reloads itself when its files change.
 hl.on("hyprland.start", function()

@@ -152,7 +152,7 @@ end)
 ---- WINDOWS AND APPS ----
 -------------------------
 
--- ⌘Space Spotlight: see shell.lua. SUPER+V clipboard history follows with Quickshell.
+-- ⌘Space Spotlight and SUPER+V clipboard history: see shell.lua
 hl.bind("SUPER + ALT + space",  hl.dsp.exec_cmd(finder))     -- ⌘⌥Space: Finder
 hl.bind("SUPER + Return",       hl.dsp.exec_cmd(terminal))   -- (not a Mac shortcut, but handy)
 
