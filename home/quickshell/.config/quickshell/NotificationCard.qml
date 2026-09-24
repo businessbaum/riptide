@@ -8,6 +8,8 @@ Rectangle {
     id: card
 
     property var n
+    // Banner: hides itself after a while. In the centre the card stays until dismissed.
+    property bool banner: false
     signal done
 
     readonly property bool critical: n?.urgency === NotificationUrgency.Critical
@@ -19,6 +21,21 @@ Rectangle {
         if (n.appIcon)
             return n.appIcon.startsWith("/") ? "file://" + n.appIcon : Quickshell.iconPath(n.appIcon, "dialog-information");
         return Quickshell.iconPath("dialog-information");
+    }
+
+    // "jetzt", "vor 5 Min.", "14:02"
+    readonly property date arrived: NotificationStore.timeOf(n)
+    Component.onCompleted: updateAge()
+    property string age: "jetzt"
+    function updateAge() {
+        const minutes = Math.floor((Date.now() - arrived.getTime()) / 60000);
+        age = minutes < 1 ? "jetzt" : minutes < 60 ? `vor ${minutes} Min.` : Qt.formatTime(arrived, "HH:mm");
+    }
+    Timer {
+        interval: 30000
+        running: !card.banner
+        repeat: true
+        onTriggered: card.updateAge()
     }
 
     implicitHeight: content.implicitHeight + 24
@@ -37,7 +54,7 @@ Rectangle {
     Timer {
         id: expire
         interval: card.n && card.n.expireTimeout > 0 ? card.n.expireTimeout : 5000
-        running: !card.critical && !mouse.containsMouse
+        running: card.banner && !card.critical && !mouse.containsMouse
         onTriggered: card.done() // banner hides; the notification stays for the centre
     }
 
@@ -72,7 +89,7 @@ Rectangle {
                 }
                 Text {
                     anchors.right: parent.right
-                    text: "jetzt"
+                    text: card.age
                     font.family: Config.fontSans
                     font.pixelSize: 11
                     color: Config.textSecondary

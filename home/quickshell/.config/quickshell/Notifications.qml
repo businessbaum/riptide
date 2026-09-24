@@ -4,31 +4,23 @@ import Quickshell.Hyprland
 import Quickshell.Services.Notifications
 import Quickshell.Wayland
 
-// Notification server + banners in the top right of the active screen, like on a Mac.
+// Banners in the top right of the active screen, like on a Mac.
 //   Normal banners disappear after 5 s (hovering pauses), critical ones stay.
 //   Click: run the notification's default action, otherwise just close it.
-// The notification centre (history) follows later; it will read `server.trackedNotifications`.
+// Every notification also stays in the notification centre (click on the clock).
 Scope {
     id: root
 
-    NotificationServer {
-        id: server
-        keepOnReload: true
-        bodySupported: true
-        bodyMarkupSupported: true
-        bodyHyperlinksSupported: false
-        actionsSupported: true
-        imageSupported: true
-        persistenceSupported: true
-
-        onNotification: n => {
-            n.tracked = true;
-            banners.insert(0, { notification: n });
-        }
-    }
-
     ListModel {
         id: banners
+    }
+
+    Connections {
+        target: NotificationStore
+        function onArrived(n) {
+            if (!NotificationStore.doNotDisturb || n.urgency === NotificationUrgency.Critical)
+                banners.insert(0, { notification: n });
+        }
     }
 
     function removeBanner(n) {
@@ -69,6 +61,7 @@ Scope {
                     required property var notification
                     width: column.width
                     n: notification
+                    banner: true
                     onDone: root.removeBanner(notification)
                 }
             }
