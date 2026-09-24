@@ -40,10 +40,9 @@ Singleton {
     function canRemove(app) {
         return explicit[app.pkg] === true;
     }
+    // Cached catalog icon (absolute path) – theme icon names go through AppIcon's lookup
     function iconSource(app) {
-        if (!app?.icon)
-            return Quickshell.iconPath("application-x-executable");
-        return app.icon.startsWith("/") ? "file://" + app.icon : Quickshell.iconPath(app.icon, "application-x-executable");
+        return app?.icon?.startsWith("/") ? "file://" + app.icon : "";
     }
     function search(query) {
         const q = query.trim().toLowerCase();

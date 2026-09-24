@@ -12,11 +12,19 @@ Rectangle {
     implicitWidth: Math.max(72, label.implicitWidth + 28)
     implicitHeight: 26
     radius: height / 2
-    color: working ? Config.tile : installed ? Config.tile : Config.accent
+    color: working ? "transparent" : installed ? Config.tile : Config.accent
     opacity: Catalog.busy !== null && !working ? 0.5 : 1
+
+    // While working: the progress circle instead of the label
+    ProgressRing {
+        anchors.centerIn: parent
+        visible: root.working
+        value: PackageAdmin.progress
+    }
 
     Text {
         id: label
+        visible: !root.working
         anchors.centerIn: parent
         text: root.working ? (Catalog.busy.action === "remove" ? "Entfernt …" : "Lädt …")
             : root.installed ? "Öffnen" : "Laden"

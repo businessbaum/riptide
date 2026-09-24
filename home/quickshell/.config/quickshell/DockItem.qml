@@ -29,7 +29,7 @@ Item {
     function click() {
         if (running) {
             Apps.activate(windows[0].appId);
-        } else if (entry) {
+        } else if (entry && !launching) {
             launching = true;
             launchTimeout.restart();
             Apps.launch(entry);
@@ -125,7 +125,7 @@ Item {
         items: {
             const list = [];
             if (root.entry)
-                list.push({ text: "Neues Fenster", action: () => { root.launching = !root.running; Apps.launch(root.entry); } });
+                list.push({ text: "Neues Fenster", action: () => { root.launching = !root.running; Apps.launchNew(root.entry); } });
             if (root.entry)
                 list.push({ text: root.pinned ? "Aus dem Dock entfernen" : "Im Dock behalten", action: () => root.togglePinned() });
             if (root.running) {

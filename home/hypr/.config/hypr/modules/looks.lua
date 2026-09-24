@@ -35,8 +35,9 @@ hl.config({
         inactive_opacity = 1.0,
 
         -- macOS: large shadow offset downwards; weaker for inactive windows
+        -- Off: with the NVIDIA driver the shadows flickered on every keystroke
         shadow = {
-            enabled        = true,
+            enabled        = false,
             range          = 40,
             render_power   = 3,
             offset         = { 0, 12 },

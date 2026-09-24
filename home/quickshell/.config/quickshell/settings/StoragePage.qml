@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Widgets
 import qs
 
 // Storage like on a Mac: how full the system disk is and what takes the space,
@@ -99,12 +100,11 @@ Page {
             }
 
             // Bar: coloured by category (share of the uncompressed sum), grey = free
-            Rectangle {
+            ClippingRectangle { // rounds both ends, including the coloured part
                 Layout.fillWidth: true
                 implicitHeight: 22
                 radius: 6
                 color: Config.tile
-                clip: true
                 Row {
                     id: bar
                     readonly property real usedWidth: page.total > 0 ? parent.width * page.used / page.total : 0

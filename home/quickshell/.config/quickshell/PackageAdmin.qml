@@ -14,6 +14,16 @@ Singleton {
     property var busy: null          // { action, pkgs, name } while running
     property var log: []             // output lines of the running operation
     property string lastError: ""
+
+    // 0…1 once pacman installs ("(2/5) installing …"), -1 while that is unknown (downloading)
+    readonly property real progress: {
+        for (let i = log.length - 1; i >= 0; i--) {
+            const m = /^\((\d+)\/(\d+)\) (installing|upgrading|removing|reinstalling)/.exec(log[i]);
+            if (m)
+                return Number(m[1]) / Number(m[2]);
+        }
+        return -1;
+    }
     signal finished(string action, bool ok)
 
     function run(action, pkgs, name) {

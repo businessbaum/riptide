@@ -15,7 +15,12 @@ Item {
     property string source: ""    // explicit icon path/URL (overrides both)
     property int size: 64
 
-    readonly property string src: source !== "" ? source : Apps.icon(entry, appId)
+    // Candidates in order; the next one is tried when an image cannot be loaded
+    readonly property var candidates: source !== "" ? [source, Apps.genericIcon]
+                                                   : Apps.iconCandidates(entry?.icon ?? appId ?? "")
+    property int attempt: 0
+    onCandidatesChanged: attempt = 0
+    readonly property string src: candidates[Math.min(attempt, candidates.length - 1)]
     readonly property var measured: IconShapes.shapes[src] ?? { shape: "tile", scale: 1 }
     readonly property string shape: measured.shape
     // Whole pixels only: the rounded clip renders through a texture, and half-pixel
@@ -63,6 +68,7 @@ Item {
             height: px
             source: root.src
             asynchronous: true
+            onStatusChanged: if (status === Image.Error && root.attempt < root.candidates.length - 1) root.attempt++
         }
     }
 

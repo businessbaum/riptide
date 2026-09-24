@@ -18,6 +18,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         size: 60
         source: Catalog.iconSource(root.app)
+        appId: root.app.icon ?? ""
     }
 
     Column {

@@ -227,6 +227,36 @@ hl.bind("CTRL + ALT + right", macos.arrange("right"))
 hl.bind("CTRL + ALT + up",    macos.arrange("full"))
 hl.bind("CTRL + ALT + down",  macos.arrange("restore"))
 
+------------------------------
+---- NEW WINDOWS FIT ON SCREEN ----
+------------------------------
+
+-- Some apps open larger than the screen (then the title bar is out of reach). A moment
+-- after a window opens – when the app has chosen its size and window_memory.lua has
+-- restored a remembered frame – shrink it to the free area and move it fully onto it.
+local function fit_on_screen(address)
+    local w = hl.get_window("address:" .. address)
+    if not w or not w.floating or w.fullscreen ~= 0 then return end
+    local m = w.monitor or hl.get_monitor_at_cursor()
+    if not m then return end
+    local a, bar = usable_area(m), titlebar(w)
+
+    local width  = math.min(w.size.x, a.w - 2 * GAP)
+    local height = math.min(w.size.y, a.h - 2 * GAP - bar)
+    local x = math.max(a.x + GAP, math.min(w.at.x, a.x + a.w - GAP - width))
+    local y = math.max(a.y + GAP + bar, math.min(w.at.y, a.y + a.h - GAP - height))
+
+    if width ~= w.size.x or height ~= w.size.y or x ~= w.at.x or y ~= w.at.y then
+        place(w, { x = x, y = y, w = width, h = height })
+    end
+end
+
+hl.on("window.open", function(w)
+    if not w or not w.address then return end
+    local address = w.address
+    hl.timer(function() fit_on_screen(address) end, { timeout = 150, type = "oneshot" })
+end)
+
 -- Forget closed windows
 hl.on("window.close", function(w)
     if w then before[w.address] = nil end

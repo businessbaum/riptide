@@ -44,6 +44,7 @@ Flickable {
             AppIcon {
                 size: 112
                 source: Catalog.iconSource(root.app)
+                appId: root.app.icon ?? ""
             }
             ColumnLayout {
                 Layout.fillWidth: true
