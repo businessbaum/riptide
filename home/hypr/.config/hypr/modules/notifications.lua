@@ -38,4 +38,33 @@ end
 hl.on("hyprland.start", function() check(3) end)
 hl.on("config.reloaded", function() check(1) end)
 
+
+-- Errors while running (in a key binding, an event handler, a timer) would show up as
+-- Hyprland's own box and be gone once dismissed. Every function handed to hl.bind,
+-- hl.on and hl.timer is therefore wrapped: an error becomes a notification (kept in the
+-- notification centre) and a line in the error log, and the handler just stops.
+local function report(where, err)
+    local text = tostring(err):gsub("^[^\n]*/hypr/", "")
+    hl.exec_cmd("mkdir -p ~/.local/state/macos; printf '%s\\n%s\\n\\n' \"$(date '+%F %T')\" " .. quote(where .. ": " .. text)
+        .. " >> ~/.local/state/macos/hyprland-errors.log")
+    M.show("Fehler in der Hyprland-Konfiguration", where .. ": " .. (text:match("^[^\n]*") or text), true)
+end
+
+local function guard(fn, where)
+    if type(fn) ~= "function" then return fn end
+    return function(...)
+        local result = table.pack(xpcall(fn, debug.traceback, ...))
+        if not result[1] then
+            report(where, result[2])
+            return nil
+        end
+        return table.unpack(result, 2, result.n)
+    end
+end
+
+local raw_bind, raw_on, raw_timer = hl.bind, hl.on, hl.timer
+hl.bind = function(keys, action, opts) return raw_bind(keys, guard(action, "Tastenkürzel " .. keys), opts) end
+hl.on = function(event, fn) return raw_on(event, guard(fn, "Ereignis " .. event)) end
+hl.timer = function(fn, opts) return raw_timer(guard(fn, "Timer"), opts) end
+
 return M

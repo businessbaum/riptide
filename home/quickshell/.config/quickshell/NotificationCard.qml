@@ -7,10 +7,19 @@ import Quickshell.Widgets
 Rectangle {
     id: card
 
+    // A live Notification (banner) or a history entry (notification centre)
     property var n
     // Banner: hides itself after a while. In the centre the card stays until dismissed.
     property bool banner: false
     signal done
+
+    readonly property var live: banner ? n : n?.live ?? null
+    function dismiss() {
+        if (banner)
+            n?.dismiss();
+        else
+            NotificationStore.remove(n.key);
+    }
 
     readonly property bool critical: n?.urgency === NotificationUrgency.Critical
     readonly property string iconSource: {
@@ -24,7 +33,7 @@ Rectangle {
     }
 
     // "jetzt", "vor 5 Min.", "14:02"
-    readonly property date arrived: NotificationStore.timeOf(n)
+    readonly property date arrived: banner ? new Date() : NotificationStore.timeOf(n)
     Component.onCompleted: updateAge()
     property string age: "jetzt"
     function updateAge() {
@@ -45,7 +54,8 @@ Rectangle {
 
     // Gone from the server (closed by the app or expired) → remove the banner
     Connections {
-        target: card.n
+        target: card.banner ? card.n : null
+        ignoreUnknownSignals: true
         function onClosed() {
             card.done();
         }
@@ -127,10 +137,10 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         onClicked: {
-            const action = card.n?.actions.find(a => a.identifier === "default") ?? null;
+            const action = card.live?.actions?.find(a => a.identifier === "default") ?? null;
             if (action)
                 action.invoke();
-            else
+            else if (card.banner)
                 card.n?.dismiss();
             card.done();
         }
@@ -159,7 +169,7 @@ Rectangle {
             anchors.fill: parent
             hoverEnabled: true
             onClicked: {
-                card.n?.dismiss();
+                card.dismiss();
                 card.done();
             }
         }
