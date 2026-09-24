@@ -8,7 +8,9 @@ Page {
     id: page
     title: "Bluetooth"
 
-    readonly property var adapter: Bluetooth.defaultAdapter
+    // The adapter that is not switched off by rfkill (the TP-Link stick; the built-in
+    // MediaTek one is blocked) – BlueZ' "default" may point at the blocked one
+    readonly property var adapter: Bluetooth.adapters.values.find(a => a.state !== BluetoothAdapterState.Blocked) ?? Bluetooth.defaultAdapter
 
     // The real name; many devices nearby only send their address – those stay hidden
     // (like on a Mac) unless they are paired.

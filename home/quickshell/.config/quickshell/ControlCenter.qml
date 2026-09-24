@@ -16,7 +16,8 @@ PopupWindow {
     property var keepOpenFor: []
 
     readonly property var sink: Pipewire.defaultAudioSink
-    readonly property var adapter: Bluetooth.defaultAdapter
+    // the adapter that is not blocked (see settings/BluetoothPage.qml)
+    readonly property var adapter: Bluetooth.adapters.values.find(a => a.state !== BluetoothAdapterState.Blocked) ?? Bluetooth.defaultAdapter
     readonly property var wired: Networking.devices.values.find(d => d.type === DeviceType.Wired && d.connected) ?? null
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
     readonly property var wifiNetwork: wifi?.networks.values.find(n => n.connected) ?? null

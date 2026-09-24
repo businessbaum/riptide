@@ -28,10 +28,25 @@ index 2f10731..04681d2 100644
  
  bool CBarPassElement::needsPrecomputeBlur() {
 diff --git a/hyprbars/barDeco.cpp b/hyprbars/barDeco.cpp
-index c27653d..1d735b5 100644
+index c27653d..f009de1 100644
 --- a/hyprbars/barDeco.cpp
 +++ b/hyprbars/barDeco.cpp
-@@ -209,13 +209,20 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
+@@ -123,6 +123,14 @@ bool CHyprBar::inputIsValid() {
+ }
+ 
+ void CHyprBar::onMouseButton(Event::SCallbackInfo& info, IPointer::SButtonEvent e) {
++    // our patch: releasing always ends our own drag – inputIsValid() rejects every event
++    // while the pointer is over a top layer such as the menu bar, so the release was lost
++    // and the window stayed stuck to the mouse (and never snapped to full screen)
++    if (e.state != WL_POINTER_BUTTON_STATE_PRESSED && (m_bDraggingThis || m_bDragPending)) {
++        handleUpEvent(info);
++        return;
++    }
++
+     if (!inputIsValid())
+         return;
+ 
+@@ -209,13 +217,20 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
  
      const bool BUTTONSRIGHT = ALIGNBUTTONS != "left";
  
@@ -53,7 +68,7 @@ index c27653d..1d735b5 100644
          }
  
          m_bDraggingThis = false;
-@@ -247,7 +254,9 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
+@@ -247,7 +262,9 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
  }
  
  void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
@@ -64,7 +79,7 @@ index c27653d..1d735b5 100644
          return;
  
      if (m_bCancelledDown)
-@@ -262,6 +271,7 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
+@@ -262,6 +279,7 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
              (void)Config::Actions::floatWindow(Config::Actions::eTogglableAction::TOGGLE_ACTION_DISABLE);
  
          Log::logger->log(Log::DEBUG, "[hyprbars] Dragging ended on {:x}", (uintptr_t)m_pWindow.lock().get());
@@ -72,7 +87,7 @@ index c27653d..1d735b5 100644
      }
  
      m_bDragPending = false;
-@@ -269,6 +279,13 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
+@@ -269,6 +287,13 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
      m_touchId      = 0;
  }
  
@@ -86,7 +101,7 @@ index c27653d..1d735b5 100644
  void CHyprBar::handleMovement() {
      g_pKeybindManager->changeMouseBindMode(MBIND_MOVE);
      m_bDraggingThis = true;
-@@ -405,7 +422,9 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
+@@ -405,7 +430,9 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
              // render icon
              auto fgcol = button.userfg ? button.fgcol : (button.bgcol.r + button.bgcol.g + button.bgcol.b < 1) ? CHyprColor(0xFFFFFFFF) : CHyprColor(0xFF000000);
  

@@ -11,6 +11,7 @@
 //   maximize button (green)  → macos.zoom() (like our own title bars)
 //   top edge of any window   → moves the window instead of resizing it (Hyprland's grab
 //                              zone there kept catching drags meant for the title bar)
+//   menu bar                 → a border: a dragged window never goes above it
 //
 // It also tells the window switcher (⌥Tab / ⌘Tab) when ⌥ or ⌘ is released.
 
@@ -28,6 +29,11 @@
 #include <hyprland/src/desktop/state/ViewHitTester.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/config/ConfigValue.hpp>
+#include <hyprland/src/layout/LayoutManager.hpp>
+#include <hyprland/src/layout/target/Target.hpp>
+#include <hyprland/src/output/Monitor.hpp>
+#include <hyprland/src/render/decorations/DecorationPositioner.hpp>
+#include <hyprland/src/state/MonitorState.hpp>
 #include <hyprland/src/protocols/XDGShell.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/managers/KeybindManager.hpp>
@@ -150,6 +156,33 @@ static bool moveInsteadOfTopResize(Event::SCallbackInfo& info) {
     return true;
 }
 
+// The menu bar is a border: while a window is dragged, it never goes above the free area
+// of the screen (below the menu bar), title bar included. Runs every frame, right after
+// Hyprland has moved the window with the mouse, so it never shows up above the line.
+static void keepDraggedWindowBelowMenuBar() {
+    const auto& DRAG = g_layoutManager->dragController();
+    if (DRAG->mode() != MBIND_MOVE)
+        return;
+    const auto TARGET = DRAG->target();
+    if (!TARGET || !TARGET->floating())
+        return;
+    const auto W = TARGET->window();
+    if (!W)
+        return;
+    const auto MON = State::monitorState()->query().vec(g_pInputManager->getMouseCoordsInternal()).run();
+    if (!MON)
+        return;
+
+    const CBox   WORK = MON->logicalBoxMinusReserved();                                   // below menu bar, above dock
+    const double TOP  = WORK.y + g_pDecorationPositioner->getWindowDecorationReserved(W).topLeft.y; // + title bar
+    CBox         box  = TARGET->position();
+    if (box.y >= TOP)
+        return;
+    box.y = TOP;
+    TARGET->setPositionGlobal(box);
+    TARGET->warpPositionSize();
+}
+
 APICALL EXPORT std::string PLUGIN_API_VERSION() {
     return HYPRLAND_API_VERSION;
 }
@@ -161,6 +194,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("[window-buttons] Hyprland version does not match");
 
     static auto NEW_WINDOW = Event::bus()->m_events.window.open.listen([](PHLWINDOW w) { hookWindow(w); });
+    static auto TICK       = Event::bus()->m_events.tick.listen([] { keepDraggedWindowBelowMenuBar(); });
 
     // Mouse button released → end the drag and check snapping
     static auto MOUSE = Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent e, Event::SCallbackInfo& info) {
@@ -201,7 +235,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         if (w->m_isMapped)
             hookWindow(w);
 
-    return {"window-buttons", "Drag, minimize and zoom for windows with their own title bar; no resizing at the top edge", "riptide", "0.2"};
+    return {"window-buttons", "Drag, minimize and zoom for windows with their own title bar; no resizing at the top edge", "riptide", "0.3"};
 }
 
 // Unloading (e.g. to load a newer build): remove our handlers from every window while
