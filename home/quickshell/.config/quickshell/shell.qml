@@ -37,6 +37,7 @@ ShellRoot {
     }
 
     Spotlight {}
+    Switcher {}
     Notifications {}
     Osd {}
     ConfirmDialog {}

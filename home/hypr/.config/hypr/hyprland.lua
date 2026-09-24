@@ -14,6 +14,7 @@
 --   modules/windows.lua        floating windows, rules for bars, menus and panels
 --   modules/keys.lua           ⌘ shortcuts
 --   modules/snapping.lua       snap windows to screen edges, zoom
+--   modules/switcher.lua       ⌥Tab / ⌘Tab: switch between windows / apps
 --   modules/window_memory.lua  apps reopen with the size and position they were closed with
 --   modules/csd_apps.lua       apps that draw their own title bar (Finder & co.)
 --   modules/shell.lua          bridge to Quickshell (menu bar, dock, Spotlight, notifications)
@@ -100,6 +101,7 @@ require("modules.looks")
 require("modules.windows")
 require("modules.keys")
 require("modules.snapping")
+require("modules.switcher")
 require("modules.window_memory")
 require("modules.shell")
 require("modules.autostart")
