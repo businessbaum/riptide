@@ -75,7 +75,20 @@ Singleton {
         path: root.dir + "settings.json"
         watchChanges: true
         onFileChanged: reload()
-        onLoaded: root.settings = root.parse(this, root.settings)
+        onLoaded: {
+            root.settings = root.parse(this, root.settings);
+            root.applyTheme(false);
+        }
+    }
+
+    // Light/dark changed (or first start): regenerate the colour files of the apps
+    // (GTK, Qt, kitty, … – see desktop-theme). Hyprland reads the JSON files itself.
+    property string appliedMode: ""
+    function applyTheme(force) {
+        if (!force && mode === appliedMode)
+            return;
+        appliedMode = mode;
+        Quickshell.execDetached(["desktop-theme"]);
     }
 
     FileView {
@@ -83,6 +96,11 @@ Singleton {
         path: root.dir + "theme.json"
         watchChanges: true
         onFileChanged: reload()
-        onLoaded: root.theme = root.parse(this, root.theme)
+        onLoaded: {
+            const first = Object.keys(root.theme).length === 0;
+            root.theme = root.parse(this, root.theme);
+            if (!first)
+                root.applyTheme(true); // tokens edited → regenerate
+        }
     }
 }
