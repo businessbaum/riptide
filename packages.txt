@@ -116,7 +116,7 @@ cpio
 # claude-desktop   (packages/claude-desktop: Anthropic's signed apt repo)
 
 ## Flatpak (user installation from Flathub, see system/setup-desktop.sh)
-# app.zen_browser.zen
+# app.zen_browser.zen   (installed 2026-09-24: flatpak install --user flathub app.zen_browser.zen)
 
 ## AUR (manual, reviewed) -- none yet
 # apple_cursor   (pending review)
