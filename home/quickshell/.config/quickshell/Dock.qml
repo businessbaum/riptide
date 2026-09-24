@@ -18,6 +18,9 @@ PanelWindow {
 
     // [{ key, entry, pinned, appId }]
     readonly property var items: {
+        // Desktop entries are read in the background after start; depending on the list
+        // makes the dock fill itself as soon as they are there (not only when a window opens).
+        const loaded = DesktopEntries.applications.values.length;
         const list = [];
         const seen = {};
         for (const id of Config.dockPinned) {

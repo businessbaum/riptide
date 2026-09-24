@@ -87,6 +87,10 @@ hl.config({
     -- window centre on focus changes). On a Mac it stays where it is.
     cursor = {
         no_warps = true,
+        -- Draw the pointer ourselves instead of in the graphics card's cursor plane:
+        -- with NVIDIA a second, frozen pointer stayed in the middle of the right screen
+        -- after login until the mouse moved.
+        no_hardware_cursors = true,
     },
 })
 

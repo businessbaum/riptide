@@ -56,10 +56,7 @@ Page {
                     { value: "Adwaita", text: "GNOME" }
                 ]
                 current: Store.get("mouse", "cursor_theme", "capitaine-macos")
-                onPicked: v => {
-                    Store.set("mouse", "cursor_theme", v, true);
-                    Quickshell.execDetached(["desktop-theme"]);
-                }
+                onPicked: v => Store.set("mouse", "cursor_theme", v, true) // shell applies it (Config.qml)
             }
         }
         SettingRow {
@@ -68,10 +65,7 @@ Page {
                 window: page.window
                 options: [{ value: 18, text: "Klein" }, { value: 22, text: "Normal" }, { value: 28, text: "Groß" }, { value: 36, text: "Sehr groß" }]
                 current: Store.get("mouse", "cursor_size", 22)
-                onPicked: v => {
-                    Store.set("mouse", "cursor_size", v, true);
-                    Quickshell.execDetached(["desktop-theme"]); // applies theme + size everywhere
-                }
+                onPicked: v => Store.set("mouse", "cursor_size", v, true) // shell applies it (Config.qml)
             }
         }
     }

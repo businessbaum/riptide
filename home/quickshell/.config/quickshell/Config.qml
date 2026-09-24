@@ -93,11 +93,13 @@ Singleton {
 
     // Light/dark changed (or first start): regenerate the colour files of the apps
     // (GTK, Qt, kitty, … – see desktop-theme). Hyprland reads the JSON files itself.
+    // Also for the pointer (theme and size): the generator applies it everywhere.
     property string appliedMode: ""
     function applyTheme(force) {
-        if (!force && mode === appliedMode)
+        const key = [mode, settings.mouse?.cursor_theme ?? "", settings.mouse?.cursor_size ?? ""].join("|");
+        if (!force && key === appliedMode)
             return;
-        appliedMode = mode;
+        appliedMode = key;
         Quickshell.execDetached(["desktop-theme"]);
     }
 
