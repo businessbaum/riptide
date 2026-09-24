@@ -166,6 +166,7 @@ hl.bind("SUPER + SHIFT + M", hl.dsp.workspace.toggle_special("minimized")) -- sh
 hl.bind("SUPER + CTRL + F",     hl.dsp.window.fullscreen({ mode = "fullscreen" })) -- ⌃⌘F: full screen
 hl.bind("SUPER + ALT + F",      hl.dsp.window.float({ action = "toggle" }))        -- tile/float window
 hl.bind("SUPER + ALT + Escape", hl.dsp.exec_cmd("hyprctl kill"))                   -- ⌥⌘⎋: force quit (click window)
+hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("uwsm app -- io.missioncenter.MissionCenter.desktop")) -- ⌃⇧⎋: task manager (like Windows)
 hl.bind("SUPER + L",            hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))     -- lock screen
 hl.bind("SUPER + CTRL + Q",     hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))     -- ⌃⌘Q: lock screen (Mac)
 hl.bind("SUPER + SHIFT + Q",    hl.dsp.exec_cmd(scripts .. "logout.sh"))           -- ⇧⌘Q: log out …
