@@ -45,6 +45,12 @@ PanelWindow {
         }
     }
 
+    // "Computer wachhalten" (control centre): no lock, screens stay on
+    IdleInhibitor {
+        window: bar
+        enabled: Session.keepAwake
+    }
+
     SystemClock {
         id: clock
         precision: SystemClock.Minutes
@@ -87,6 +93,13 @@ PanelWindow {
                 item: modelData
                 barWindow: bar
             }
+        }
+
+        BarButton {
+            visible: Session.keepAwake
+            text: "\uf0f4" // cup: the computer is kept awake
+            symbol: true
+            onClicked: Session.keepAwake = false
         }
 
         BarButton {
@@ -136,11 +149,11 @@ PanelWindow {
             { separator: true },
             { text: "Systemeinstellungen …", action: () => Quickshell.execDetached(["uwsm", "app", "--", "org.riptide.SystemSettings.desktop"]) },
             { separator: true },
-            { text: "Neustart …", action: () => Confirm.ask("Möchtest du den Computer jetzt neu starten?", "", "Neustart", () => Quickshell.execDetached(["systemctl", "reboot"])) },
-            { text: "Ausschalten …", action: () => Confirm.ask("Möchtest du den Computer jetzt ausschalten?", "", "Ausschalten", () => Quickshell.execDetached(["systemctl", "poweroff"])) },
+            { text: "Neustart …", action: () => Confirm.ask("Möchtest du den Computer jetzt neu starten?", "", "Neustart", () => Session.end("reboot")) },
+            { text: "Ausschalten …", action: () => Confirm.ask("Möchtest du den Computer jetzt ausschalten?", "", "Ausschalten", () => Session.end("poweroff")) },
             { separator: true },
             { text: "Bildschirm sperren", action: () => Quickshell.execDetached(["sh", "-c", "pidof hyprlock || hyprlock"]) },
-            { text: "Abmelden …", action: () => Confirm.ask("Möchtest du dich wirklich abmelden?", "Alle Programme werden beendet.", "Abmelden", () => Quickshell.execDetached([Quickshell.shellPath("scripts/logout.sh")])) }
+            { text: "Abmelden …", action: () => Confirm.ask("Möchtest du dich wirklich abmelden?", "Alle Programme werden beendet.", "Abmelden", () => Session.end("logout")) }
         ]
     }
 }

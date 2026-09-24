@@ -41,6 +41,15 @@ function macos.quit_app(class)
     return hl.dsp.no_op()
 end
 
+-- Log out / restart / shut down (Session.qml): ask every window to close, like
+-- clicking its close button – apps with unsaved changes can ask to save
+function macos.close_all_windows()
+    for _, w in ipairs(hl.get_windows()) do
+        if w.mapped then hl.dispatch(hl.dsp.window.close({ window = w })) end
+    end
+    return hl.dsp.no_op()
+end
+
 -- ⌘Space: Spotlight (pressed again it closes), SUPER+V: clipboard history
 hl.bind("SUPER + space", hl.dsp.exec_cmd("qs ipc call spotlight toggle"))
 hl.bind("SUPER + V",     hl.dsp.exec_cmd("qs ipc call clipboard toggle"))

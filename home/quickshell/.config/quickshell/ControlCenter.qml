@@ -158,6 +158,26 @@ PopupWindow {
                 }
             }
 
+            // Keep awake
+            Rectangle {
+                width: parent.width
+                height: 51
+                radius: Config.radiusTile
+                color: Config.tile
+                border.color: Config.border
+
+                ControlTile {
+                    x: 10
+                    width: parent.width - 20
+                    anchors.verticalCenter: parent.verticalCenter
+                    icon: "\uf0f4" // cup
+                    title: "Computer wachhalten"
+                    status: Session.keepAwake ? "Keine Sperre, Bildschirme bleiben an" : "Aus"
+                    on: Session.keepAwake
+                    onToggled: Session.keepAwake = !Session.keepAwake
+                }
+            }
+
             // Sound
             Rectangle {
                 width: parent.width
