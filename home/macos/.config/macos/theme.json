@@ -1,0 +1,70 @@
+{
+  "font": { "sans": "Inter", "serif": "Liberation Serif", "mono": "DejaVu Sans Mono" },
+  "radius": { "panel": 18, "tile": 14, "control": 8 },
+  "accent": "#0a84ff",
+  "traffic_lights": {
+    "size": 13,
+    "spacing": 8,
+    "close": "#ff5f57", "close_glyph": "#4d0000",
+    "minimize": "#febc2e", "minimize_glyph": "#5a3b00",
+    "zoom": "#28c840", "zoom_glyph": "#0a4a00"
+  },
+  "modes": {
+    "dark": {
+      "glass": "rgba(40, 40, 46, 0.58)",
+      "glass_menu": "rgba(36, 36, 40, 0.80)",
+      "menubar": "rgba(24, 24, 28, 0.42)",
+      "border": "rgba(255, 255, 255, 0.14)",
+      "tile": "rgba(255, 255, 255, 0.08)",
+      "hover": "rgba(255, 255, 255, 0.12)",
+      "text": "#ffffff",
+      "text_secondary": "rgba(255, 255, 255, 0.60)",
+      "titlebar": "rgb(44, 44, 46)",
+      "titlebar_text": "rgba(255, 255, 255, 0.70)",
+      "titlebar_button_inactive": "rgba(255, 255, 255, 0.16)",
+      "window_border_active": "rgba(255, 255, 255, 0.15)",
+      "window_border_inactive": "rgba(255, 255, 255, 0.08)",
+      "shadow": "rgba(0, 0, 0, 0.50)",
+      "shadow_inactive": "rgba(0, 0, 0, 0.25)",
+      "gtk_theme": "WhiteSur-Dark",
+      "icon_theme": "WhiteSur-dark",
+      "color_scheme": "prefer-dark",
+      "terminal": {
+        "background": "#1e1e1e",
+        "foreground": "#e6e6e6",
+        "cursor": "#e6e6e6",
+        "selection": "#3a5a8c",
+        "palette": ["#1e1e1e", "#d6453d", "#28a745", "#d4a600", "#3b82f6", "#a855f7", "#22b8cf", "#c7c7cc",
+                    "#6e6e73", "#ff453a", "#32d74b", "#ffd60a", "#0a84ff", "#bf5af2", "#64d2ff", "#f5f5f7"]
+      }
+    },
+    "light": {
+      "glass": "rgba(246, 246, 248, 0.66)",
+      "glass_menu": "rgba(246, 246, 248, 0.86)",
+      "menubar": "rgba(246, 246, 248, 0.55)",
+      "border": "rgba(0, 0, 0, 0.12)",
+      "tile": "rgba(0, 0, 0, 0.05)",
+      "hover": "rgba(0, 0, 0, 0.08)",
+      "text": "#1d1d1f",
+      "text_secondary": "rgba(0, 0, 0, 0.55)",
+      "titlebar": "rgb(233, 233, 235)",
+      "titlebar_text": "rgba(0, 0, 0, 0.70)",
+      "titlebar_button_inactive": "rgba(0, 0, 0, 0.14)",
+      "window_border_active": "rgba(0, 0, 0, 0.14)",
+      "window_border_inactive": "rgba(0, 0, 0, 0.07)",
+      "shadow": "rgba(0, 0, 0, 0.30)",
+      "shadow_inactive": "rgba(0, 0, 0, 0.14)",
+      "gtk_theme": "WhiteSur-Light",
+      "icon_theme": "WhiteSur-light",
+      "color_scheme": "default",
+      "terminal": {
+        "background": "#ffffff",
+        "foreground": "#1d1d1f",
+        "cursor": "#1d1d1f",
+        "selection": "#b3d7ff",
+        "palette": ["#1d1d1f", "#c41a16", "#1c8a2c", "#8a6a00", "#0b57d0", "#8a2be2", "#0e7c86", "#8e8e93",
+                    "#6e6e73", "#ff3b30", "#28a745", "#b58900", "#007aff", "#af52de", "#32ade6", "#3a3a3c"]
+      }
+    }
+  }
+}
