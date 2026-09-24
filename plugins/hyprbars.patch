@@ -28,10 +28,24 @@ index 2f10731..04681d2 100644
  
  bool CBarPassElement::needsPrecomputeBlur() {
 diff --git a/hyprbars/barDeco.cpp b/hyprbars/barDeco.cpp
-index c27653d..8427466 100644
+index c27653d..a014aad 100644
 --- a/hyprbars/barDeco.cpp
 +++ b/hyprbars/barDeco.cpp
-@@ -216,6 +216,7 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
+@@ -209,13 +209,20 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
+ 
+     const bool BUTTONSRIGHT = ALIGNBUTTONS != "left";
+ 
+-    if (!VECINRECT(COORDS, 0, 0, assignedBoxGlobal().w, HEIGHT - 1)) {
++    // The window's rounded top corners right below the bar are filled with the bar colour
++    // and look like part of it, but Hyprland treats a click there as "resize from the
++    // corner". Claim those clicks for the bar (mouse only).
++    const auto MOUSE    = g_pInputManager->getMouseCoordsInternal();
++    const bool INCORNER = !m_bTouchEv && COORDS.y >= HEIGHT && COORDS.y < HEIGHT + PWINDOW->rounding() && PWINDOW->isInCurvedCorner(MOUSE.x, MOUSE.y);
++
++    if (!VECINRECT(COORDS, 0, 0, assignedBoxGlobal().w, HEIGHT - 1) && !INCORNER) {
+ 
+         if (m_bDraggingThis) {
+             if (m_bTouchEv)
                  g_pKeybindManager->m_dispatchers["settiled"]("activewindow");
              g_pKeybindManager->m_dispatchers["mouse"]("0movewindow");
              Log::logger->log(Log::DEBUG, "[hyprbars] Dragging ended on {:x}", (uintptr_t)PWINDOW.get());
@@ -39,7 +53,7 @@ index c27653d..8427466 100644
          }
  
          m_bDraggingThis = false;
-@@ -262,6 +263,7 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
+@@ -262,6 +269,7 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
              (void)Config::Actions::floatWindow(Config::Actions::eTogglableAction::TOGGLE_ACTION_DISABLE);
  
          Log::logger->log(Log::DEBUG, "[hyprbars] Dragging ended on {:x}", (uintptr_t)m_pWindow.lock().get());
@@ -47,7 +61,7 @@ index c27653d..8427466 100644
      }
  
      m_bDragPending = false;
-@@ -269,6 +271,13 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
+@@ -269,6 +277,13 @@ void CHyprBar::handleUpEvent(Event::SCallbackInfo& info) {
      m_touchId      = 0;
  }
  
