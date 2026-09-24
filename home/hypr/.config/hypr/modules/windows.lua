@@ -57,6 +57,7 @@ hl.layer_rule({
     match = { namespace = "^(menubar|dock)$" },
 
     blur         = true,
+    blur_popups  = true, -- the Apple menu and the dock menus
     ignore_alpha = 0.1,
 })
 

@@ -152,9 +152,7 @@ end)
 ---- WINDOWS AND APPS ----
 -------------------------
 
--- ⌘Space: interim run dialog until Spotlight (Quickshell, stage 3) exists.
--- SUPER+V clipboard history follows with Quickshell as well.
-hl.bind("SUPER + space",        hl.dsp.exec_cmd("uwsm app -- hyprland-run"))
+-- ⌘Space Spotlight: see shell.lua. SUPER+V clipboard history follows with Quickshell.
 hl.bind("SUPER + ALT + space",  hl.dsp.exec_cmd(finder))     -- ⌘⌥Space: Finder
 hl.bind("SUPER + Return",       hl.dsp.exec_cmd(terminal))   -- (not a Mac shortcut, but handy)
 

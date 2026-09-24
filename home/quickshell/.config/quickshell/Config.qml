@@ -1,0 +1,88 @@
+pragma Singleton
+
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+// The single source of truth for the shell, read live from
+//   ~/.config/macos/settings.json   user choices
+//   ~/.config/macos/theme.json      design tokens for light and dark
+// Both files are watched: saving either one updates every component at once.
+Singleton {
+    id: root
+
+    readonly property string dir: Quickshell.env("HOME") + "/.config/macos/"
+
+    property var settings: ({})
+    property var theme: ({})
+
+    readonly property string mode: settings.appearance?.mode ?? "dark"
+    readonly property bool dark: mode !== "light"
+    readonly property var tokens: theme.modes?.[mode] ?? theme.modes?.dark ?? ({})
+
+    // Fonts and shapes shared by both modes
+    readonly property string fontSans: theme.font?.sans ?? "Inter"
+    readonly property string fontMono: theme.font?.mono ?? "DejaVu Sans Mono"
+    readonly property string fontSymbols: "Symbols Nerd Font"
+    readonly property int radiusPanel: theme.radius?.panel ?? 18
+    readonly property int radiusTile: theme.radius?.tile ?? 14
+    readonly property int radiusControl: theme.radius?.control ?? 8
+    readonly property color accent: col(theme.accent, "#0a84ff")
+
+    // Colours of the active mode
+    readonly property color glass: col(tokens.glass, "#9428282e")
+    readonly property color glassMenu: col(tokens.glass_menu, "#cc242428")
+    readonly property color menubar: col(tokens.menubar, "#6b18181c")
+    readonly property color border: col(tokens.border, "#24ffffff")
+    readonly property color tile: col(tokens.tile, "#14ffffff")
+    readonly property color hover: col(tokens.hover, "#1fffffff")
+    readonly property color text: col(tokens.text, "#ffffff")
+    readonly property color textSecondary: col(tokens.text_secondary, "#99ffffff")
+
+    // Dock
+    readonly property int dockSize: settings.dock?.size ?? 64
+    readonly property var dockPinned: settings.dock?.pinned ?? []
+
+    // "rgba(40, 40, 46, 0.58)", "rgb(44, 44, 46)" or "#rrggbb" -> color
+    function col(value, fallback) {
+        if (!value)
+            return fallback;
+        const m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(value);
+        if (m)
+            return Qt.rgba(m[1] / 255, m[2] / 255, m[3] / 255, m[4] === undefined ? 1 : parseFloat(m[4]));
+        return value;
+    }
+
+    // Change settings: fn receives a copy, the result is saved and applied everywhere
+    function updateSettings(fn) {
+        const copy = JSON.parse(JSON.stringify(settings));
+        fn(copy);
+        settings = copy;
+        settingsFile.setText(JSON.stringify(copy, null, 2) + "\n");
+    }
+
+    function parse(file, old) {
+        try {
+            return JSON.parse(file.text());
+        } catch (e) {
+            Notify.error("Einstellungen fehlerhaft", file.path.split("/").pop() + ": " + e.message);
+            return old;
+        }
+    }
+
+    FileView {
+        id: settingsFile
+        path: root.dir + "settings.json"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: root.settings = root.parse(this, root.settings)
+    }
+
+    FileView {
+        id: themeFile
+        path: root.dir + "theme.json"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: root.theme = root.parse(this, root.theme)
+    }
+}
