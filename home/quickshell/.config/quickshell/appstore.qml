@@ -41,6 +41,10 @@ FloatingWindow {
             window.query = "";
             window.page = key;
         }
+        // show one app, e.g.  … call appstore app gimp
+        function app(pkg: string): void {
+            window.detail = Catalog.apps.find(a => a.pkg === pkg) ?? null;
+        }
     }
 
     ConfirmDialog {}

@@ -11,13 +11,16 @@ translated), categories and icons. Only desktop applications are kept.
 
 import gzip
 import json
+import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 SOURCE = Path("/usr/share/swcatalog/xml")
 ICONS = Path("/usr/share/swcatalog/icons")
 OUT = Path.home() / ".cache/appstore/catalog.json"
+ICON_CACHE = Path.home() / ".cache/appstore/icons"
 LANG = "de"
 XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 
@@ -35,12 +38,16 @@ CATEGORIES = [
 ]
 
 
+def german(lang):
+    return lang is not None and (lang == LANG or lang.startswith(LANG + "-") or lang.startswith(LANG + "_"))
+
+
 def localized(component, tag):
     """German text if there is one, otherwise the untranslated one."""
     plain = None
     for el in component.findall(tag):
         lang = el.get(XML_LANG)
-        if lang == LANG:
+        if german(lang):
             return (el.text or "").strip()
         if lang is None:
             plain = (el.text or "").strip()
@@ -52,7 +59,7 @@ def description(component):
     chosen = None
     for el in component.findall("description"):
         lang = el.get(XML_LANG)
-        if lang == LANG:
+        if german(lang):
             chosen = el
             break
         if lang is None and chosen is None:
@@ -81,6 +88,21 @@ def icon(component, origin):
         elif kind == "stock":
             stock = (el.text or "").strip()
     return best[1] if best else (stock or "")
+
+
+def png_icon(path):
+    """The catalog's icons are JPEG XL, which Qt cannot read here: convert once to PNG."""
+    if not path.endswith(".jxl"):
+        return path
+    out = ICON_CACHE / (Path(path).stem + ".png")
+    if not out.exists():
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_suffix(".tmp.png")
+        done = subprocess.run(["djxl", "--quiet", path, str(tmp)], capture_output=True)
+        if done.returncode != 0:
+            return ""
+        tmp.replace(out)
+    return str(out)
 
 
 def categories(component):
@@ -130,6 +152,13 @@ def main():
         for app in read(path):
             apps.setdefault(app["pkg"] + "|" + app["id"], app)
     result = sorted(apps.values(), key=lambda a: a["name"].lower())
+
+    # icons: JPEG XL → PNG (in parallel, each file once, only new ones)
+    files = sorted({a["icon"] for a in result if a["icon"].startswith("/")})
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        converted = dict(zip(files, pool.map(png_icon, files)))
+    for app in result:
+        app["icon"] = converted.get(app["icon"], app["icon"])
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     tmp = OUT.with_suffix(".tmp")
