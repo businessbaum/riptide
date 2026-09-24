@@ -3,11 +3,13 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Pipewire
+import Quickshell.Services.SystemTray
 import Quickshell.Wayland
 
 // The menu bar at the top of every screen:
 //   left:  Apple menu, name of the active app
-//   right: volume, control centre, date and time (opens the notification centre)
+//   right: apps in the background (tray), volume, control centre,
+//          date and time (opens the notification centre)
 PanelWindow {
     id: bar
 
@@ -77,6 +79,16 @@ PanelWindow {
         anchors.rightMargin: 8
         height: parent.height
 
+        // Apps running in the background (Discord, Claude, …)
+        Repeater {
+            model: SystemTray.items
+            TrayItem {
+                required property var modelData
+                item: modelData
+                barWindow: bar
+            }
+        }
+
         BarButton {
             readonly property var audio: bar.sink?.audio
             visible: audio !== undefined && audio !== null
@@ -128,7 +140,7 @@ PanelWindow {
             { text: "Ausschalten …", action: () => Confirm.ask("Möchtest du den Computer jetzt ausschalten?", "", "Ausschalten", () => Quickshell.execDetached(["systemctl", "poweroff"])) },
             { separator: true },
             { text: "Bildschirm sperren", action: () => Quickshell.execDetached(["sh", "-c", "pidof hyprlock || hyprlock"]) },
-            { text: "Abmelden …", action: () => Confirm.ask("Möchtest du dich wirklich abmelden?", "Alle Programme werden beendet.", "Abmelden", () => Quickshell.execDetached(["uwsm", "stop"])) }
+            { text: "Abmelden …", action: () => Confirm.ask("Möchtest du dich wirklich abmelden?", "Alle Programme werden beendet.", "Abmelden", () => Quickshell.execDetached([Quickshell.shellPath("scripts/logout.sh")])) }
         ]
     }
 }

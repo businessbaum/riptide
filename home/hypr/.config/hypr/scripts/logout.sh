@@ -5,4 +5,4 @@ set -euo pipefail
 
 choice=$(hyprland-dialog --title "Abmelden" --apptitle "Möchtest du dich abmelden?" \
     --text "Alle Programme werden beendet." --buttons "Abbrechen;Abmelden") || exit 0
-[ "$choice" = "Abmelden" ] && uwsm stop
+[ "$choice" = "Abmelden" ] && exec ~/.config/quickshell/scripts/logout.sh
