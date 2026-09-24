@@ -121,6 +121,10 @@ PanelWindow {
         clip: true
         model: root.apps
 
+        FastScroll {
+            view: grid
+        }
+
         delegate: Item {
             id: cell
             required property var modelData

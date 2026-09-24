@@ -100,6 +100,10 @@ PopupWindow {
             spacing: 2
             model: NotificationStore.all
 
+            FastScroll {
+                view: list
+            }
+
             // Padding on the left keeps the × (top left corner of a card) visible
             delegate: Item {
                 id: slot

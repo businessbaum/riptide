@@ -160,7 +160,7 @@ PanelWindow {
         }
 
         ListView {
-            id: view
+            id: entries
             anchors.top: field.bottom
             anchors.topMargin: 8
             anchors.bottom: parent.bottom
@@ -172,11 +172,15 @@ PanelWindow {
             currentIndex: root.selected
             highlightMoveDuration: 0
 
+            FastScroll {
+                view: entries
+            }
+
             delegate: Rectangle {
                 id: row
                 required property var modelData
                 required property int index
-                width: view.width
+                width: entries.width
                 height: 34
                 radius: 7
                 color: index === root.selected ? Config.accent : "transparent"

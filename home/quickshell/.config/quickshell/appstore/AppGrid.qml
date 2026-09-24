@@ -22,6 +22,10 @@ GridView {
     boundsBehavior: Flickable.StopAtBounds
     model: apps
 
+    FastScroll {
+        view: root
+    }
+
     header: Column {
         width: root.width - root.leftMargin - root.rightMargin
         bottomPadding: 14

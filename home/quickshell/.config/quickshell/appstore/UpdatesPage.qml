@@ -11,6 +11,10 @@ Flickable {
     clip: true
     boundsBehavior: Flickable.StopAtBounds
 
+    FastScroll {
+        view: root
+    }
+
     ColumnLayout {
         id: column
         x: 24

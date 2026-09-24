@@ -25,6 +25,8 @@ FloatingWindow {
         { key: "sound", title: "Ton", icon: "", colour: "#ff375f" },
         null,
         { key: "general", title: "Allgemein", icon: "", colour: "#8e8e93" },
+        { key: "apps", title: "Apps", icon: "\uf009", colour: "#0a84ff" },
+        { key: "storage", title: "Speicher", icon: "\uf0a0", colour: "#8e8e93" },
         { key: "appearance", title: "Erscheinungsbild", icon: "", colour: "#1c1c1e" },
         { key: "desktop", title: "Schreibtisch & Dock", icon: "", colour: "#1c1c1e" },
         { key: "displays", title: "Bildschirme", icon: "", colour: "#0a84ff" },
@@ -41,6 +43,8 @@ FloatingWindow {
                 window.page = key;
         }
     }
+
+    ConfirmDialog {}
 
     title: "Systemeinstellungen"
     implicitWidth: 860
@@ -140,6 +144,7 @@ FloatingWindow {
                 const files = {
                     network: "settings/NetworkPage.qml", bluetooth: "settings/BluetoothPage.qml",
                     sound: "settings/SoundPage.qml", general: "settings/GeneralPage.qml",
+                    apps: "settings/AppsPage.qml", storage: "settings/StoragePage.qml",
                     appearance: "settings/AppearancePage.qml", desktop: "settings/DesktopPage.qml",
                     displays: "settings/DisplaysPage.qml", mouse: "settings/MousePage.qml",
                     keyboard: "settings/KeyboardPage.qml"

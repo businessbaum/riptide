@@ -3,6 +3,7 @@
 #   appstore-helper install <package>…   install from the official repos (core, extra, multilib)
 #   appstore-helper remove  <package>    remove an explicitly installed app (and its unused deps)
 #   appstore-helper upgrade              update the whole system (pacman -Syu)
+#   appstore-helper clean-cache          keep only the newest package version in the cache
 # Every argument is checked; nothing else is possible through this script.
 set -euo pipefail
 export LC_ALL=C.UTF-8 LANG=C.UTF-8
@@ -42,6 +43,12 @@ remove)
 upgrade)
     [[ $# -eq 0 ]] || die "upgrade nimmt keine Pakete"
     exec pacman -Syu --noconfirm
+    ;;
+clean-cache)
+    [[ $# -eq 0 ]] || die "clean-cache nimmt keine Pakete"
+    # newest version of installed packages stays (for a quick downgrade), the rest goes
+    paccache -rk1
+    exec paccache -ruk0
     ;;
 *)
     die "unbekannte Aktion: $action"

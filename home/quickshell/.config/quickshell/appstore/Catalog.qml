@@ -20,10 +20,10 @@ Singleton {
     property bool loading: true
     property bool checkingUpdates: false
 
-    // The running operation: { action, pkgs, name } or null; its output lines
-    property var busy: null
-    property var log: []
-    property string lastError: ""
+    // The running install/remove/upgrade (PackageAdmin.qml, shared with System Settings)
+    readonly property var busy: PackageAdmin.busy
+    readonly property var log: PackageAdmin.log
+    readonly property string lastError: PackageAdmin.lastError
 
     readonly property var categories: ["Audio & Video", "Büro", "Grafik & Foto", "Internet", "Spiele",
         "Entwicklung", "Bildung & Wissenschaft", "Werkzeuge", "System"]
@@ -71,13 +71,16 @@ Singleton {
 
     // action: "install" | "remove" | "upgrade"
     function run(action, pkgs, name) {
-        if (busy)
-            return;
-        busy = { action: action, pkgs: pkgs, name: name };
-        log = [];
-        lastError = "";
-        helper.command = ["pkexec", "/usr/local/sbin/appstore-helper", action].concat(pkgs);
-        helper.running = true;
+        PackageAdmin.run(action, pkgs, name);
+    }
+
+    Connections {
+        target: PackageAdmin
+        function onFinished(action, ok) {
+            root.refresh();
+            if (action === "upgrade")
+                root.checkUpdates();
+        }
     }
 
     Process {
@@ -140,35 +143,4 @@ Singleton {
         }
     }
 
-    Process {
-        id: helper
-        stdout: SplitParser {
-            onRead: line => root.log = root.log.concat([line]).slice(-200)
-        }
-        stderr: SplitParser {
-            onRead: line => {
-                root.log = root.log.concat([line]).slice(-200);
-                if (line.includes("failed retrieving file") || line.includes("404"))
-                    root.lastError = "Die Paketliste ist veraltet – bitte zuerst unter „Updates“ alles aktualisieren.";
-                else if (line.startsWith("FEHLER:") || line.startsWith("error:"))
-                    root.lastError = line.replace(/^FEHLER: /, "");
-            }
-        }
-        onExited: (code, status) => {
-            const b = root.busy;
-            root.busy = null;
-            root.refresh();
-            if (b.action === "upgrade")
-                root.checkUpdates();
-            if (code === 0) {
-                const done = { install: "wurde installiert", remove: "wurde entfernt", upgrade: "ist auf dem neuesten Stand" }[b.action];
-                Notify.send("App Store", `${b.name} ${done}.`, false);
-            } else if (code === 126 || code === 127) {
-                // pkexec: cancelled in the password dialog / not authorised
-                root.lastError = "Abgebrochen.";
-            } else {
-                Notify.send("App Store", `${b.name}: ${root.lastError || "Das hat nicht geklappt."}`, true);
-            }
-        }
-    }
 }

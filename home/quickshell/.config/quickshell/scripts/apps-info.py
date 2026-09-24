@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""Installed apps for System Settings → Apps (JSON on stdout).
+
+    apps-info.py                             every app with launcher: source, package, size,
+                                             whether it may be removed
+    apps-info.py leftovers <desktop-id> <package> <name>
+                                             folders with the app's personal data in the
+                                             home folder (for removing it completely)
+"""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+HOME = Path.home()
+ENV = dict(os.environ, LC_ALL="C")
+
+# Same list as /usr/local/sbin/appstore-helper: part of the system, never removed here
+PROTECTED = re.compile(r"^(base|base-devel|linux|linux-lts|linux-firmware|linux-headers|linux-lts-headers|"
+                       r"amd-ucode|intel-ucode|systemd|pacman|sudo|glibc|bash|coreutils|filesystem|limine|"
+                       r"btrfs-progs|cryptsetup|snapper|snap-pac|networkmanager|firewalld|openssh|nvidia.*|mesa|"
+                       r"hyprland|quickshell|uwsm|xdg-desktop-portal.*|pipewire.*|wireplumber|polkit|dbus.*|git|"
+                       r"stow|kitty|nautilus|gnome-keyring|tpm2-.*)$")
+
+# Folders of our own desktop – never offered as "leftovers"
+OWN = {"macos", "hypr", "quickshell", "desktop-theme", "appstore", "uwsm", "systemd", "gtk-3.0", "gtk-4.0",
+       "qt5ct", "qt6ct", "kitty", "flatpak", "applications", "icons", "fonts", "trash", "pulse", "dconf"}
+
+UNITS = {"B": 1, "KiB": 1024, "MiB": 1024 ** 2, "GiB": 1024 ** 3}
+
+
+def run(*cmd):
+    return subprocess.run(cmd, capture_output=True, text=True, env=ENV).stdout
+
+
+def du(path):
+    out = run("du", "-sb", str(path)).split("\t", 1)[0]
+    return int(out) if out.isdigit() else 0
+
+
+def apps():
+    result = []
+
+    # pacman: packages that ship a launcher
+    owners = {}
+    for line in run("pacman", "-Ql").splitlines():
+        pkg, _, path = line.partition(" ")
+        if path.startswith("/usr/share/applications/") and path.endswith(".desktop") and "/" not in path[24:]:
+            owners[Path(path).name] = pkg
+    explicit = set(run("pacman", "-Qqe").split())
+    info = {}
+    if owners:
+        name = None
+        for line in run("pacman", "-Qi", *sorted(set(owners.values()))).splitlines():
+            key, _, value = line.partition(":")
+            key, value = key.strip(), value.strip()
+            if key == "Name":
+                name = value
+                info[name] = {"size": 0, "requiredBy": []}
+            elif key == "Installed Size" and name:
+                number, unit = value.split()
+                info[name]["size"] = int(float(number) * UNITS.get(unit, 1))
+            elif key == "Required By" and name and value != "None":
+                info[name]["requiredBy"] = value.split()
+    for desktop, pkg in owners.items():
+        result.append({
+            "desktop": desktop, "source": "pacman", "pkg": pkg,
+            "size": info.get(pkg, {}).get("size", 0),
+            "explicit": pkg in explicit,
+            "requiredBy": info.get(pkg, {}).get("requiredBy", []),
+            "protected": bool(PROTECTED.match(pkg)),
+        })
+
+    # Flatpak (user installation)
+    for line in run("flatpak", "list", "--user", "--app", "--columns=application").splitlines():
+        app_id = line.strip()
+        if app_id:
+            result.append({
+                "desktop": app_id + ".desktop", "source": "flatpak", "pkg": app_id,
+                "size": du(HOME / ".local/share/flatpak/app" / app_id),
+                "explicit": True, "requiredBy": [], "protected": False,
+            })
+
+    # Our own apps (dotfiles)
+    for path in (HOME / ".local/share/applications").glob("org.riptide.*.desktop"):
+        result.append({"desktop": path.name, "source": "own", "pkg": "", "size": 0,
+                       "explicit": False, "requiredBy": [], "protected": True})
+    return result
+
+
+def leftovers(desktop_id, pkg, name):
+    """Existing folders named after the app in the usual places of the home folder."""
+    base = desktop_id.removesuffix(".desktop")
+    names = {n.lower() for n in (pkg, base, name, name.replace(" ", ""), name.replace(" ", "-")) if n}
+    names -= OWN
+    places = [HOME / ".config", HOME / ".local/share", HOME / ".local/state", HOME / ".cache", HOME]
+    found = []
+    for place in places:
+        if not place.is_dir():
+            continue
+        for entry in place.iterdir():
+            candidate = entry.name.lower().lstrip(".") if place == HOME else entry.name.lower()
+            if place == HOME and not entry.name.startswith("."):
+                continue  # in the home folder itself only hidden folders like ~/.thunderbird
+            if candidate in names and entry.is_dir():
+                found.append(entry)
+    flatpak_data = HOME / ".var/app" / base
+    if flatpak_data.is_dir():
+        found.append(flatpak_data)
+    own_files = set(run("pacman", "-Qlq", pkg).split()) if pkg and "." not in pkg else set()
+
+    def shared(path):
+        """Named like another program on this computer (e.g. ~/.claude of Claude Code)?"""
+        name = path.name.lstrip(".").lower()
+        other = shutil.which(name)
+        return bool(other) and other not in own_files
+
+    return [{"path": str(p), "size": du(p), "shared": shared(p)} for p in sorted(set(found))]
+
+
+if __name__ == "__main__":
+    if len(sys.argv) >= 2 and sys.argv[1] == "leftovers":
+        args = sys.argv[2:] + ["", "", ""]
+        print(json.dumps(leftovers(args[0], args[1], args[2])))
+    else:
+        print(json.dumps(apps()))
