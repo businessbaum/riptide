@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Systemeinstellungen
+GenericName=Einstellungen
+Comment=Erscheinungsbild, Dock, Bildschirme, Maus, Tastatur, Netzwerk und Ton
+Keywords=Einstellungen;Settings;Dock;Hintergrund;Dunkel;Hell;Maus;Tastatur;Bildschirm;WLAN;Bluetooth;Ton;
+Icon=org.riptide.SystemSettings
+Exec=/home/user/.config/quickshell/scripts/system-settings.sh
+StartupWMClass=org.riptide.SystemSettings
+Categories=Settings;

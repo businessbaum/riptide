@@ -122,7 +122,7 @@ PanelWindow {
         items: [
             { text: "Über diesen Computer", action: () => Quickshell.execDetached([Quickshell.shellPath("scripts/about.sh")]) },
             { separator: true },
-            { text: "Systemeinstellungen …", enabled: false },
+            { text: "Systemeinstellungen …", action: () => Quickshell.execDetached(["uwsm", "app", "--", "org.riptide.SystemSettings.desktop"]) },
             { separator: true },
             { text: "Neustart …", action: () => Confirm.ask("Möchtest du den Computer jetzt neu starten?", "", "Neustart", () => Quickshell.execDetached(["systemctl", "reboot"])) },
             { text: "Ausschalten …", action: () => Confirm.ask("Möchtest du den Computer jetzt ausschalten?", "", "Ausschalten", () => Quickshell.execDetached(["systemctl", "poweroff"])) },

@@ -38,6 +38,9 @@ Singleton {
     readonly property color hover: col(tokens.hover, "#1fffffff")
     readonly property color text: col(tokens.text, "#ffffff")
     readonly property color textSecondary: col(tokens.text_secondary, "#99ffffff")
+    readonly property color windowBg: col(tokens.window_bg, "#1e1e1e")
+    readonly property color sidebarBg: col(tokens.sidebar_bg, "#282828")
+    readonly property color cardBg: col(tokens.card_bg, "#0fffffff")
 
     // Dock
     readonly property int dockSize: settings.dock?.size ?? 64

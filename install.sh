@@ -12,8 +12,12 @@ packages)
     ;;
 link)
     ((EUID != 0)) || { echo "Bitte ohne sudo ausführen." >&2; exit 1; }
-    # every directory in home/ is one stow package mirroring $HOME
-    stow --dir=home --target="$HOME" --restow $(ls home)
+    # every directory in home/ is one stow package mirroring $HOME. Config folders
+    # are linked as a whole; shared folders under ~/.local/share get one link per
+    # file (--no-folding), so other programs never write into this repo.
+    shared=(applications)
+    stow --dir=home --target="$HOME" --restow $(ls home | grep -vxF -f <(printf '%s\n' "${shared[@]}"))
+    stow --dir=home --target="$HOME" --restow --no-folding "${shared[@]}"
     ;;
 *)
     sed -n '2,4p' "$0"
