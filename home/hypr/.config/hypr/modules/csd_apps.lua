@@ -1,18 +1,19 @@
 -- Apps that draw their own title bar ("client-side decorations"): GNOME/GTK4 apps
--- like Finder, our own apps, browsers, Electron apps like Claude and Discord. They get no second
--- bar from hyprbars. Their traffic lights come from our theme (GTK: gtk4.css,
--- Zen: userChrome.css – see apps/desktop_shell/theme.py); Claude and Discord draw their own buttons,
--- which cannot be restyled. Dragging/minimizing/zooming is done by our plugin
+-- like Finder, our Vorschau, browsers, Electron apps like Claude and Discord. They get no
+-- second bar from hyprbars. Their traffic lights come from our theme (GTK: gtk.css from
+-- desktop-theme); Claude and Discord draw their own buttons, which cannot be restyled.
+-- Not here: System Settings (Quickshell, no title bar of its own), kitty. Dragging/minimizing/zooming is done by our plugin
 -- window-buttons (plugins/window-buttons).
 -- Add more such apps here (class name: hyprctl clients).
 
 local M = {}
 
 -- As a regular expression for Hyprland's window rules
-M.regex = "^(org\\.gnome\\..*|org\\.riptide\\..*|firefox|chromium-browser|google-chrome)$"
+M.regex = "^(org\\.gnome\\..*|io\\.missioncenter\\..*|org\\.riptide\\.Preview|firefox|zen|app\\.zen_browser\\.zen|chromium-browser|google-chrome|discord|[Cc]laude)$"
 
 -- The same as a check function for Lua
-local patterns = { "^org%.gnome%.", "^org%.riptide%.", "^firefox$", "^chromium%-browser$", "^google%-chrome$" }
+local patterns = { "^org%.gnome%.", "^io%.missioncenter%.", "^org%.riptide%.Preview$", "^firefox$", "^zen$",
+                   "^app%.zen_browser%.zen$", "^chromium%-browser$", "^google%-chrome$", "^discord$", "^[Cc]laude$" }
 
 function M.matches(w)
     if not w or not w.class then return false end

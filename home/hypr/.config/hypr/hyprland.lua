@@ -16,6 +16,7 @@
 --   modules/snapping.lua       snap windows to screen edges, zoom
 --   modules/switcher.lua       ⌥Tab / ⌘Tab: switch between windows / apps
 --   modules/window_memory.lua  apps reopen with the size and position they were closed with
+--   modules/titlebars.lua      title bars with the three traffic-light buttons (plugin hyprbars)
 --   modules/csd_apps.lua       apps that draw their own title bar (Finder & co.)
 --   modules/shell.lua          bridge to Quickshell (menu bar, dock, Spotlight, notifications)
 --   modules/autostart.lua      background services started with the session
@@ -103,5 +104,6 @@ require("modules.keys")
 require("modules.snapping")
 require("modules.switcher")
 require("modules.window_memory")
+require("modules.titlebars")
 require("modules.shell")
 require("modules.autostart")
