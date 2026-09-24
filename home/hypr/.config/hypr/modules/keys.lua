@@ -7,8 +7,10 @@
 
 local S = require("modules.settings")
 
-local terminal  = "kitty"
-local finder    = "nautilus --new-window"
+-- Apps are started through uwsm, so each one runs in its own systemd scope
+-- (clean environment, survives a Hyprland reload, visible in the task manager).
+local terminal  = "uwsm app -- kitty"
+local finder    = "uwsm app -- nautilus --new-window"
 local scripts   = "~/.config/hypr/scripts/"
 
 -- Apps that understand ⌘ shortcuts themselves. They receive the ⌘ shortcut unchanged,
@@ -26,9 +28,15 @@ local function active_window()
     return hl.get_active_window()
 end
 
--- Is a rofi menu (e.g. Spotlight) open? Then it has the keyboard, not the window below.
+-- Layer namespaces of our menus (Quickshell, stage 3). While one is open it has
+-- the keyboard, so ⌘ shortcuts must not go to the window below.
+local MENU_NAMESPACES = { spotlight = true, launchpad = true, clipboard = true, ["apple-menu"] = true }
+
 local function menu_open()
-    return #hl.get_layers({ namespace = "rofi" }) > 0
+    for _, l in ipairs(hl.get_layers()) do
+        if MENU_NAMESPACES[l.namespace] then return true end
+    end
+    return false
 end
 
 local function with_mods(prefix, mods)
@@ -55,27 +63,6 @@ local function send(mods, key)
         if menu_open() then return end
         hl.dispatch(hl.dsp.send_shortcut({ mods = mods, key = key }))
     end
-end
-
--- Monitor under the mouse, so menus (Spotlight, clipboard) open where you are looking
-local function monitor_here()
-    local m = hl.get_monitor_at_cursor()
-    return m and m.name or ""
-end
-
--- ⌘Space: Spotlight on the monitor under the mouse; pressed again it closes
-local function spotlight()
-    if menu_open() then
-        hl.exec_cmd("pkill -x rofi")
-        return
-    end
-    hl.exec_cmd("rofi -show drun -theme ~/.config/rofi/spotlight.rasi -m " .. monitor_here())
-end
-
--- SUPER+V: clipboard history (scripts/clipboard.sh)
-local function clipboard()
-    if menu_open() then return end
-    hl.exec_cmd(scripts .. "clipboard.sh " .. monitor_here())
 end
 
 -- Close all windows of an app (⌘Q = "Quit")
@@ -165,8 +152,9 @@ end)
 ---- WINDOWS AND APPS ----
 -------------------------
 
-hl.bind("SUPER + space",        spotlight)                   -- ⌘Space: Spotlight
-hl.bind("SUPER + V",            clipboard)                   -- clipboard history
+-- ⌘Space: interim run dialog until Spotlight (Quickshell, stage 3) exists.
+-- SUPER+V clipboard history follows with Quickshell as well.
+hl.bind("SUPER + space",        hl.dsp.exec_cmd("uwsm app -- hyprland-run"))
 hl.bind("SUPER + ALT + space",  hl.dsp.exec_cmd(finder))     -- ⌘⌥Space: Finder
 hl.bind("SUPER + Return",       hl.dsp.exec_cmd(terminal))   -- (not a Mac shortcut, but handy)
 
@@ -180,10 +168,9 @@ hl.bind("SUPER + SHIFT + M", hl.dsp.workspace.toggle_special("minimized")) -- sh
 hl.bind("SUPER + CTRL + F",     hl.dsp.window.fullscreen({ mode = "fullscreen" })) -- ⌃⌘F: full screen
 hl.bind("SUPER + ALT + F",      hl.dsp.window.float({ action = "toggle" }))        -- tile/float window
 hl.bind("SUPER + ALT + Escape", hl.dsp.exec_cmd("hyprctl kill"))                   -- ⌥⌘⎋: force quit (click window)
-hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("missioncenter"))                 -- ⌃⇧⎋: task manager (like Windows)
 hl.bind("SUPER + L",            hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))     -- lock screen
 hl.bind("SUPER + CTRL + Q",     hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))     -- ⌃⌘Q: lock screen (Mac)
-hl.bind("SUPER + SHIFT + Q",    hl.dsp.exec_cmd(scripts .. "apple-menu.sh"))       -- ⇧⌘Q: log out …
+hl.bind("SUPER + SHIFT + Q",    hl.dsp.exec_cmd(scripts .. "logout.sh"))           -- ⇧⌘Q: log out …
 
 -- Move windows with ⌘ + mouse (left) or resize them (right)
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(),   { mouse = true })
@@ -225,11 +212,9 @@ hl.bind("SUPER + CTRL + SHIFT + 4", hl.dsp.exec_cmd(scripts .. "screenshot.sh ar
 --------------------
 
 -- Volume keys change the global volume (every output, also Bluetooth) and show the
--- volume display (apps/desktop_shell/osd.py), like on a Mac
-local SHOW_VOLUME = " && gdbus call --session --dest org.riptide.Osd --object-path /org/riptide/Osd"
-    .. " --method org.freedesktop.Application.ActivateAction volume '[]' '{}' >/dev/null"
+-- volume display (Quickshell OSD, stage 3), like on a Mac
 local function volume(command)
-    return hl.dsp.exec_cmd(command .. SHOW_VOLUME)
+    return hl.dsp.exec_cmd(command)
 end
 hl.bind("XF86AudioRaiseVolume", volume("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
 hl.bind("XF86AudioLowerVolume", volume("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      { locked = true, repeating = true })

@@ -58,7 +58,8 @@ hl.config({
     },
 
     misc = {
-        force_default_wallpaper  = 0,    -- no Hyprland mascots, hyprpaper draws the wallpaper
+        force_default_wallpaper  = 0,    -- no Hyprland mascots; the wallpaper comes with Quickshell
+        background_color         = T.desktop_background or "rgb(1c1c1e)",
         disable_hyprland_logo    = true,
         disable_splash_rendering = true,
         focus_on_activate        = true, -- apps may bring themselves to the front (opening links etc.)

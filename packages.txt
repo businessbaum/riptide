@@ -35,7 +35,7 @@ man-pages
 bash-completion
 
 ## Secure Boot
-sbctl
+# sbctl  (Secure Boot, postponed)
 
 ## Desktop: compositor and session
 hyprland
@@ -86,6 +86,8 @@ qt6ct
 inter-font
 noto-fonts
 noto-fonts-emoji
+ttf-dejavu
+ttf-liberation
 ttf-nerd-fonts-symbols
 
 ## Build tools (Hyprland plugins via hyprpm)

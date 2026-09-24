@@ -19,7 +19,7 @@ local TITLEBAR_HEIGHT = 30          -- height of our title bar (see titlebars.lu
 local GAP             = S.windows.gap -- distance to edges, menu bar, dock and between windows
 local ZONE            = 6           -- how close (px) the pointer must be to the edge
 local CORNER          = 0.2         -- top/bottom fifth of a side edge counts as a corner
-local DOCK_HEADROOM   = 40          -- transparent room above the dock plate (dock.py: HEADROOM)
+local DOCK_HEADROOM   = 40          -- transparent room above the dock plate (Quickshell dock)
 
 -- Height of the bar above the window content: 0 for apps with their own title bar
 local function titlebar(w)
@@ -38,7 +38,7 @@ local before = {}
 local function usable_area(m)
     local top, bottom = 0, 0
     for _, l in ipairs(hl.get_layers()) do
-        if (l.namespace == "waybar" or l.namespace == "dock") and l.x >= m.x and l.x < m.x + m.width then
+        if (l.namespace == "menubar" or l.namespace == "dock") and l.x >= m.x and l.x < m.x + m.width then
             if l.y == m.y then
                 top = math.max(top, l.h)
             elseif l.y + l.h >= m.y + m.height - 20 then

@@ -1,5 +1,5 @@
 -- riptide's Hyprland config, styled and behaving like macOS.
--- This folder lives in ~/nixos-config/dotfiles/hypr and is linked to ~/.config/hypr.
+-- This folder lives in ~/dotfiles/home/hypr and is linked to ~/.config/hypr (GNU stow).
 -- Hyprland reloads it on every save. Errors appear as a notification (modules/notifications.lua).
 --
 -- Keys like on a Mac:  ⌘ = SUPER (Windows key)   ⌥ = ALT   ⌃ = CTRL   ⇧ = SHIFT
@@ -14,12 +14,12 @@
 --   modules/windows.lua        floating windows, rules for bars, menus and panels
 --   modules/keys.lua           ⌘ shortcuts
 --   modules/snapping.lua       snap windows to screen edges, zoom
---   modules/switcher.lua       ⌥Tab / ⌘Tab: switch between windows / apps
 --   modules/window_memory.lua  apps reopen with the size and position they were closed with
---   modules/menus.lua          close menus on outside click, give focus back
---   modules/titlebars.lua      title bars with the three traffic-light buttons
 --   modules/csd_apps.lua       apps that draw their own title bar (Finder & co.)
---   modules/autostart.lua      menu bar, dock, wallpaper, notifications, control center
+--   modules/autostart.lua      background services started with the session
+--
+-- Environment variables (NVIDIA, cursor) are in ~/.config/uwsm/env, so that
+-- services started by uwsm/systemd see them too, not only Hyprland's children.
 
 
 -- Errors and notices as notifications in the top right instead of Hyprland's error bar
@@ -50,20 +50,6 @@ for name, m in pairs(S.monitors) do
         scale    = m.scale or "auto",
     })
 end
-
-
--------------------------------
----- ENVIRONMENT VARIABLES ----
--------------------------------
-
--- Mac-style cursor (package apple-cursor); 22 px matches the Mac size
-hl.env("XCURSOR_THEME", "macOS")
-hl.env("XCURSOR_SIZE", tostring(S.mouse.cursor_size))
-hl.env("HYPRCURSOR_SIZE", tostring(S.mouse.cursor_size))
-
--- NVIDIA: use the NVIDIA driver for video decoding and OpenGL
-hl.env("LIBVA_DRIVER_NAME", "nvidia")
-hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
 
 
 ---------------
@@ -113,8 +99,5 @@ require("modules.looks")
 require("modules.windows")
 require("modules.keys")
 require("modules.snapping")
-require("modules.switcher")
 require("modules.window_memory")
-require("modules.menus")
-require("modules.titlebars")
 require("modules.autostart")

@@ -19,10 +19,10 @@ hl.window_rule({
     pin   = true,
 })
 
--- Password prompt (polkit agent soteria): centred and on top, the rest dimmed – like a Mac sheet
+-- Dialogs of hyprland-guiutils (log out, run): centred and on top, the rest dimmed – like a Mac sheet
 hl.window_rule({
-    name  = "password-prompt",
-    match = { class = "(?i).*soteria.*" },
+    name  = "system-dialogs",
+    match = { class = "^hyprland-(dialog|run)$" },
 
     float      = true,
     center     = true,
@@ -54,7 +54,7 @@ hl.window_rule({
 -- ignore_alpha: fully transparent pixels (e.g. next to the dock) stay sharp.
 hl.layer_rule({
     name  = "blur-bars",
-    match = { namespace = "^(waybar|dock)$" },
+    match = { namespace = "^(menubar|dock)$" },
 
     blur         = true,
     ignore_alpha = 0.1,
@@ -64,7 +64,7 @@ hl.layer_rule({
 -- Otherwise a shadow of the panel lingers over maximized windows after closing.
 hl.layer_rule({
     name  = "blur-menus",
-    match = { namespace = "^(rofi|control-center|swaync-control-center)$" },
+    match = { namespace = "^(spotlight|launchpad|clipboard|apple-menu|control-center|notification-center|switcher)$" },
 
     blur         = true,
     ignore_alpha = 0.3,
@@ -74,7 +74,7 @@ hl.layer_rule({
 -- Notifications: blur only the cards, not the transparent area around them
 hl.layer_rule({
     name  = "blur-notifications",
-    match = { namespace = "^swaync-notification-window$" },
+    match = { namespace = "^notifications$" },
 
     blur         = true,
     ignore_alpha = 0.5,
