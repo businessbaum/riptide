@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Vorschau
+GenericName=Bilder, Audio, Video und PDFs
+Comment=Bilder, Musik, Videos und PDFs ansehen, abspielen und bearbeiten
+Keywords=Preview;PDF;Bild;Foto;Video;Musik;MP3;MP4;
+Icon=org.riptide.Preview
+Exec=/home/user/.local/bin/preview %U
+StartupWMClass=org.riptide.Preview
+Categories=Graphics;Viewer;AudioVideo;Office;
+MimeType=application/pdf;image/png;image/jpeg;image/gif;image/webp;image/heic;image/heif;image/avif;image/svg+xml;image/tiff;image/bmp;image/x-icon;audio/mpeg;audio/mp4;audio/x-m4a;audio/aac;audio/flac;audio/ogg;audio/x-vorbis+ogg;audio/opus;audio/wav;audio/x-wav;video/mp4;video/x-matroska;video/webm;video/quicktime;video/x-msvideo;video/mpeg;video/ogg;

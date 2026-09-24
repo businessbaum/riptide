@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Task manager: activity line on a graphite tile (like Activity Monitor) -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#48484a"/>
+      <stop offset="1" stop-color="#1c1c1e"/>
+    </linearGradient>
+  </defs>
+  <rect x="40" y="40" width="432" height="432" rx="96" fill="url(#tile)"/>
+  <polyline points="112,272 184,272 222,176 272,352 314,232 340,272 400,272"
+            fill="none" stroke="#30d158" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

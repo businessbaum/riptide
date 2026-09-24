@@ -1,2 +1,3 @@
 *.bak
 *.new
+__pycache__/
