@@ -37,13 +37,29 @@ Page {
     Process {
         id: pairProcess
         property string name: ""
-        stdout: StdioCollector {}
-        stderr: StdioCollector {}
+        stdout: StdioCollector { id: pairOut }
+        stderr: StdioCollector { id: pairErr }
         onExited: code => {
+            const out = pairOut.text + "\n" + pairErr.text;
+            let why = "";
+            if (/Host is down|Page Timeout|ConnectionAttemptFailed|not available/i.test(out))
+                why = "Das Gerät antwortet nicht. Ist es im Kopplungsmodus? Bei AirPods: Deckel auf, AirPods drin, Knopf hinten halten, bis das Licht weiß blinkt – dann sofort „Koppeln“.";
+            else if (/AuthenticationFailed|AuthenticationCanceled|AuthenticationRejected/i.test(out))
+                why = "Das Gerät hat die Kopplung abgelehnt. Bitte in den Kopplungsmodus bringen und erneut versuchen.";
+            else if (/Timeout|timed out/i.test(out))
+                why = "Zeitüberschreitung – bitte erneut versuchen, das Gerät dabei im Kopplungsmodus lassen.";
+            else
+                why = (out.match(/Failed to [^\n]*/) ?? [""])[0];
             page.pairResult = code === 0 ? `„${name}“ ist gekoppelt und verbunden.`
-                : `Koppeln mit „${name}“ hat nicht geklappt. Ist das Gerät im Kopplungsmodus? (Bei AirPods: Deckel auf, Knopf hinten gedrückt halten, bis es weiß blinkt.)`;
+                                         : `Koppeln mit „${name}“ hat nicht geklappt. ${why}`;
             page.pairing = "";
         }
+    }
+    // Safety net: never stay at "Wird gekoppelt …"
+    Timer {
+        id: pairWatchdog
+        interval: 60000
+        onTriggered: if (pairProcess.running) pairProcess.signal(15)
     }
     function pair(d) {
         pairing = d.address;
@@ -51,6 +67,7 @@ Page {
         pairProcess.name = nameOf(d);
         pairProcess.command = ["sh", "-c", "bluetoothctl --agent NoInputNoOutput --timeout 30 pair \"$1\" && bluetoothctl trust \"$1\" && bluetoothctl --timeout 15 connect \"$1\"", "sh", d.address];
         pairProcess.running = true;
+        pairWatchdog.restart();
     }
 
     Component.onDestruction: if (adapter && adapter.discovering) adapter.discovering = false
