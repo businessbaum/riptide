@@ -1,3 +1,32 @@
+diff --git a/hyprbars/BarPassElement.cpp b/hyprbars/BarPassElement.cpp
+index 2f10731..04681d2 100644
+--- a/hyprbars/BarPassElement.cpp
++++ b/hyprbars/BarPassElement.cpp
+@@ -1,6 +1,7 @@
+ #include "BarPassElement.hpp"
+ #include <hyprland/src/render/OpenGL.hpp>
+ #include <hyprland/src/render/Renderer.hpp>
++#include <hyprland/src/desktop/view/Window.hpp>
+ #include "barDeco.hpp"
+ 
+ using namespace Render::GL;
+@@ -25,8 +26,14 @@ bool CBarPassElement::needsLiveBlur() {
+ }
+ 
+ std::optional<CBox> CBarPassElement::boundingBox() {
+-    // Temporary fix: expand the bar bb a bit, otherwise occlusion gets too aggressive.
+-    return data.deco->assignedBoxGlobal().translate(-g_pHyprRenderer->m_renderData.pMonitor->m_position).expand(10);
++    // The bar is drawn ROUNDING * 3 below its own box (to fill behind the window's rounded
++    // top corners, see CHyprBar::renderPass). Report that whole area, otherwise the render
++    // pass (occlusion, blur) treats it as untouched and leaves stale pixels there.
++    auto       box    = data.deco->assignedBoxGlobal();
++    const auto WINDOW = data.deco->getOwner();
++    if (WINDOW)
++        box.h += (WINDOW->rounding() + WINDOW->getRealBorderSize()) * 3;
++    return box.translate(-g_pHyprRenderer->m_renderData.pMonitor->m_position).expand(10);
+ }
+ 
+ bool CBarPassElement::needsPrecomputeBlur() {
 diff --git a/hyprbars/barDeco.cpp b/hyprbars/barDeco.cpp
 index c27653d..8427466 100644
 --- a/hyprbars/barDeco.cpp

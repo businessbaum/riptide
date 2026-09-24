@@ -17,9 +17,11 @@ hl.config({
             inactive_border = T.window_border_inactive or "rgba(ffffff14)",
         },
 
-        -- Resize windows by dragging any edge
+        -- Resize windows by dragging any edge. Hyprland measures the grab zone from the
+        -- window content, and our title bar sits above it: a wide zone made the lower part
+        -- of the bar resize instead of move. 4 px keeps the sides easy to grab.
         resize_on_border        = true,
-        extend_border_grab_area = 12,
+        extend_border_grab_area = 4,
 
         allow_tearing = false,
         layout        = "dwindle",

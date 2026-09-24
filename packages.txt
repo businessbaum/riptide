@@ -90,6 +90,9 @@ ttf-dejavu
 ttf-liberation
 ttf-nerd-fonts-symbols
 
+## Desktop: mouse pointer (macOS-inspired, see desktop-theme)
+capitaine-cursors
+
 ## Apps
 libnotify
 discord
