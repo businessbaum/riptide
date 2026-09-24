@@ -28,7 +28,7 @@ index 2f10731..04681d2 100644
  
  bool CBarPassElement::needsPrecomputeBlur() {
 diff --git a/hyprbars/barDeco.cpp b/hyprbars/barDeco.cpp
-index c27653d..a014aad 100644
+index c27653d..b9a2a17 100644
 --- a/hyprbars/barDeco.cpp
 +++ b/hyprbars/barDeco.cpp
 @@ -209,13 +209,20 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
@@ -75,6 +75,17 @@ index c27653d..a014aad 100644
  void CHyprBar::handleMovement() {
      g_pKeybindManager->changeMouseBindMode(MBIND_MOVE);
      m_bDraggingThis = true;
+@@ -405,7 +420,9 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
+             // render icon
+             auto fgcol = button.userfg ? button.fgcol : (button.bgcol.r + button.bgcol.g + button.bgcol.b < 1) ? CHyprColor(0xFFFFFFFF) : CHyprColor(0xFF000000);
+ 
+-            button.iconTex = g_pHyprRenderer->renderText(button.icon, fgcol, std::round(button.size * 0.62 * scale), false, "sans", scaledButtonSize);
++            // our patch: glyphs in the title font, bold and a bit larger (were thin "sans")
++            button.iconTex = g_pHyprRenderer->renderText(button.icon, fgcol, std::round(button.size * 0.72 * scale), false,
++                                                         g_pGlobalState->config.barTextFont->value(), scaledButtonSize, 700);
+         }
+ 
+         if (!button.iconTex || button.iconTex->m_texID == 0)
 diff --git a/hyprbars/barDeco.hpp b/hyprbars/barDeco.hpp
 index a3b4e2d..3cb264a 100644
 --- a/hyprbars/barDeco.hpp

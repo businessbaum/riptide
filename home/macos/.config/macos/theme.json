@@ -11,7 +11,7 @@
   },
   "accent": "#0a84ff",
   "traffic_lights": {
-    "size": 13,
+    "size": 16,
     "spacing": 8,
     "close": "#ff5f57",
     "close_glyph": "#4d0000",
