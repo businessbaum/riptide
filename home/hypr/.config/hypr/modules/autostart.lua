@@ -20,9 +20,10 @@ hl.on("hyprland.start", function()
     -- Built by ~/dotfiles/plugins/build.sh for one Hyprland version; after an update they
     -- are not loaded (would crash) and a notification asks for a rebuild.
     hl.exec_cmd([[dir=~/.local/lib/hyprland-plugins
-        running=$(hyprctl version -j | sed -n 's/.*"tag": *"v\{0,1\}\([^"-]*\).*//p' | head -1)
+        running=$(hyprctl version -j | jq -r .tag | sed 's/^v//; s/-.*//')
         if [ "$(cat "$dir/built-for" 2>/dev/null)" != "$running" ]; then
-            sleep 3; notify-send -a System -i dialog-warning -u critical "Titelleisten fehlen"                 "Die Plugins passen nicht zu Hyprland $running. Neu bauen: ~/dotfiles/plugins/build.sh, dann ab- und wieder anmelden."
+            sleep 3
+            notify-send -a System -i dialog-warning -u critical "Titelleisten fehlen" "Die Plugins passen nicht zu Hyprland $running. Neu bauen: ~/dotfiles/plugins/build.sh, dann ab- und wieder anmelden."
             exit 0
         fi
         for p in hyprbars window-buttons; do
