@@ -122,4 +122,4 @@ cpio
 # app.zen_browser.zen   (installed 2026-09-24: flatpak install --user flathub app.zen_browser.zen)
 
 ## AUR (manual, reviewed) -- none yet
-# apple_cursor   (pending review)
+# (none – the macOS-like pointer comes from capitaine-cursors, see desktop-theme)

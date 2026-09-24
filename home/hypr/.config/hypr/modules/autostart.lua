@@ -11,7 +11,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("uwsm app -- wl-paste --type text --watch cliphist store")
     hl.exec_cmd("uwsm app -- wl-paste --type image --watch cliphist store")
 
-    hl.exec_cmd("hyprctl setcursor Adwaita " .. S.mouse.cursor_size)
+    -- Pointer theme (built by desktop-theme: black arrow, white hands like macOS)
+    hl.exec_cmd("hyprctl setcursor " .. S.mouse.cursor_theme .. " " .. S.mouse.cursor_size)
 
     -- Plugins, one after another (each load triggers a config reload – that is why this
     -- happens here and never in the config itself):

@@ -14,7 +14,8 @@ local DEFAULTS = {
     appearance = { mode = "dark", blur = false },
     dock       = { size = 50, pinned = {} },
     windows    = { snapping = true, gap = 8, corner_radius = 12 },
-    mouse      = { natural_scroll = false, speed = 0.0, cursor_size = 22 },
+    mouse      = { natural_scroll = false, speed = 0.0, scroll_factor = 1.0, cursor_size = 22,
+                   cursor_theme = "capitaine-macos" },
     keyboard   = { layout = "de", cmd_shortcuts = true, repeat_delay = 600, repeat_rate = 25 },
     monitors   = {},
 }

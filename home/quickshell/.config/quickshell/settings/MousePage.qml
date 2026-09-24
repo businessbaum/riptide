@@ -31,6 +31,38 @@ Page {
             }
         }
         SettingRow {
+            title: "Scrollgeschwindigkeit"
+            subtitle: "Wie weit ein Schritt am Mausrad scrollt"
+            Slider {
+                width: 260
+                from: 0.2
+                to: 3
+                stepSize: 0.1
+                decimals: 1
+                unit: "×"
+                showValue: true
+                value: Store.get("mouse", "scroll_factor", 1)
+                onMoved: v => Store.set("mouse", "scroll_factor", Math.round(v * 10) / 10, true)
+            }
+        }
+        SettingRow {
+            title: "Zeigerstil"
+            Choice {
+                window: page.window
+                options: [
+                    { value: "capitaine-macos", text: "Wie macOS" },
+                    { value: "capitaine-cursors", text: "Dunkel" },
+                    { value: "capitaine-cursors-light", text: "Hell" },
+                    { value: "Adwaita", text: "GNOME" }
+                ]
+                current: Store.get("mouse", "cursor_theme", "capitaine-macos")
+                onPicked: v => {
+                    Store.set("mouse", "cursor_theme", v, true);
+                    Quickshell.execDetached(["desktop-theme"]);
+                }
+            }
+        }
+        SettingRow {
             title: "Zeigergröße"
             Choice {
                 window: page.window
@@ -38,8 +70,7 @@ Page {
                 current: Store.get("mouse", "cursor_size", 22)
                 onPicked: v => {
                     Store.set("mouse", "cursor_size", v, true);
-                    Quickshell.execDetached(["hyprctl", "setcursor", "Adwaita", String(v)]);
-                    Quickshell.execDetached(["gsettings", "set", "org.gnome.desktop.interface", "cursor-size", String(v)]);
+                    Quickshell.execDetached(["desktop-theme"]); // applies theme + size everywhere
                 }
             }
         }

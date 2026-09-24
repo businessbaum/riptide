@@ -74,8 +74,12 @@ hl.config({
 
         sensitivity = S.mouse.speed, -- -1.0 to 1.0, 0 = unchanged
 
+        -- How far one wheel step scrolls (1.0 = unchanged)
+        scroll_factor = S.mouse.scroll_factor,
+
         touchpad = {
             natural_scroll = S.mouse.natural_scroll,
+            scroll_factor  = S.mouse.scroll_factor,
         },
     },
 
