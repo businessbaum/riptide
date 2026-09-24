@@ -87,7 +87,7 @@ Item {
 
     // App name above the icon while hovering
     Rectangle {
-        visible: mouse.containsMouse && !menu.visible
+        visible: mouse.containsMouse && !menu.visible && !root.dockWindow.dragging
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.top
         anchors.bottomMargin: 16
@@ -107,12 +107,39 @@ Item {
         }
     }
 
+    // Click opens; pressing and moving drags the icon (Dock.qml: reorder, pin, unpin)
     MouseArea {
         id: mouse
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: e => e.button === Qt.RightButton ? menu.open() : root.click()
+        property point pressAt
+        property bool dragged: false
+
+        onPressed: e => {
+            pressAt = Qt.point(e.x, e.y);
+            dragged = false;
+        }
+        onPositionChanged: e => {
+            if (!pressed || !(e.buttons & Qt.LeftButton))
+                return;
+            const p = mapToItem(root.dockWindow.contentItem, e.x, e.y);
+            if (!dragged && Math.hypot(e.x - pressAt.x, e.y - pressAt.y) > 6) {
+                dragged = true;
+                root.dockWindow.startDrag(root.key, mapToItem(root.dockWindow.contentItem, root.width / 2, 0).x);
+            }
+            if (dragged)
+                root.dockWindow.moveDrag(p.x, p.y);
+        }
+        onReleased: {
+            if (dragged)
+                root.dockWindow.endDrag();
+        }
+        onClicked: e => {
+            if (dragged)
+                return;
+            e.button === Qt.RightButton ? menu.open() : root.click();
+        }
     }
 
     MenuPopup {

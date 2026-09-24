@@ -45,6 +45,70 @@ PanelWindow {
         return running.length > 0 ? list.concat([{ separator: true }], running) : list;
     }
 
+    // ---- Dragging icons (DockItem / LaunchpadTile report the mouse) ----
+    //   sideways: reorder the pinned apps; a running app dropped among them gets pinned
+    //   up out of the dock: unpin
+    readonly property int slot: size + 4                  // icon + spacing
+    readonly property var pinnedKeys: items.filter(i => i.pinned).map(i => i.key)
+    property string dragKey: ""
+    property real dragX: 0                                // mouse in dock window coordinates
+    property real dragY: 0
+    property real dragStartCenter: 0
+    readonly property bool dragging: dragKey !== ""
+    readonly property int dragFrom: pinnedKeys.indexOf(dragKey)   // -1 = a running, unpinned app
+    readonly property bool dragRemove: dragging && dragY < plate.y - 50
+    readonly property var dragEntry: items.find(i => i.key === dragKey)?.entry ?? null
+    // where the dragged icon would land among the pinned ones, -1 = not among them
+    readonly property int dropIndex: {
+        if (!dragging || dragRemove)
+            return -1;
+        const others = pinnedKeys.length - (dragFrom >= 0 ? 1 : 0);
+        const i = Math.round((dragX - plate.x - padding - size / 2) / slot);
+        if (dragFrom < 0 && (i > others || !dragEntry))
+            return -1; // a running app dragged along the running ones: not pinned
+        return Math.max(0, Math.min(others, i));
+    }
+
+    function startDrag(key, center) {
+        dragKey = key;
+        dragStartCenter = center;
+    }
+    function moveDrag(x, y) {
+        dragX = x;
+        dragY = y;
+    }
+    function endDrag() {
+        const keys = pinnedKeys.filter(k => k !== dragKey);
+        if (dropIndex >= 0)
+            keys.splice(dropIndex, 0, dragKey);
+        const changed = JSON.stringify(keys) !== JSON.stringify(pinnedKeys);
+        dragKey = "";
+        if (changed)
+            Config.updateSettings(s => {
+                s.dock = s.dock ?? {};
+                s.dock.pinned = keys.map(k => k === "launchpad" ? k : Apps.plainId(k) + ".desktop");
+            });
+    }
+
+    // How far an item moves sideways while something is dragged (animated in DockItem)
+    function shiftFor(item) {
+        if (!dragging)
+            return 0;
+        if (item.key === dragKey)
+            return dragX - dragStartCenter;
+        const pinnedNow = pinnedKeys.length;
+        const pinnedAfter = pinnedNow - (dragFrom >= 0 ? 1 : 0) + (dropIndex >= 0 ? 1 : 0);
+        if (!item.pinned) // separator and running apps follow the size of the pinned part
+            return (pinnedAfter - pinnedNow) * slot;
+        let j = pinnedKeys.indexOf(item.key);
+        const natural = j;
+        if (dragFrom >= 0 && j > dragFrom)
+            j--;
+        if (dropIndex >= 0 && j >= dropIndex)
+            j++;
+        return (j - natural) * slot;
+    }
+
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "dock"
     anchors.bottom: true
@@ -52,6 +116,26 @@ PanelWindow {
     implicitHeight: plateHeight + headroom + bottomGap
     exclusiveZone: plateHeight + bottomGap
     color: "transparent"
+
+    // "Entfernen" above the dock while an icon is dragged out of it
+    Rectangle {
+        visible: dock.dragRemove
+        x: Math.round(dock.dragX - width / 2)
+        y: 4
+        width: removeLabel.implicitWidth + 20
+        height: 24
+        radius: 6
+        color: Config.glassMenu
+        border.color: Config.border
+        Text {
+            id: removeLabel
+            anchors.centerIn: parent
+            text: "Aus dem Dock entfernen"
+            font.family: Config.fontSans
+            font.pixelSize: 12
+            color: Config.text
+        }
+    }
 
     // Only the plate takes clicks; the transparent rest lets them through to windows
     mask: Region {
@@ -83,6 +167,18 @@ PanelWindow {
                     id: slot
                     required property var modelData
                     sourceComponent: modelData.separator ? separator : modelData.launchpad ? launchpad : icon
+                    z: dock.dragKey === (modelData.key ?? "") ? 1 : 0
+
+                    // moves aside (or follows the mouse) while an icon is dragged
+                    transform: Translate {
+                        x: dock.shiftFor(slot.modelData)
+                        y: dock.dragKey === (slot.modelData.key ?? "") ? Math.min(0, dock.dragY - plate.y - dock.padding - dock.size / 2) : 0
+                        Behavior on x {
+                            enabled: dock.dragKey !== (slot.modelData.key ?? "")
+                            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+                        }
+                    }
+                    opacity: dock.dragRemove && dock.dragKey === (modelData.key ?? "") ? 0.4 : 1
 
                     Component {
                         id: separator
@@ -102,6 +198,7 @@ PanelWindow {
                         id: launchpad
                         LaunchpadTile {
                             size: dock.size
+                            dockWindow: dock
                         }
                     }
 

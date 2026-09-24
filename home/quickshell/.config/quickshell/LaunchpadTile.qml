@@ -6,6 +6,7 @@ Item {
     id: root
 
     property int size: 64
+    property var dockWindow
 
     width: size
     height: size
@@ -38,7 +39,7 @@ Item {
     }
 
     Rectangle {
-        visible: mouse.containsMouse
+        visible: mouse.containsMouse && !(root.dockWindow?.dragging ?? false)
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.top
         anchors.bottomMargin: 16
@@ -57,10 +58,30 @@ Item {
         }
     }
 
+    // Click opens Launchpad; it can be dragged to another place like every icon
     MouseArea {
         id: mouse
         anchors.fill: parent
         hoverEnabled: true
-        onClicked: Quickshell.execDetached(["qs", "ipc", "call", "launchpad", "toggle"])
+        property point pressAt
+        property bool dragged: false
+
+        onPressed: e => {
+            pressAt = Qt.point(e.x, e.y);
+            dragged = false;
+        }
+        onPositionChanged: e => {
+            if (!pressed)
+                return;
+            const p = mapToItem(root.dockWindow.contentItem, e.x, e.y);
+            if (!dragged && Math.hypot(e.x - pressAt.x, e.y - pressAt.y) > 6) {
+                dragged = true;
+                root.dockWindow.startDrag("launchpad", mapToItem(root.dockWindow.contentItem, root.width / 2, 0).x);
+            }
+            if (dragged)
+                root.dockWindow.moveDrag(p.x, p.y);
+        }
+        onReleased: if (dragged) root.dockWindow.endDrag()
+        onClicked: if (!dragged) Quickshell.execDetached(["qs", "ipc", "call", "launchpad", "toggle"])
     }
 }
