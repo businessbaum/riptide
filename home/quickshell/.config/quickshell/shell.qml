@@ -16,6 +16,7 @@
 //   ControlCenter.qml  + NotificationCenter.qml: panels from the menu bar
 //   Notifications.qml  notification server + banners
 //   Osd.qml            volume display
+//   PolkitDialog.qml   password dialog for administrator rights
 
 import QtQuick
 import Quickshell
@@ -47,4 +48,5 @@ ShellRoot {
     Notifications {}
     Osd {}
     ConfirmDialog {}
+    PolkitDialog {}
 }

@@ -72,6 +72,16 @@ hl.layer_rule({
     no_anim      = true,
 })
 
+-- Dialogs of the shell (password, confirmation): blurred, the rest of the screen dimmed
+hl.layer_rule({
+    name  = "shell-dialogs",
+    match = { namespace = "^(polkit|confirm)$" },
+
+    blur         = true,
+    ignore_alpha = 0.3,
+    dim_around   = true,
+})
+
 -- Notifications: blur only the cards, not the transparent area around them
 hl.layer_rule({
     name  = "blur-notifications",
