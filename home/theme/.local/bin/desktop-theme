@@ -8,11 +8,19 @@ Reads  ~/.config/macos/theme.json + settings.json
 Writes ~/.local/state/desktop-theme/*  and tells running apps to reload.
 The shell (Quickshell) runs this whenever the mode changes.
 
-Stage 2 adds GTK 3/4, Qt (Kvantum/qt6ct) and Hyprland; for now: kitty.
+What changes where:
+  GTK 4 / libadwaita  ~/.config/gtk-4.0/gtk.css (both modes, switched live by the
+                      color-scheme setting) + gsettings (fonts, icons, buttons left)
+  GTK 3               ~/.config/gtk-3.0/{gtk.css,settings.ini}
+  Qt 5/6              qt5ct/qt6ct: Fusion style with our colours (new apps only)
+  kitty               colours, reloaded live
+  Hyprland            reads the JSON itself; told to reload
 """
 
+import fcntl
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -31,7 +39,7 @@ def load(name):
 def write(path, text):
     """Write atomically, so a reading app never sees half a file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     tmp.write_text(text, encoding="utf-8")
     tmp.replace(path)
 
@@ -53,12 +61,172 @@ def kitty(tokens):
         os.kill(pid, signal.SIGUSR1)
 
 
+def rgba(value):
+    """"rgba(r, g, b, a)", "rgb(r, g, b)" or "#rrggbb" -> (r, g, b, a) with a in 0..1"""
+    m = re.fullmatch(r"rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)", value.strip())
+    if m:
+        r, g, b = (round(float(x)) for x in m.group(1, 2, 3))
+        return r, g, b, float(m.group(4)) if m.group(4) else 1.0
+    h = value.lstrip("#")
+    if len(h) == 6:
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), 1.0
+    raise ValueError(f"unknown colour: {value}")
+
+
+def css(value):
+    r, g, b, a = rgba(value)
+    return f"rgba({r}, {g}, {b}, {a:g})" if a < 1 else f"#{r:02x}{g:02x}{b:02x}"
+
+
+def argb(value):
+    r, g, b, a = rgba(value)
+    return f"#{round(a * 255):02x}{r:02x}{g:02x}{b:02x}"
+
+
+def blend(value, background):
+    """Flatten a translucent colour onto an opaque background (Qt needs opaque)."""
+    r, g, b, a = rgba(value)
+    br, bg, bb, _ = rgba(background)
+    mix = lambda c, d: round(c * a + d * (1 - a))
+    return f"#{mix(r, br):02x}{mix(g, bg):02x}{mix(b, bb):02x}"
+
+
+def gtk_colours(t, accent):
+    """libadwaita named colours for one mode."""
+    return {
+        "accent_bg_color": accent, "accent_color": accent, "accent_fg_color": "#ffffff",
+        "window_bg_color": t["window_bg"], "window_fg_color": t["fg"],
+        "view_bg_color": t["view_bg"], "view_fg_color": t["fg"],
+        "headerbar_bg_color": t["titlebar"], "headerbar_fg_color": t["fg"],
+        "headerbar_backdrop_color": t["window_bg"],
+        "sidebar_bg_color": t["sidebar_bg"], "sidebar_fg_color": t["fg"],
+        "sidebar_backdrop_color": t["sidebar_bg"],
+        "secondary_sidebar_bg_color": t["sidebar_bg"], "secondary_sidebar_fg_color": t["fg"],
+        "card_bg_color": t["card_bg"], "card_fg_color": t["fg"],
+        "popover_bg_color": t["popover_bg"], "popover_fg_color": t["fg"],
+        "dialog_bg_color": t["popover_bg"], "dialog_fg_color": t["fg"],
+        # GTK 3 names
+        "theme_bg_color": t["window_bg"], "theme_fg_color": t["fg"],
+        "theme_base_color": t["view_bg"], "theme_text_color": t["fg"],
+        "theme_selected_bg_color": accent, "theme_selected_fg_color": "#ffffff",
+    }
+
+
+def define(colours, indent=""):
+    return "".join(f"{indent}@define-color {k} {css(v)};\n" for k, v in colours.items())
+
+
+def traffic_lights(theme):
+    """macOS window buttons for GTK 4 apps that draw their own title bar."""
+    L = theme.get("traffic_lights", {})
+    size = L.get("size", 13)
+    # The coloured circle is drawn on the icon (fixed size); the button itself stays
+    # transparent, because the header bar stretches buttons to its full height.
+    out = [f"""
+/* Traffic lights (buttons on the left: gsettings button-layout) */
+windowcontrols {{ margin: 0 2px; }}
+windowcontrols > button {{
+    min-width: {size}px; min-height: {size}px; padding: 0; margin: 0 {L.get("spacing", 8) // 2}px;
+    background: none; box-shadow: none;
+}}
+windowcontrols > button > image {{
+    min-width: {size}px; min-height: {size}px; padding: 0; margin: 0;
+    border-radius: 50%; -gtk-icon-size: {size - 5}px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}}
+windowcontrols > button:not(:hover) > image {{ -gtk-icon-transform: scale(0); }}
+windowcontrols:hover > button > image {{ -gtk-icon-transform: none; }}
+"""]
+    for name, key in (("close", "close"), ("minimize", "minimize"), ("maximize", "zoom")):
+        colour, glyph = L.get(key, "#888888"), L.get(key + "_glyph", "#000000")
+        out.append(f"windowcontrols > button.{name} > image {{ background-color: {colour}; color: {glyph}; }}\n")
+    out.append("window:backdrop windowcontrols > button > image { background-color: alpha(currentColor, 0.18); }\n")
+    return "".join(out)
+
+
+def gtk(theme, mode, tokens):
+    accent = theme.get("accent", "#0a84ff")
+    dark = gtk_colours(theme["modes"]["dark"], accent)
+    light = gtk_colours(theme["modes"]["light"], accent)
+    head = "/* Generated by desktop-theme from ~/.config/macos/theme.json – do not edit. */\n"
+
+    # GTK 4: both modes; libadwaita switches with the color-scheme setting, live
+    write(HOME / ".config/gtk-4.0/gtk.css", head + define(light)
+          + "@media (prefers-color-scheme: dark) {\n" + define(dark, "    ") + "}\n"
+          + traffic_lights(theme))
+
+    # GTK 3: no media queries, only the active mode (new windows)
+    write(HOME / ".config/gtk-3.0/gtk.css", head + define(dark if mode == "dark" else light))
+    write(HOME / ".config/gtk-3.0/settings.ini", "[Settings]\n"
+          f"gtk-application-prefer-dark-theme={1 if mode == 'dark' else 0}\n"
+          f"gtk-font-name={theme['font']['sans']} 11\n"
+          f"gtk-icon-theme-name={tokens.get('icon_theme', 'Adwaita')}\n"
+          "gtk-cursor-theme-name=Adwaita\ngtk-cursor-theme-size=22\n"
+          "gtk-decoration-layout=close,minimize,maximize:\n")
+
+    iface = "org.gnome.desktop.interface"
+    for schema, key, value in (
+        (iface, "color-scheme", "prefer-dark" if mode == "dark" else "default"),
+        (iface, "gtk-theme", "Adwaita"),
+        (iface, "icon-theme", tokens.get("icon_theme", "Adwaita")),
+        (iface, "cursor-theme", "Adwaita"),
+        (iface, "cursor-size", "22"),
+        (iface, "font-name", f"{theme['font']['sans']} 11"),
+        (iface, "document-font-name", f"{theme['font']['sans']} 11"),
+        (iface, "monospace-font-name", f"{theme['font']['mono']} 11"),
+        ("org.gnome.desktop.wm.preferences", "button-layout", "close,minimize,maximize:"),
+    ):
+        subprocess.run(["gsettings", "set", schema, key, value], check=False)
+
+
+def qt(theme, tokens):
+    """qt5ct/qt6ct: Fusion style with a palette from our colours."""
+    bg = tokens["window_bg"]
+    fg, base, accent = tokens["fg"], tokens["view_bg"], theme.get("accent", "#0a84ff")
+    button = blend(tokens["tile"], bg)
+    mid = blend(tokens["border"], bg)
+    dim = blend(tokens["text_secondary"], bg)
+    # QPalette roles in qt5ct order: WindowText Button Light Midlight Dark Mid Text BrightText
+    # ButtonText Base Window Shadow Highlight HighlightedText Link LinkVisited AlternateBase
+    # NoRole ToolTipBase ToolTipText PlaceholderText
+    active = [fg, button, button, button, mid, mid, fg, "#ffffff", fg, base, bg, "#000000",
+              accent, "#ffffff", accent, accent, button, bg, tokens["popover_bg"], fg, dim]
+    disabled = [dim, button, button, button, mid, mid, dim, "#ffffff", dim, base, bg, "#000000",
+                mid, dim, accent, accent, button, bg, tokens["popover_bg"], dim, dim]
+    scheme = ("[ColorScheme]\n"
+              f"active_colors={', '.join(argb(c) for c in active)}\n"
+              f"inactive_colors={', '.join(argb(c) for c in active)}\n"
+              f"disabled_colors={', '.join(argb(c) for c in disabled)}\n")
+    write(STATE / "qt-colors.conf", scheme)
+    font = theme["font"]["sans"]
+    for tool in ("qt5ct", "qt6ct"):
+        write(HOME / f".config/{tool}/{tool}.conf", "[Appearance]\n"
+              f"color_scheme_path={STATE / 'qt-colors.conf'}\n"
+              "custom_palette=true\nstyle=Fusion\n"
+              f"icon_theme={tokens.get('icon_theme', 'Adwaita')}\n"
+              "standard_dialogs=xdgdesktopportal\n\n"
+              "[Fonts]\n"
+              f'fixed="{theme["font"]["mono"]},11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"\n'
+              f'general="{font},11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"\n')
+
+
+def hyprland():
+    """Hyprland reads settings.json/theme.json in its Lua config; a reload applies them."""
+    if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        subprocess.run(["hyprctl", "reload", "config-only"], capture_output=True, check=False)
+
+
 def pids(name):
     out = subprocess.run(["pidof", name], capture_output=True, text=True).stdout
     return [int(p) for p in out.split()]
 
 
 def main():
+    # One run at a time (the shell also starts us when the mode changes)
+    STATE.mkdir(parents=True, exist_ok=True)
+    lock = open(STATE / ".lock", "w")
+    fcntl.flock(lock, fcntl.LOCK_EX)
+
     settings = load("settings.json")
     if len(sys.argv) > 1:
         mode = sys.argv[1]
@@ -71,6 +239,9 @@ def main():
     tokens = theme["modes"].get(mode) or theme["modes"]["dark"]
 
     kitty(tokens)
+    gtk(theme, mode, tokens)
+    qt(theme, tokens)
+    hyprland()
 
 
 if __name__ == "__main__":
