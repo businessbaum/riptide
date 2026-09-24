@@ -90,10 +90,33 @@ ttf-dejavu
 ttf-liberation
 ttf-nerd-fonts-symbols
 
-## Build tools (Hyprland plugins via hyprpm)
+## Apps
+libnotify
+discord
+mission-center
+gnome-calculator
+gnome-text-editor
+file-roller
+baobab
+flatpak
+
+## Vorschau (preview app): PDFs, audio and video codecs
+python-pymupdf
+gst-plugins-good
+gst-plugins-bad
+gst-libav
+gst-plugin-gtk4
+
+## Build tools (Hyprland plugins)
 cmake
 meson
 cpio
+
+## Local packages (built from packages/<name> with makepkg, never from the AUR)
+# claude-desktop   (packages/claude-desktop: Anthropic's signed apt repo)
+
+## Flatpak (user installation from Flathub, see system/setup-desktop.sh)
+# app.zen_browser.zen
 
 ## AUR (manual, reviewed) -- none yet
 # apple_cursor   (pending review)
