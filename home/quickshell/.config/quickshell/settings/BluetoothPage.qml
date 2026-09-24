@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Bluetooth
+import Quickshell.Io
 import qs
 
 Page {
@@ -8,8 +9,47 @@ Page {
     title: "Bluetooth"
 
     readonly property var adapter: Bluetooth.defaultAdapter
-    readonly property var devices: (adapter?.devices.values ?? []).slice()
-        .sort((a, b) => (b.connected - a.connected) || (b.paired - a.paired) || a.name.localeCompare(b.name))
+
+    // The real name; many devices nearby only send their address – those stay hidden
+    // (like on a Mac) unless they are paired.
+    function nameOf(d) {
+        const isAddress = n => /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/i.test(n ?? "");
+        if (d.deviceName && !isAddress(d.deviceName))
+            return d.deviceName;
+        if (d.name && !isAddress(d.name))
+            return d.name;
+        return "";
+    }
+    readonly property var allDevices: adapter?.devices.values ?? []
+    readonly property var devices: allDevices.filter(d => d.paired || nameOf(d) !== "")
+        .sort((a, b) => (b.connected - a.connected) || (b.paired - a.paired) || nameOf(a).localeCompare(nameOf(b)))
+    readonly property int hidden: allDevices.length - devices.length
+    readonly property var paired: devices.filter(d => d.paired)
+    readonly property var nearby: devices.filter(d => !d.paired)
+
+
+    // Pairing needs an "agent" that confirms it; bluetoothctl brings one for the time of
+    // the command ("NoInputNoOutput": no code to type, as with AirPods). Then trust + connect.
+    property string pairing: ""        // address being paired
+    property string pairResult: ""
+    Process {
+        id: pairProcess
+        property string name: ""
+        stdout: StdioCollector {}
+        stderr: StdioCollector {}
+        onExited: code => {
+            page.pairResult = code === 0 ? `„${name}“ ist gekoppelt und verbunden.`
+                : `Koppeln mit „${name}“ hat nicht geklappt. Ist das Gerät im Kopplungsmodus? (Bei AirPods: Deckel auf, Knopf hinten gedrückt halten, bis es weiß blinkt.)`;
+            page.pairing = "";
+        }
+    }
+    function pair(d) {
+        pairing = d.address;
+        pairResult = "";
+        pairProcess.name = nameOf(d);
+        pairProcess.command = ["sh", "-c", "bluetoothctl --agent NoInputNoOutput --timeout 30 pair \"$1\" && bluetoothctl trust \"$1\" && bluetoothctl --timeout 15 connect \"$1\"", "sh", d.address];
+        pairProcess.running = true;
+    }
 
     Component.onDestruction: if (adapter && adapter.discovering) adapter.discovering = false
 
@@ -35,49 +75,88 @@ Page {
         }
     }
 
+    Text {
+        visible: page.pairResult !== ""
+        Layout.fillWidth: true
+        text: page.pairResult
+        wrapMode: Text.Wrap
+        font.family: Config.fontSans
+        font.pixelSize: 12
+        color: Config.textSecondary
+    }
+
+    // One device row (used in both lists)
+    component DeviceRow: SettingRow {
+        id: dev
+        required property var modelData
+        required property int index
+        first: index === 0
+        title: page.nameOf(modelData) || "Unbekanntes Gerät"
+        subtitle: (page.pairing === modelData.address ? "Wird gekoppelt …"
+                  : modelData.connected ? "Verbunden" : modelData.paired ? "Nicht verbunden" : "Neues Gerät")
+                + (modelData.batteryAvailable ? ` · Batterie ${Math.round(modelData.battery * 100)} %` : "")
+
+        RowLayout {
+            spacing: 6
+            DialogButton {
+                Layout.preferredWidth: 96
+                text: page.pairing === dev.modelData.address || dev.modelData.pairing ? "…"
+                    : dev.modelData.connected ? "Trennen" : dev.modelData.paired ? "Verbinden" : "Koppeln"
+                onClicked: {
+                    const d = dev.modelData;
+                    if (page.pairing !== "")
+                        return;
+                    if (d.connected) d.disconnect();
+                    else if (d.paired) d.connect();
+                    else page.pair(d);
+                }
+            }
+            DialogButton {
+                visible: dev.modelData.paired
+                Layout.preferredWidth: 80
+                text: "Entfernen"
+                onClicked: Confirm.ask(`„${page.nameOf(dev.modelData)}“ entfernen?`,
+                    "Danach muss es neu gekoppelt werden.", "Entfernen", () => dev.modelData.forget())
+            }
+        }
+    }
+
+    // Paired once → always listed here, no search needed (BlueZ keeps them)
     Group {
-        title: "Geräte"
-        visible: (page.adapter?.enabled ?? false)
+        title: "Meine Geräte"
+        visible: page.adapter?.enabled ?? false
         Text {
-            visible: page.devices.length === 0
+            visible: page.paired.length === 0
             Layout.margins: 12
-            text: "Noch keine – „Neue Geräte suchen“ findet welche."
+            text: "Noch keine – oben „Neue Geräte suchen“ einschalten."
             font.family: Config.fontSans
             font.pixelSize: 12
             color: Config.textSecondary
         }
         Repeater {
-            model: page.devices
-            SettingRow {
-                id: dev
-                required property var modelData
-                required property int index
-                first: index === 0
-                title: modelData.name || modelData.address
-                subtitle: (modelData.connected ? "Verbunden" : modelData.paired ? "Gekoppelt" : "Nicht gekoppelt")
-                        + (modelData.batteryAvailable ? ` · Batterie ${Math.round(modelData.battery * 100)} %` : "")
+            model: page.paired
+            DeviceRow {}
+        }
+    }
 
-                RowLayout {
-                    spacing: 6
-                    DialogButton {
-                        Layout.preferredWidth: 96
-                        text: dev.modelData.pairing ? "…" : dev.modelData.connected ? "Trennen"
-                            : dev.modelData.paired ? "Verbinden" : "Koppeln"
-                        onClicked: {
-                            const d = dev.modelData;
-                            if (d.connected) d.disconnect();
-                            else if (d.paired) d.connect();
-                            else { d.trusted = true; d.pair(); }
-                        }
-                    }
-                    DialogButton {
-                        visible: dev.modelData.paired
-                        Layout.preferredWidth: 80
-                        text: "Entfernen"
-                        onClicked: dev.modelData.forget()
-                    }
-                }
-            }
+    // New devices: only while searching
+    Group {
+        title: "Geräte in der Nähe"
+        description: page.hidden > 0 ? `${page.hidden} weitere Geräte senden keinen Namen und sind ausgeblendet.` : ""
+        visible: page.adapter?.discovering ?? false
+        Text {
+            visible: page.nearby.length === 0
+            Layout.margins: 12
+            text: "Suche läuft … Bei AirPods: Deckel auf, Knopf hinten halten, bis das Licht weiß blinkt."
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+            font.family: Config.fontSans
+            font.pixelSize: 12
+            color: Config.textSecondary
+        }
+        Repeater {
+            model: page.nearby
+            DeviceRow {}
         }
     }
 }
