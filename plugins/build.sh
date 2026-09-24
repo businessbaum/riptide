@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Build our Hyprland plugins against the installed Hyprland (run after every Hyprland update):
 #   hyprbars        official plugin (github.com/hyprwm/hyprland-plugins, tag matching
-#                   the installed version) + our patch hyprbars-on-drag-end.patch
+#                   the installed version) + our patch hyprbars.patch (on_drag_end,
+#                   redraw the bar when the title or the focus changes)
 #   window-buttons  our own plugin (plugins/window-buttons)
 # Result: ~/.local/lib/hyprland-plugins/*.so, loaded at login (hypr/modules/autostart.lua).
 set -euo pipefail
@@ -19,7 +20,7 @@ fi
 git -C "$src" fetch --quiet --tags origin
 git -C "$src" checkout --quiet --force "$tag"
 git -C "$src" clean --quiet -fdx hyprbars
-git -C "$src" apply "$PWD/hyprbars-on-drag-end.patch"
+git -C "$src" apply "$PWD/hyprbars.patch"
 
 echo "==> hyprbars"
 make -C "$src/hyprbars" --quiet 2>&1 | grep -E 'error' || true
