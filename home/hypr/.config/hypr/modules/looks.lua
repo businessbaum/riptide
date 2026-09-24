@@ -42,9 +42,12 @@ hl.config({
             color_inactive = T.shadow_inactive or "rgba(00000040)",
         },
 
-        -- The "vibrancy" behind menu bar, dock, menus and panels
+        -- The "vibrancy" behind menu bar, dock, menus and panels.
+        -- Off by default: with Hyprland 0.56 and the NVIDIA driver, blur leaves blocks of
+        -- stale background pixels on screen (title bars). System Settings can turn it on
+        -- again (appearance.blur) to try after updates.
         blur = {
-            enabled   = true,
+            enabled   = S.appearance.blur == true,
             size      = 12,
             passes    = 3,
             noise     = 0.02,

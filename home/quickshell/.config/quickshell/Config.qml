@@ -29,10 +29,17 @@ Singleton {
     readonly property int radiusControl: theme.radius?.control ?? 8
     readonly property color accent: col(theme.accent, "#0a84ff")
 
+    // Blur behind menu bar, dock and menus (Hyprland; off by default, see looks.lua).
+    // Without blur the glass surfaces are made more opaque, so they stay calm.
+    readonly property bool blur: settings.appearance?.blur === true
+    function glassy(c, minAlpha) {
+        return blur ? c : Qt.rgba(c.r, c.g, c.b, Math.max(c.a, minAlpha));
+    }
+
     // Colours of the active mode
-    readonly property color glass: col(tokens.glass, "#9428282e")
-    readonly property color glassMenu: col(tokens.glass_menu, "#cc242428")
-    readonly property color menubar: col(tokens.menubar, "#6b18181c")
+    readonly property color glass: glassy(col(tokens.glass, "#9428282e"), 0.88)
+    readonly property color glassMenu: glassy(col(tokens.glass_menu, "#cc242428"), 0.95)
+    readonly property color menubar: glassy(col(tokens.menubar, "#6b18181c"), 0.82)
     readonly property color border: col(tokens.border, "#24ffffff")
     readonly property color tile: col(tokens.tile, "#14ffffff")
     readonly property color hover: col(tokens.hover, "#1fffffff")

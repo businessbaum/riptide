@@ -18,8 +18,15 @@ Scope {
     Connections {
         target: NotificationStore
         function onArrived(n) {
-            if (!NotificationStore.doNotDisturb || n.urgency === NotificationUrgency.Critical)
-                banners.insert(0, { notification: n });
+            if (NotificationStore.doNotDisturb && n.urgency !== NotificationUrgency.Critical)
+                return;
+            // The same message again (e.g. "Claude is waiting …") replaces the old banner
+            for (let i = banners.count - 1; i >= 0; i--) {
+                const o = banners.get(i).notification;
+                if (o && o.appName === n.appName && o.summary === n.summary && o.body === n.body)
+                    banners.remove(i);
+            }
+            banners.insert(0, { notification: n });
         }
     }
 

@@ -11,7 +11,7 @@
 -- merged with the shared tokens (font, radius, accent).
 
 local DEFAULTS = {
-    appearance = { mode = "dark" },
+    appearance = { mode = "dark", blur = false },
     dock       = { size = 50, pinned = {} },
     windows    = { snapping = true, gap = 8, corner_radius = 12 },
     mouse      = { natural_scroll = false, speed = 0.0, cursor_size = 22 },

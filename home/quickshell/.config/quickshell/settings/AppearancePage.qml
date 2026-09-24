@@ -32,6 +32,14 @@ Page {
                 onPicked: v => Store.set("appearance", "mode", v)
             }
         }
+        SettingRow {
+            title: "Glaseffekt (Unschärfe)"
+            subtitle: "Menüleiste, Dock und Menüs zeigen den Hintergrund verschwommen. Derzeit mit NVIDIA fehlerhaft (Pixelblöcke) – nach Updates wieder ausprobieren."
+            Toggle {
+                checked: Config.blur
+                onToggled: on => Store.set("appearance", "blur", on, true)
+            }
+        }
     }
 
     Group {

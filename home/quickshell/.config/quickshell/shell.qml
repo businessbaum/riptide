@@ -22,6 +22,18 @@ import QtQuick
 import Quickshell
 
 ShellRoot {
+    // No "Config reloaded" toast on every save; a failed reload becomes a notification
+    Connections {
+        target: Quickshell
+        function onReloadCompleted() {
+            Quickshell.inhibitReloadPopup();
+        }
+        function onReloadFailed(error) {
+            Quickshell.inhibitReloadPopup();
+            Notify.error("Fehler in der Shell-Konfiguration", error);
+        }
+    }
+
     Variants {
         model: Quickshell.screens
 
