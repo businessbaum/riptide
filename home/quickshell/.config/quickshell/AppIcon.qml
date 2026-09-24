@@ -2,9 +2,11 @@ import QtQuick
 import Quickshell
 import Quickshell.Widgets
 
-// An app icon in the one shape every app gets (dock, Launchpad, Spotlight, ⌘Tab):
-// a rounded square like on macOS. The app's own icon sits on a light tile, so round,
-// wide or transparent icons all end up with the same outline and size.
+// An app icon in one common size for dock, Launchpad, Spotlight and ⌘Tab, like on macOS:
+//   icons that fill a square (Zen, Claude) are shown full size with rounded corners,
+//   round icons (Discord) stay round at the same size,
+//   every other outline (Finder, kitty) sits on a light rounded tile.
+// The shape is measured once from the icon's pixels (IconShapes.qml).
 Item {
     id: root
 
@@ -13,34 +15,37 @@ Item {
     property string source: ""    // explicit icon path/URL (overrides both)
     property int size: 64
 
-    // Our own apps already come as a rounded square: let them fill the tile
-    readonly property bool fills: (entry?.id ?? appId).startsWith("org.riptide.")
+    readonly property string src: source !== "" ? source : Apps.icon(entry, appId)
+    readonly property var measured: IconShapes.shapes[src] ?? { shape: "tile", scale: 1 }
+    readonly property string shape: measured.shape
+    readonly property real inset: size * 0.04
+    readonly property real radius: (size - 2 * inset) * 0.225
 
     implicitWidth: size
     implicitHeight: size
 
-    // Soft shadow below the tile
+    // Soft shadow below the icon, in its shape
     Rectangle {
-        anchors.fill: tile
-        anchors.topMargin: root.size * 0.03
-        anchors.bottomMargin: -root.size * 0.03
-        radius: tile.radius
+        anchors.fill: parent
+        anchors.margins: root.inset
+        anchors.topMargin: root.inset + root.size * 0.03
+        anchors.bottomMargin: root.inset - root.size * 0.03
+        radius: root.shape === "circle" ? width / 2 : root.radius
         color: "#000000"
         opacity: 0.22
     }
 
     ClippingRectangle {
-        id: tile
         anchors.fill: parent
-        anchors.margins: root.size * 0.04
-        radius: width * 0.225
-        color: "#f4f4f6"
-        border.color: "#1a000000"
+        anchors.margins: root.inset
+        radius: root.shape === "circle" ? width / 2 : root.radius
+        color: root.shape === "tile" ? "#f4f4f6" : "transparent"
+        border.color: root.shape === "tile" ? "#1a000000" : "transparent"
         border.width: 1
 
         Rectangle {
             anchors.fill: parent
-            visible: !root.fills
+            visible: root.shape === "tile"
             gradient: Gradient {
                 GradientStop { position: 0; color: "#ffffff" }
                 GradientStop { position: 1; color: "#e4e4e8" }
@@ -49,9 +54,29 @@ Item {
 
         IconImage {
             anchors.centerIn: parent
-            implicitSize: root.fills ? Math.round(tile.width / 0.875) : Math.round(tile.width * 0.76)
-            source: root.source !== "" ? root.source : Apps.icon(root.entry, root.appId)
+            implicitSize: root.shape === "tile" ? Math.round(parent.width * 0.76) : Math.round(parent.width * root.measured.scale)
+            source: root.src
             asynchronous: true
+        }
+    }
+
+    // Measure the icon's shape once (drawn invisibly, then its alpha channel is read)
+    Loader {
+        active: IconShapes.shapes[root.src] === undefined && root.src !== ""
+        sourceComponent: Canvas {
+            width: 64
+            height: 64
+            opacity: 0
+            Component.onCompleted: loadImage(root.src)
+            onImageLoaded: requestPaint()
+            onPaint: {
+                if (!isImageLoaded(root.src))
+                    return;
+                const ctx = getContext("2d");
+                ctx.clearRect(0, 0, 64, 64);
+                ctx.drawImage(root.src, 0, 0, 64, 64);
+                IconShapes.set(root.src, IconShapes.classify(ctx.getImageData(0, 0, 64, 64).data, 64));
+            }
         }
     }
 }
