@@ -1,0 +1,97 @@
+# Packages for riptide. Official Arch repositories only.
+# Install/sync: sudo ./install.sh packages
+# AUR packages are listed separately at the bottom and are never installed
+# automatically (read PKGBUILD + sources first).
+
+## Base system (installed by install.sh from the Arch ISO)
+base
+base-devel
+linux
+linux-headers
+linux-lts
+linux-lts-headers
+linux-firmware
+amd-ucode
+nvidia-open-dkms
+nvidia-utils
+btrfs-progs
+dosfstools
+efibootmgr
+limine
+snapper
+snap-pac
+zram-generator
+tpm2-tools
+tpm2-tss
+networkmanager
+firewalld
+openssh
+sudo
+git
+nano
+tmux
+man-db
+man-pages
+bash-completion
+
+## Secure Boot
+sbctl
+
+## Desktop: compositor and session
+hyprland
+uwsm
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+hyprland-guiutils
+hyprlock
+hypridle
+hyprpaper
+quickshell
+
+## Desktop: NVIDIA on Wayland
+egl-wayland
+libva-nvidia-driver
+
+## Desktop: audio, bluetooth, hardware keys
+pipewire
+pipewire-pulse
+wireplumber
+bluez
+bluez-utils
+brightnessctl
+playerctl
+ddcutil
+
+## Desktop: tools
+stow
+jq
+kitty
+nautilus
+grim
+slurp
+wl-clipboard
+cliphist
+gnome-keyring
+xdg-user-dirs
+
+## Desktop: toolkits and theming
+gtk4
+libadwaita
+python-gobject
+kvantum
+qt5ct
+qt6ct
+
+## Desktop: fonts
+inter-font
+noto-fonts
+noto-fonts-emoji
+ttf-nerd-fonts-symbols
+
+## Build tools (Hyprland plugins via hyprpm)
+cmake
+meson
+cpio
+
+## AUR (manual, reviewed) -- none yet
+# apple_cursor   (pending review)

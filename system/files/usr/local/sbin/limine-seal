@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Install Limine to the ESP with the current limine.conf checksum enrolled,
+# then sign it with the sbctl keys.
+#
+# Run after every change to /boot/limine.conf and after Limine updates
+# (the pacman hook limine-deploy.hook does the latter). With Secure Boot on
+# and a checksum enrolled, Limine refuses to boot with a modified config, and
+# the firmware refuses an unsigned Limine.
+#
+# Order matters: enroll-config modifies the binary, so signing comes last.
+# Always starts from the pristine packaged binary.
+
+set -euo pipefail
+
+readonly SRC=/usr/share/limine/BOOTX64.EFI
+readonly EFI=/boot/EFI/limine/BOOTX64.EFI
+readonly CONF=/boot/limine.conf
+
+((EUID == 0)) || { echo "limine-seal: must be run as root" >&2; exit 1; }
+[[ -f "$CONF" ]] || { echo "limine-seal: $CONF not found" >&2; exit 1; }
+
+tmp="$EFI.new"
+trap 'rm -f "$tmp"' EXIT
+
+cp "$SRC" "$tmp"
+hash="$(b2sum "$CONF" | cut -d' ' -f1)"
+limine enroll-config "$tmp" "$hash"
+sbctl sign "$tmp" >/dev/null
+mv "$tmp" "$EFI"
+sync -f "$EFI"
+
+# register the final path so sbctl's own hooks and 'sbctl verify' know it
+sbctl sign -s "$EFI" >/dev/null
+echo "limine-seal: $EFI enrolled (limine.conf b2sum ${hash:0:16}...) and signed"

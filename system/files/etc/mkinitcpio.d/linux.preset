@@ -1,0 +1,10 @@
+# mkinitcpio preset for the 'linux' package.
+# Builds a unified kernel image (UKI: kernel + initramfs + microcode + cmdline
+# from /etc/kernel/cmdline) that Limine chainloads via the firmware, so Secure
+# Boot verifies it. Signed automatically by sbctl's mkinitcpio post hook.
+
+ALL_kver="/boot/vmlinuz-linux"
+
+PRESETS=('default')
+
+default_uki="/boot/EFI/Linux/arch-linux.efi"

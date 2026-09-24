@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Roll back the root subvolume (@) to a snapper snapshot.
+#
+# Layout: top level of the btrfs volume holds @ (/), @snapshots (/.snapshots),
+# @home, @var_log, @pkg. Only @ is replaced; home, logs and package cache stay.
+#
+# Steps:
+#   1. rename the current @ to @broken-<timestamp> (kept, nothing is deleted)
+#   2. create a writable snapshot of @snapshots/<N>/snapshot as the new @
+#   3. rebuild kernel/initramfs (UKI) inside the new @ so /boot matches its
+#      kernel modules; /boot is not part of any snapshot
+#
+# Works from the running system and from the Arch ISO (after
+# "cryptsetup open /dev/nvme0n1p6 cryptroot"). Reboot afterwards.
+#
+# Usage: snapshot-rollback            list snapshots
+#        snapshot-rollback <number>   roll back to snapshot <number>
+
+set -euo pipefail
+
+ROOT_DEV="${ROOT_DEV:-/dev/mapper/cryptroot}"
+
+die() { printf 'Fehler: %s\n' "$*" >&2; exit 1; }
+
+((EUID == 0)) || die "bitte mit sudo bzw. als root ausführen."
+[[ -b "$ROOT_DEV" ]] || die "$ROOT_DEV nicht gefunden (LUKS-Container geöffnet?)."
+
+top="$(mktemp -d /tmp/rollback-top.XXXXXX)"
+
+cleanup() {
+    umount "$top" 2>/dev/null || true
+    rmdir "$top" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# subvolid=5 is the btrfs top level, where @ and @snapshots live side by side
+mount -o subvolid=5 "$ROOT_DEV" "$top"
+[[ -d "$top/@snapshots" ]] || die "Subvolume @snapshots fehlt."
+
+# Print "number | date | description" from snapper's info.xml files.
+list_snapshots() {
+    local info num date desc
+    printf '%-5s %-20s %s\n' "Nr." "Datum (UTC)" "Beschreibung"
+    for info in "$top"/@snapshots/*/info.xml; do
+        [[ -e "$info" ]] || continue
+        num="$(sed -n 's:.*<num>\(.*\)</num>.*:\1:p' "$info")"
+        date="$(sed -n 's:.*<date>\(.*\)</date>.*:\1:p' "$info")"
+        desc="$(sed -n 's:.*<description>\(.*\)</description>.*:\1:p' "$info")"
+        printf '%-5s %-20s %s\n' "$num" "$date" "$desc"
+    done | sort -n
+}
+
+if (($# == 0)); then
+    list_snapshots
+    printf '\nZurücksetzen mit: %s <Nr.>\n' "$(basename "$0")"
+    exit 0
+fi
+
+num="$1"
+[[ "$num" =~ ^[0-9]+$ ]] || die "Snapshot-Nummer muss eine Zahl sein."
+src="$top/@snapshots/$num/snapshot"
+[[ -d "$src" ]] || die "Snapshot $num existiert nicht."
+
+broken="@broken-$(date +%Y%m%d-%H%M%S)"
+printf 'Das aktuelle System (@) wird zu %s umbenannt\n' "$broken"
+printf 'und durch Snapshot %s ersetzt. /home, Logs und Paket-Cache bleiben unverändert.\n' "$num"
+read -rp 'Fortfahren? Zum Bestätigen "ja" eingeben: ' answer
+[[ "$answer" == "ja" ]] || die "abgebrochen, nichts wurde geändert."
+
+# 1. keep the current root under a new name (works even while it is mounted as /)
+mv "$top/@" "$top/$broken"
+
+# 2. writable copy of the read-only snapshot becomes the new @
+if ! btrfs subvolume snapshot "$src" "$top/@"; then
+    mv "$top/$broken" "$top/@"
+    die "Snapshot konnte nicht angelegt werden, altes System wiederhergestellt."
+fi
+
+new="$top/@"
+# pre/post snapshots are taken during a pacman transaction and contain its lock
+rm -f "$new/var/lib/pacman/db.lck"
+
+# 3. rebuild boot files from the kernels inside the new root
+esp_uuid="$(awk '$2 == "/boot" { sub(/^UUID=/, "", $1); print $1 }' "$new/etc/fstab")"
+[[ -n "$esp_uuid" ]] || die "kein /boot-Eintrag in der fstab des Snapshots."
+
+# The boot setup (UKI presets, kernel cmdline, Secure Boot keys) must match
+# the current /boot and firmware, not the snapshot's age. Carry it over from
+# the replaced root so older snapshots still produce bootable, signed UKIs.
+for path in etc/mkinitcpio.d etc/kernel/cmdline var/lib/sbctl; do
+    if [[ -e "$top/$broken/$path" ]]; then
+        rm -rf "${new:?}/$path"
+        mkdir -p "$(dirname "$new/$path")"
+        cp -a "$top/$broken/$path" "$new/$path"
+    fi
+done
+if [[ -d "$new/var/lib/sbctl" ]] && ! [[ -x "$new/usr/bin/sbctl" ]]; then
+    printf 'Warnung: sbctl fehlt im Snapshot, die UKIs werden nicht signiert.\n' >&2
+    printf 'Mit Secure Boot startet das System dann nicht; im BIOS Secure Boot kurz ausschalten\n' >&2
+    printf 'und danach "sudo pacman -S sbctl && sudo sbctl sign-all" ausführen.\n' >&2
+fi
+
+# Everything below runs in a private mount namespace with fresh pseudo
+# filesystems (no bind mounts of the host's /sys or /dev). Unmounting them can
+# therefore never propagate to the host, and they vanish when the namespace ends.
+# Feed every installed kernel to mkinitcpio's own pacman hook script, exactly
+# as a kernel upgrade would: it copies vmlinuz to /boot and rebuilds all presets
+# (and the sbctl post hook signs the result, once Secure Boot is set up).
+unshare --mount --propagation private /bin/bash -c '
+    set -euo pipefail
+    new="$1" esp_uuid="$2"
+    mount -t proc proc "$new/proc"
+    mount -t sysfs sysfs "$new/sys"
+    mount -t devtmpfs -o mode=0755,nosuid devtmpfs "$new/dev"
+    mount -t tmpfs -o mode=0755,nosuid,nodev tmpfs "$new/run"
+    mount -o umask=0077 "UUID=$esp_uuid" "$new/boot"
+    chroot "$new" /bin/bash -c "
+        set -euo pipefail
+        find /usr/lib/modules -maxdepth 2 -name vmlinuz -printf \"%P\n\" |
+            sed \"s:^:usr/lib/modules/:\" |
+            /usr/share/libalpm/scripts/mkinitcpio install
+    "
+    umount "$new/boot"
+' rollback-chroot "$new" "$esp_uuid"
+
+printf '\nFertig. Bitte neu starten.\n'
+printf 'Das alte System liegt noch als %s vor. Wenn alles läuft, löschen mit:\n' "$broken"
+printf '  sudo mount -o subvolid=5 %s /mnt && sudo btrfs subvolume delete /mnt/%s && sudo umount /mnt\n' "$ROOT_DEV" "$broken"

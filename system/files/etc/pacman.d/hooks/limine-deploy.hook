@@ -1,0 +1,12 @@
+# Deploy a new Limine binary to the ESP, re-enroll the limine.conf checksum
+# and sign it for Secure Boot (see /usr/local/sbin/limine-seal).
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = limine
+
+[Action]
+Description = Deploying and signing Limine...
+When = PostTransaction
+Exec = /usr/local/sbin/limine-seal
