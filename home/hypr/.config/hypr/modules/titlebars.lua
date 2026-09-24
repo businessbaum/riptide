@@ -30,7 +30,8 @@ local ok, err = pcall(function()
                 bar_height     = 30,
                 bar_color      = T.titlebar or "rgb(2c2c2e)",
                 col            = { text = T.titlebar_text or "rgba(ffffffb3)" },
-                bar_text_font  = (T.font and T.font.sans or "Inter") .. " Semi Bold",
+                bar_text_font   = T.font and T.font.sans or "Noto Sans",
+                bar_text_weight = "semibold",
                 bar_text_size  = 11,
                 bar_text_align = "center",
 

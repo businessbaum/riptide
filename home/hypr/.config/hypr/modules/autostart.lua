@@ -29,5 +29,8 @@ hl.on("hyprland.start", function()
         for p in hyprbars window-buttons; do
             a=$(hyprctl plugin load "$dir/$p.so")
             [ "$a" = ok ] || { sleep 3; notify-send -a System -i dialog-warning -u critical "Plugin „$p“ konnte nicht geladen werden" "$a"; }
-        done]])
+        done
+        # Apply the whole config once more with every plugin present: the reloads the
+        # plugins trigger while loading can run before their options exist.
+        hyprctl reload >/dev/null]])
 end)

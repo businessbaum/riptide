@@ -164,14 +164,13 @@ PanelWindow {
                     radius: 8
                     color: index === root.selected ? Config.accent : "transparent"
 
-                    IconImage {
+                    AppIcon {
                         id: resultIcon
                         anchors.left: parent.left
-                        anchors.leftMargin: 10
+                        anchors.leftMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
-                        implicitSize: 28
-                        source: Apps.icon(result.modelData, "")
-                        asynchronous: true
+                        size: 32
+                        entry: result.modelData
                     }
                     Text {
                         anchors.left: resultIcon.right

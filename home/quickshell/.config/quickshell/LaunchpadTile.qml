@@ -12,8 +12,8 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        anchors.margins: root.size * 0.08
-        radius: width * 0.23
+        anchors.margins: root.size * 0.04
+        radius: width * 0.225
         gradient: Gradient {
             GradientStop { position: 0; color: "#4a4a52" }
             GradientStop { position: 1; color: "#2a2a30" }

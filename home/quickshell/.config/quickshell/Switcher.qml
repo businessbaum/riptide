@@ -85,12 +85,12 @@ Scope {
                         color: selected ? Config.hover : "transparent"
                         border.color: selected ? Config.border : "transparent"
 
-                        IconImage {
+                        AppIcon {
                             anchors.horizontalCenter: parent.horizontalCenter
                             y: 10
-                            implicitSize: root.mode === "apps" ? 80 : 64
-                            source: Apps.icon(cell.modelData.entry, cell.modelData.appId)
-                            asynchronous: true
+                            size: root.mode === "apps" ? 80 : 64
+                            entry: cell.modelData.entry
+                            appId: cell.modelData.appId
                         }
                         Text {
                             anchors.bottom: parent.bottom

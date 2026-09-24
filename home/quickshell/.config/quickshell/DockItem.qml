@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Widgets
 
 // One app in the dock.
 //   click:        running → bring its last window to the front, else start it
@@ -55,12 +54,11 @@ Item {
         onTriggered: root.launching = false
     }
 
-    IconImage {
+    AppIcon {
         id: image
-        width: root.size
-        height: root.size
-        source: Apps.icon(root.entry, root.appId)
-        asynchronous: true
+        size: root.size
+        entry: root.entry
+        appId: root.appId
         opacity: mouse.pressed ? 0.7 : 1
 
         // Bouncing while the app starts, like on a Mac

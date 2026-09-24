@@ -27,9 +27,12 @@ end
 
 -- After every (re)load of the config: are there errors? Then show them as a notification.
 -- At startup wait a moment until the notification server is running.
+-- Every error is also appended to ~/.local/state/macos/hyprland-errors.log (with time),
+-- so it can still be read after the notification is gone.
 local function check(delay)
-    hl.exec_cmd("sleep " .. delay .. [=[; f=$(hyprctl configerrors | sed '/^[[:space:]]*$/d'); [ -n "$f" ] && { ]=] ..
-        notify_cmd(quote("Fehler in der Hyprland-Konfiguration"), [["$f"]], true) .. "; }")
+    hl.exec_cmd("sleep " .. delay .. [=[; f=$(hyprctl configerrors | sed '/^[[:space:]]*$/d'); [ -n "$f" ] && { ]=]
+        .. [=[mkdir -p ~/.local/state/macos; printf '%s\n%s\n\n' "$(date '+%F %T')" "$f" >> ~/.local/state/macos/hyprland-errors.log; ]=]
+        .. notify_cmd(quote("Fehler in der Hyprland-Konfiguration"), [["$f"]], true) .. "; }")
 end
 
 hl.on("hyprland.start", function() check(3) end)

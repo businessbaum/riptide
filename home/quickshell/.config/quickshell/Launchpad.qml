@@ -127,12 +127,11 @@ PanelWindow {
             width: grid.cellWidth
             height: grid.cellHeight
 
-            IconImage {
+            AppIcon {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 8
-                implicitSize: 88
-                source: Apps.icon(cell.modelData, "")
-                asynchronous: true
+                size: 88
+                entry: cell.modelData
                 scale: cellMouse.pressed ? 0.92 : 1
             }
             Text {

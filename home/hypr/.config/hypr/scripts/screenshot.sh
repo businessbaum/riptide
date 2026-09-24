@@ -20,12 +20,12 @@ fi
 case "$target" in
     clipboard)
         grim "${region[@]}" - | wl-copy --type image/png
-        notify-send -i image-x-generic "Bildschirmfoto" "In die Zwischenablage kopiert" ;;
+        notify-send -a Bildschirmfoto -i image-x-generic "Bildschirmfoto" "In die Zwischenablage kopiert" ;;
     both)
         grim "${region[@]}" "$file"
         wl-copy --type image/png < "$file"
-        notify-send -i "$file" "Bildschirmfoto" "Gesichert in Bilder/Bildschirmfotos und kopiert" ;;
+        notify-send -a Bildschirmfoto -i "$file" "Bildschirmfoto" "Gesichert in Bilder/Bildschirmfotos und kopiert" ;;
     *)
         grim "${region[@]}" "$file"
-        notify-send -i "$file" "Bildschirmfoto" "Gesichert in Bilder/Bildschirmfotos" ;;
+        notify-send -a Bildschirmfoto -i "$file" "Bildschirmfoto" "Gesichert in Bilder/Bildschirmfotos" ;;
 esac
