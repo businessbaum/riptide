@@ -95,6 +95,8 @@ capitaine-cursors
 
 ## Apps
 libnotify
+thunderbird
+thunderbird-i18n-de
 discord
 mission-center
 gnome-calculator

@@ -9,11 +9,12 @@
 local M = {}
 
 -- As a regular expression for Hyprland's window rules
-M.regex = "^(org\\.gnome\\..*|io\\.missioncenter\\..*|org\\.riptide\\.Preview|firefox|zen|app\\.zen_browser\\.zen|chromium-browser|google-chrome|discord|[Cc]laude|com\\.anthropic\\.Claude)$"
+M.regex = "^(org\\.gnome\\..*|io\\.missioncenter\\..*|org\\.riptide\\.Preview|firefox|zen|app\\.zen_browser\\.zen|chromium-browser|google-chrome|discord|[Cc]laude|com\\.anthropic\\.Claude|thunderbird|org\\.mozilla\\.[Tt]hunderbird)$"
 
 -- The same as a check function for Lua
 local patterns = { "^org%.gnome%.", "^io%.missioncenter%.", "^org%.riptide%.Preview$", "^firefox$", "^zen$",
-                   "^app%.zen_browser%.zen$", "^chromium%-browser$", "^google%-chrome$", "^discord$", "^[Cc]laude$", "^com%.anthropic%.Claude$" }
+                   "^app%.zen_browser%.zen$", "^chromium%-browser$", "^google%-chrome$", "^discord$", "^[Cc]laude$", "^com%.anthropic%.Claude$",
+                   "^thunderbird$", "^org%.mozilla%.[Tt]hunderbird$" }
 
 function M.matches(w)
     if not w or not w.class then return false end
