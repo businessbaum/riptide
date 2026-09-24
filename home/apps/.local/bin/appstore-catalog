@@ -105,6 +105,27 @@ def png_icon(path):
     return str(out)
 
 
+# Apps in the official repositories that ship no AppStream data (so the catalog lacks
+# them). Checked by hand; the icon is found once the package is installed.
+EXTRA = [
+    {
+        "id": "spotify-launcher", "pkg": "spotify-launcher", "repo": "extra",
+        "name": "Spotify",
+        "summary": "Musik und Podcasts streamen",
+        "description": "Der offizielle Spotify-Client. Das Arch-Paket „spotify-launcher“ lädt ihn beim "
+                       "ersten Start direkt von Spotify und prüft dabei Spotifys digitale Signatur; "
+                       "Updates holt es automatisch beim Start.\n\nFür die Nutzung ist ein Spotify-Konto nötig.",
+        "developer": "Spotify AB (Client), kpcyrd (Arch-Paket)",
+        "license": "Proprietär (Client), MIT/Apache-2.0 (Launcher)",
+        "homepage": "https://www.spotify.com",
+        "desktop": "spotify-launcher.desktop",
+        "icon": "spotify-launcher",
+        "categories": ["Audio & Video"],
+        "keywords": "Spotify Musik Music Streaming Podcast",
+    },
+]
+
+
 def categories(component):
     found = {c.text for c in component.findall("categories/category") if c.text}
     return [name for name, keys in CATEGORIES if found & keys]
@@ -151,6 +172,8 @@ def main():
     for path in sources:
         for app in read(path):
             apps.setdefault(app["pkg"] + "|" + app["id"], app)
+    for extra in EXTRA:
+        apps.setdefault(extra["pkg"] + "|" + extra["id"], extra)
     result = sorted(apps.values(), key=lambda a: a["name"].lower())
 
     # icons: JPEG XL → PNG (in parallel, each file once, only new ones)

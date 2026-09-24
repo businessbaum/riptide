@@ -29,7 +29,7 @@ Singleton {
         "Entwicklung", "Bildung & Wissenschaft", "Werkzeuge", "System"]
 
     // A few well-known apps for the start page (shown if they are in the catalog)
-    readonly property var featuredPkgs: ["firefox", "thunderbird", "libreoffice-fresh", "gimp", "inkscape",
+    readonly property var featuredPkgs: ["spotify-launcher", "firefox", "thunderbird", "libreoffice-fresh", "gimp", "inkscape",
         "krita", "vlc", "obs-studio", "blender", "kdenlive", "audacity", "signal-desktop", "telegram-desktop",
         "keepassxc", "gnome-maps", "gnome-weather", "loupe", "papers", "shotwell", "rhythmbox"]
     readonly property var featured: featuredPkgs.map(p => apps.find(a => a.pkg === p)).filter(a => a)
