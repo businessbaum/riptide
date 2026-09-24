@@ -9,6 +9,8 @@
 //                             on release macos.drag_ended() runs (snapping)
 //   minimize button (yellow) → hidden desktop "minimized" (like ⌘M)
 //   maximize button (green)  → macos.zoom() (like our own title bars)
+//   top edge of any window   → moves the window instead of resizing it (Hyprland's grab
+//                              zone there kept catching drags meant for the title bar)
 //
 // It also tells the window switcher (⌥Tab / ⌘Tab) when ⌥ or ⌘ is released.
 
@@ -22,6 +24,10 @@
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
+#include <hyprland/src/desktop/state/ViewState.hpp>
+#include <hyprland/src/desktop/state/ViewHitTester.hpp>
+#include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
+#include <hyprland/src/config/ConfigValue.hpp>
 #include <hyprland/src/protocols/XDGShell.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/managers/KeybindManager.hpp>
@@ -116,6 +122,34 @@ static void hookWindow(PHLWINDOW w) {
     }
 }
 
+// A left-button press in the resize zone along the top edge (above the window, or in its
+// rounded top corners) starts a move instead: the top edge never resizes.
+static bool moveInsteadOfTopResize(Event::SCallbackInfo& info) {
+    static auto PRESIZE = CConfigValue<Config::INTEGER>("general:resize_on_border");
+    static auto PBORDER = CConfigValue<Config::INTEGER>("general:border_size");
+    static auto PEXTEND = CConfigValue<Config::INTEGER>("general:extend_border_grab_area");
+    if (!*PRESIZE)
+        return false;
+
+    const auto GRAB = *PBORDER + *PEXTEND;
+    const auto POS  = g_pInputManager->getMouseCoordsInternal();
+    const auto W    = Desktop::viewState()->hitTest().windowAt(POS, Desktop::View::ALLOW_FLOATING | Desktop::View::RESERVED_EXTENTS | Desktop::View::INPUT_EXTENTS);
+    if (!W || !W->m_isFloating || W->m_isX11 || Fullscreen::controller()->isFullscreen(W))
+        return false;
+
+    const CBox REAL      = W->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
+    const bool ABOVE     = POS.y < REAL.y && POS.y >= REAL.y - GRAB && POS.x >= REAL.x - GRAB && POS.x <= REAL.x + REAL.w + GRAB;
+    const bool TOPCORNER = POS.y >= REAL.y && POS.y < REAL.y + W->rounding() && W->isInCurvedCorner(POS.x, POS.y);
+    if (!ABOVE && !TOPCORNER)
+        return false;
+
+    Desktop::focusState()->fullWindowFocus(W, Desktop::FOCUS_REASON_CLICK);
+    g_pKeybindManager->changeMouseBindMode(MBIND_MOVE);
+    g_dragging     = true;
+    info.cancelled = true;
+    return true;
+}
+
 APICALL EXPORT std::string PLUGIN_API_VERSION() {
     return HYPRLAND_API_VERSION;
 }
@@ -129,9 +163,11 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     static auto NEW_WINDOW = Event::bus()->m_events.window.open.listen([](PHLWINDOW w) { hookWindow(w); });
 
     // Mouse button released → end the drag and check snapping
-    static auto MOUSE = Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent e, Event::SCallbackInfo&) {
+    static auto MOUSE = Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent e, Event::SCallbackInfo& info) {
         if (e.button == BTN_LEFT)
             g_buttonDown = e.state == WL_POINTER_BUTTON_STATE_PRESSED;
+        if (e.button == BTN_LEFT && e.state == WL_POINTER_BUTTON_STATE_PRESSED && !g_dragging && moveInsteadOfTopResize(info))
+            return;
         if (!g_dragging || e.state == WL_POINTER_BUTTON_STATE_PRESSED)
             return;
         g_dragging = false;
@@ -165,7 +201,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         if (w->m_isMapped)
             hookWindow(w);
 
-    return {"window-buttons", "Drag, minimize and zoom for windows with their own title bar", "riptide", "0.1"};
+    return {"window-buttons", "Drag, minimize and zoom for windows with their own title bar; no resizing at the top edge", "riptide", "0.2"};
 }
 
 // Unloading (e.g. to load a newer build): remove our handlers from every window while
