@@ -21,9 +21,13 @@ PanelWindow {
         const list = [];
         const seen = {};
         for (const id of Config.dockPinned) {
+            if (id === "launchpad") {
+                list.push({ key: "launchpad", entry: null, pinned: true, appId: "", launchpad: true });
+                continue;
+            }
             const entry = Apps.entryById(id);
             if (!entry || seen[entry.id])
-                continue; // unknown or not installed (e.g. "launchpad" until it exists)
+                continue; // unknown or not installed
             seen[entry.id] = true;
             list.push({ key: entry.id, entry: entry, pinned: true, appId: "" });
         }
@@ -74,7 +78,7 @@ PanelWindow {
                 Loader {
                     id: slot
                     required property var modelData
-                    sourceComponent: modelData.separator ? separator : icon
+                    sourceComponent: modelData.separator ? separator : modelData.launchpad ? launchpad : icon
 
                     Component {
                         id: separator
@@ -87,6 +91,13 @@ PanelWindow {
                                 height: parent.height - 12
                                 color: Config.border
                             }
+                        }
+                    }
+
+                    Component {
+                        id: launchpad
+                        LaunchpadTile {
+                            size: dock.size
                         }
                     }
 

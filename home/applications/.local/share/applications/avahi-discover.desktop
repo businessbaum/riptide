@@ -1,0 +1,7 @@
+[Desktop Entry]
+# Hidden from Launchpad, Spotlight and the dock: a helper tool that came as a dependency.
+# Remove this file to show it again.
+Type=Application
+Name=avahi-discover
+NoDisplay=true
+Hidden=true

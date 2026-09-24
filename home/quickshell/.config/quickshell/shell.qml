@@ -10,6 +10,9 @@
 //   MenuBar.qml        menu bar with Apple menu, app name, status, clock
 //   Dock.qml           dock on every screen
 //   Spotlight.qml      ⌘Space app search
+//   Launchpad.qml      all apps as a grid (dock)
+//   Switcher.qml       ⌘Tab / ⌥Tab panel (logic in Hyprland)
+//   ControlCenter.qml  + NotificationCenter.qml: panels from the menu bar
 //   Notifications.qml  notification server + banners
 //   Osd.qml            volume display
 
@@ -37,6 +40,7 @@ ShellRoot {
     }
 
     Spotlight {}
+    Launchpad {}
     Switcher {}
     Notifications {}
     Osd {}
