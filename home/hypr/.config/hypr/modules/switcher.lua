@@ -94,6 +94,8 @@ local MOD_KEYS = {
     windows = { "Alt_L", "Alt_R", 64, 108 },
 }
 
+local seen_held = false -- has the modifier been seen held in this round?
+
 local function held(mode)
     for _, k in ipairs(MOD_KEYS[mode]) do
         local ok, down = pcall(hl.is_key_down, k)
@@ -128,7 +130,6 @@ hl.bind("SUPER + SHIFT + Tab", step("apps", -1))
 --   2. while the panel is open, a short timer asks Hyprland whether the key is still
 --      held (hl.is_key_down) – only trusted once it has reported the key as held,
 --      so a missing key name can never close the panel at once.
-local seen_held = false
 local poll = hl.timer(function()
     if not state then return end
     if held(state.mode) then
