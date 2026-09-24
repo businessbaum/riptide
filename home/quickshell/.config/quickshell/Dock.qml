@@ -60,7 +60,7 @@ PanelWindow {
 
     Rectangle {
         id: plate
-        anchors.horizontalCenter: parent.horizontalCenter
+        x: Math.round((parent.width - width) / 2) // whole pixels keep the icons sharp
         anchors.bottom: parent.bottom
         anchors.bottomMargin: dock.bottomGap
         width: row.width + 2 * dock.padding
@@ -72,7 +72,8 @@ PanelWindow {
 
         Row {
             id: row
-            anchors.centerIn: parent
+            x: dock.padding
+            y: dock.padding
             spacing: 4
 
             Repeater {

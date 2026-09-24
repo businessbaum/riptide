@@ -18,8 +18,11 @@ Item {
     readonly property string src: source !== "" ? source : Apps.icon(entry, appId)
     readonly property var measured: IconShapes.shapes[src] ?? { shape: "tile", scale: 1 }
     readonly property string shape: measured.shape
-    readonly property real inset: size * 0.04
-    readonly property real radius: (size - 2 * inset) * 0.225
+    // Whole pixels only: the rounded clip renders through a texture, and half-pixel
+    // positions would make the icon blurry.
+    readonly property int inset: Math.round(size * 0.04)
+    readonly property int inner: size - 2 * inset
+    readonly property real radius: inner * 0.225
 
     implicitWidth: size
     implicitHeight: size
@@ -53,8 +56,11 @@ Item {
         }
 
         IconImage {
-            anchors.centerIn: parent
-            implicitSize: root.shape === "tile" ? Math.round(parent.width * 0.76) : Math.round(parent.width * root.measured.scale)
+            readonly property int px: root.shape === "tile" ? Math.round(root.inner * 0.76) : Math.round(root.inner * root.measured.scale)
+            x: Math.round((root.inner - px) / 2)
+            y: Math.round((root.inner - px) / 2)
+            width: px
+            height: px
             source: root.src
             asynchronous: true
         }
