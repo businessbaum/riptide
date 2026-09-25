@@ -128,6 +128,12 @@ gvfs-afc
 seahorse
 gnome-disk-utility
 
+## App sandbox (docs/os-plan.md, batch 1)
+bubblewrap
+xdg-dbus-proxy
+passt
+flatpak-xdg-utils
+
 ## Build tools (Hyprland plugins)
 cmake
 meson
