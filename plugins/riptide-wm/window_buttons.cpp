@@ -1,4 +1,4 @@
-// window-buttons – our own Hyprland plugin
+// window buttons – part of riptide-wm (plugin.hpp)
 //
 // Apps with their own title bar (GNOME apps like Finder/Nautilus, GTK apps) send the
 // Wayland request "xdg_toplevel.move" when dragged by their bar. Hyprland (0.55, 0.56) ignores
@@ -43,7 +43,7 @@
 #include <hyprland/src/config/supplementary/executor/Executor.hpp>
 #include <hyprland/protocols/xdg-shell.hpp>
 
-inline HANDLE PHANDLE = nullptr;
+#include "plugin.hpp"
 
 static bool g_dragging   = false;
 static bool g_buttonDown = false; // is the left mouse button pressed right now?
@@ -183,16 +183,7 @@ static void keepDraggedWindowBelowMenuBar() {
     TARGET->warpPositionSize();
 }
 
-APICALL EXPORT std::string PLUGIN_API_VERSION() {
-    return HYPRLAND_API_VERSION;
-}
-
-APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
-    PHANDLE = handle;
-
-    if (std::string(__hyprland_api_get_hash()) != std::string(__hyprland_api_get_client_hash()))
-        throw std::runtime_error("[window-buttons] Hyprland version does not match");
-
+void windowButtonsInit() {
     static auto NEW_WINDOW = Event::bus()->m_events.window.open.listen([](PHLWINDOW w) { hookWindow(w); });
     static auto TICK       = Event::bus()->m_events.tick.listen([] { keepDraggedWindowBelowMenuBar(); });
 
@@ -234,14 +225,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     for (auto& w : Desktop::windowState()->windows())
         if (w->m_isMapped)
             hookWindow(w);
-
-    return {"window-buttons", "Drag, minimize and zoom for windows with their own title bar; no resizing at the top edge", "riptide", "0.3"};
 }
 
 // Unloading (e.g. to load a newer build): remove our handlers from every window while
 // their code is still loaded – otherwise the next plugin would replace them after this
 // library is gone, and Hyprland would crash.
-APICALL EXPORT void PLUGIN_EXIT() {
+void windowButtonsExit() {
     for (auto& w : Desktop::windowState()->windows()) {
         auto s = findToplevel(w);
         if (!s.found)
