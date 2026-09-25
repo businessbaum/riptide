@@ -8,7 +8,8 @@ import Quickshell.Wayland
 
 // The menu bar at the top of every screen:
 //   left:  Apple menu, name of the active app
-//   right: apps in the background (tray), volume, control centre,
+//   right: microphone/camera/screen in use, apps in the background (tray), sound menu,
+//   control centre,
 //          date and time (opens the notification centre)
 PanelWindow {
     id: bar
@@ -85,6 +86,11 @@ PanelWindow {
         anchors.rightMargin: 8
         height: parent.height
 
+        // Microphone, camera, screen in use (orange, green, purple dots)
+        PrivacyIndicator {
+            barWindow: bar
+        }
+
         // Apps running in the background (Discord, Claude, …)
         Repeater {
             model: SystemTray.items
@@ -103,12 +109,14 @@ PanelWindow {
         }
 
         BarButton {
+            id: soundButton
             readonly property var audio: bar.sink?.audio
             visible: audio !== undefined && audio !== null
             symbol: true
-            // speaker muted / low / high
+            active: soundMixer.visible
+            // speaker muted / low / high; click: sound menu, scroll: volume
             text: !audio ? "" : audio.muted ? "" : audio.volume < 0.4 ? "" : ""
-            onClicked: audio.muted = !audio.muted
+            onClicked: soundMixer.toggle()
             onScrolled: delta => audio.volume = Math.max(0, Math.min(1, audio.volume + (delta > 0 ? 0.05 : -0.05)))
         }
 
@@ -126,6 +134,12 @@ PanelWindow {
             active: notificationCenter.visible
             onClicked: notificationCenter.toggle()
         }
+    }
+
+    SoundMixer {
+        id: soundMixer
+        anchorItem: soundButton
+        keepOpenFor: [bar]
     }
 
     ControlCenter {
