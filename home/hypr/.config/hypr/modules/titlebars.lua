@@ -47,7 +47,7 @@ local ok, err = pcall(function()
                 bar_blur                   = false,
 
                 -- Double-click on the bar = "Zoom" like on a Mac (snapping.lua)
-                on_double_click = dispatch .. [['macos.zoom()']],
+                on_double_click = dispatch .. [['macos.zoom("title-bar")']],
             },
         },
     })
@@ -74,7 +74,7 @@ local ok, err = pcall(function()
         fg_color = colour(L.zoom_glyph, "rgb(0a4a00)"),
         size     = SIZE,
         icon     = "+",
-        action   = dispatch .. [['macos.zoom()']],
+        action   = dispatch .. [['macos.zoom("button")']],
     })
 
     -- Apps with their own title bar (GNOME apps like Finder) get no second one.

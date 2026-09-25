@@ -167,8 +167,12 @@ end
 ---- GREEN BUTTON / DOUBLE-CLICK: ZOOM ----
 ------------------------------------------------
 
--- Like "Zoom" on a Mac: fills the screen, the second time back to the old size
-function macos.zoom()
+-- Like "Zoom" on a Mac: fills the screen, the second time back to the old size.
+-- Only for what the user does (title bar double-click, green button); the reason must be
+-- given – an older riptide-wm called it for apps' own maximize requests, which zoomed
+-- whatever window was active (e.g. the terminal).
+function macos.zoom(reason)
+    if not reason then return hl.dsp.no_op() end
     local w = hl.get_active_window()
     if not w or not w.floating then return hl.dsp.no_op() end
     local old = unsnap(w)
@@ -176,6 +180,22 @@ function macos.zoom()
         place(w, old)
     else
         snap(w, "full")
+    end
+    return hl.dsp.no_op()
+end
+
+-- An app asks to be maximized or not (its own green button, or restoring its last state;
+-- riptide-wm window_buttons.cpp): that window fills the screen or goes back, as asked.
+-- Asking twice changes nothing.
+function macos.maximize_request(address, on)
+    local w = hl.get_window("address:" .. address)
+    if not w or not w.floating or w.fullscreen ~= 0 then return hl.dsp.no_op() end
+    local zoomed = before[w.address] ~= nil
+    if on and not zoomed then
+        snap(w, "full")
+    elseif not on and zoomed then
+        local old = unsnap(w)
+        if old then place(w, old) end
     end
     return hl.dsp.no_op()
 end

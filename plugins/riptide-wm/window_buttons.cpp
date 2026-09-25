@@ -60,6 +60,13 @@ static PHLWINDOW windowOf(CXdgToplevel* r) {
     return TL ? TL->m_window.lock() : nullptr;
 }
 
+static void maximizeRequest(CXdgToplevel* r, bool on) {
+    const auto W = windowOf(r);
+    if (!W)
+        return;
+    runCommand(std::format("hyprctl dispatch 'macos.maximize_request(\"0x{:x}\", {})'", (uintptr_t)W.get(), on ? "true" : "false"));
+}
+
 // The requests arrive at the Wayland object "xdg_toplevel". Hyprland keeps it private,
 // so we look it up among all objects of the app.
 struct SLookup {
@@ -111,8 +118,10 @@ static void hookWindow(PHLWINDOW w) {
                                rc<uintptr_t>(W.get())));
     });
 
-    s.found->setSetMaximized([](CXdgToplevel*) { runCommand("hyprctl dispatch 'macos.zoom()'"); });
-    s.found->setUnsetMaximized([](CXdgToplevel*) { runCommand("hyprctl dispatch 'macos.zoom()'"); });
+    // An app asks to be maximized or not (its own green button, or restoring its last
+    // state): that window, not the active one, and as asked – not a blind toggle
+    s.found->setSetMaximized([](CXdgToplevel* r) { maximizeRequest(r, true); });
+    s.found->setUnsetMaximized([](CXdgToplevel* r) { maximizeRequest(r, false); });
 
     // Hyprland only tells apps "fullscreen and maximize are possible". GTK then greys out
     // the minimize button and never sends the request above. Announce minimize as well;
