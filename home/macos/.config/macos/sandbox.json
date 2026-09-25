@@ -1,0 +1,25 @@
+{
+  "_comment": "App sandbox (docs/os-plan.md). system_apps start without a sandbox, like Finder and Terminal on a Mac. apps: what a sandboxed app needs beyond the automatic rules – data: its own folders in the home folder, args: extra start arguments, dbus_own: D-Bus names it owns and talks to (e.g. to hand a link to its running window).",
+  "system_apps": [
+    "org.gnome.Nautilus",
+    "kitty",
+    "io.missioncenter.MissionCenter",
+    "org.gnome.baobab",
+    "org.gnome.FileRoller",
+    "org.gnome.DiskUtility",
+    "org.gnome.seahorse.Application",
+    "org.riptide.*"
+  ],
+  "apps": {
+    "com.anthropic.Claude": {
+      "data": ["~/.config/Claude"]
+    },
+    "org.mozilla.Thunderbird": {
+      "data": ["~/.thunderbird", "~/.config/thunderbird", "~/.cache/thunderbird"],
+      "dbus_own": ["org.mozilla.thunderbird.*", "org.mozilla.thunderbird_default.*"]
+    },
+    "spotify-launcher": {
+      "data": ["~/.local/share/spotify-launcher", "~/.config/spotify", "~/.cache/spotify"]
+    }
+  }
+}
