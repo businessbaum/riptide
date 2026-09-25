@@ -114,6 +114,20 @@ gst-plugins-bad
 gst-libav
 gst-plugin-gtk4
 
+## Operating system services (docs/os-plan.md, root steps: system/setup-os.sh)
+smartmontools
+power-profiles-daemon
+fwupd
+hyprsunset
+hyprpicker
+gpu-screen-recorder
+sushi
+ffmpegthumbnailer
+gvfs-mtp
+gvfs-afc
+seahorse
+gnome-disk-utility
+
 ## Build tools (Hyprland plugins)
 cmake
 meson
