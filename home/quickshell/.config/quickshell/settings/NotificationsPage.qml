@@ -5,8 +5,10 @@ import Quickshell.Io
 import qs
 
 // Mitteilungen: "Nicht stören" and, for every app, whether and how it may notify.
-// The shell applies it at once (NotificationStore.qml). Apps appear here after their
-// first notification (the shell keeps the list in ~/.local/state/macos/notification-apps.json).
+// Whether: the permission "notifications" (Privacy.qml, also under Datenschutz &
+// Sicherheit); how: the style in settings.json. The shell applies both at once
+// (NotificationStore.qml). Apps appear here after their first notification (the shell
+// keeps the list in ~/.local/state/macos/notification-apps.json).
 Page {
     id: page
     title: "Mitteilungen"
@@ -34,10 +36,16 @@ Page {
         { value: "off", text: "Aus" }
     ]
     function modeOf(app) {
-        return Store.get("notifications", "apps", {})[app] ?? "banner";
+        if (app !== "System" && Privacy.state(app, "notifications") === "no")
+            return "off";
+        const mode = Store.get("notifications", "apps", {})[app] ?? "banner";
+        return mode === "off" ? "quiet" : mode;
     }
     function setMode(app, mode) {
-        Store.set("notifications", "apps", Object.assign({}, Store.get("notifications", "apps", {}), { [app]: mode }));
+        if (app !== "System")
+            Privacy.set(app, "notifications", mode === "off" ? "no" : "yes");
+        if (mode !== "off")
+            Store.set("notifications", "apps", Object.assign({}, Store.get("notifications", "apps", {}), { [app]: mode }));
     }
 
     Group {
@@ -71,6 +79,7 @@ Page {
                 iconAppId: system ? "org.riptide.SystemSettings" : modelData.icon || modelData.key
                 title: modelData.name
                 subtitle: system ? "Meldungen des Systems, lassen sich nicht ausschalten"
+                    : Privacy.state(modelData.key, "notifications") === "ask" ? "Fragt bei der nächsten Mitteilung"
                     : "Zuletzt " + Qt.formatDateTime(new Date(modelData.last), "dd.MM.yyyy, HH:mm")
 
                 Choice {

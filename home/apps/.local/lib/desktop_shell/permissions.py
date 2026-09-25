@@ -28,51 +28,52 @@ TABLE = "org.riptide.sandbox"
 #   key, where it is stored (table, id), label, what it allows, the question
 #   ("„App“ möchte …"), how the app gets asked (prompt: on first use, portal: through the
 #   portal's dialog, switch: only in System Settings) and when a change applies (live, or
-#   restart: the next time the app starts).
-def _kind(key, where, label, description, question, how, applies):
+#   restart: the next time the app starts); glyph (Symbols Nerd Font) and tile colour
+#   for System Settings.
+def _kind(key, where, label, description, question, how, applies, glyph, colour):
     return {"key": key, "table": where[0], "id": where[1], "label": label, "description": description,
-            "question": question, "how": how, "applies": applies}
+            "question": question, "how": how, "applies": applies, "glyph": glyph, "colour": colour}
 
 
 KINDS = [
     _kind("microphone", ("devices", "microphone"), "Mikrofon", "Ton aufnehmen",
-          "auf das Mikrofon zugreifen", "prompt", "live"),
+          "auf das Mikrofon zugreifen", "prompt", "live", "\U000f036c", "#ff9f0a"),
     _kind("speakers", ("devices", "speakers"), "Lautsprecher", "Ton abspielen",
-          "Ton über Lautsprecher und Kopfhörer abspielen", "prompt", "live"),
+          "Ton über Lautsprecher und Kopfhörer abspielen", "prompt", "live", "\U000f04c3", "#ff375f"),
     _kind("camera", ("devices", "camera"), "Kamera", "Bilder der Kamera sehen",
-          "auf die Kamera zugreifen", "portal", "live"),
+          "auf die Kamera zugreifen", "portal", "live", "\U000f0100", "#30d158"),
     _kind("screen", (TABLE, "screen"), "Bildschirmaufnahme", "Den Bildschirm oder Fenster sehen und teilen",
-          "deinen Bildschirm sehen", "portal", "live"),
+          "deinen Bildschirm sehen", "portal", "live", "\U000f0379", "#bf5af2"),
     _kind("network", (TABLE, "network"), "Internet", "Verbindungen ins Internet",
-          "eine Verbindung ins Internet herstellen", "prompt", "restart"),
+          "eine Verbindung ins Internet herstellen", "prompt", "restart", "\U000f01e7", "#0a84ff"),
     _kind("local-network", (TABLE, "local-network"), "Lokales Netzwerk", "Geräte im eigenen Netzwerk finden und erreichen",
-          "Geräte in deinem lokalen Netzwerk finden und sich mit ihnen verbinden", "prompt", "restart"),
+          "Geräte in deinem lokalen Netzwerk finden und sich mit ihnen verbinden", "prompt", "restart", "\U000f0317", "#0a84ff"),
     _kind("desktop", (TABLE, "files-desktop"), "Schreibtisch", "Dateien im Ordner Schreibtisch",
-          "auf Dateien im Ordner „Schreibtisch“ zugreifen", "switch", "restart"),
+          "auf Dateien im Ordner „Schreibtisch“ zugreifen", "switch", "restart", "\U000f01c4", "#0a84ff"),
     _kind("documents", (TABLE, "files-documents"), "Dokumente", "Dateien im Ordner Dokumente",
-          "auf Dateien im Ordner „Dokumente“ zugreifen", "switch", "restart"),
+          "auf Dateien im Ordner „Dokumente“ zugreifen", "switch", "restart", "\U000f0219", "#0a84ff"),
     _kind("downloads", (TABLE, "files-downloads"), "Downloads", "Dateien im Ordner Downloads",
-          "auf Dateien im Ordner „Downloads“ zugreifen", "switch", "restart"),
+          "auf Dateien im Ordner „Downloads“ zugreifen", "switch", "restart", "\U000f01da", "#0a84ff"),
     _kind("pictures", (TABLE, "files-pictures"), "Bilder", "Dateien im Ordner Bilder",
-          "auf Dateien im Ordner „Bilder“ zugreifen", "switch", "restart"),
+          "auf Dateien im Ordner „Bilder“ zugreifen", "switch", "restart", "\U000f02e9", "#0a84ff"),
     _kind("music", (TABLE, "files-music"), "Musik", "Dateien im Ordner Musik",
-          "auf Dateien im Ordner „Musik“ zugreifen", "switch", "restart"),
+          "auf Dateien im Ordner „Musik“ zugreifen", "switch", "restart", "\U000f075a", "#0a84ff"),
     _kind("videos", (TABLE, "files-videos"), "Videos", "Dateien im Ordner Videos",
-          "auf Dateien im Ordner „Videos“ zugreifen", "switch", "restart"),
+          "auf Dateien im Ordner „Videos“ zugreifen", "switch", "restart", "\U000f0567", "#0a84ff"),
     _kind("removable", (TABLE, "files-removable"), "Wechseldatenträger", "USB-Sticks und externe Festplatten",
-          "auf USB-Sticks und externe Festplatten zugreifen", "switch", "restart"),
+          "auf USB-Sticks und externe Festplatten zugreifen", "switch", "restart", "\U000f02ca", "#8e8e93"),
     _kind("home", (TABLE, "files-home"), "Ganzer Benutzerordner", "Alle deine Dateien",
-          "auf alle deine Dateien zugreifen", "switch", "restart"),
+          "auf alle deine Dateien zugreifen", "switch", "restart", "\U000f02dc", "#8e8e93"),
     _kind("bluetooth", (TABLE, "bluetooth"), "Bluetooth", "Bluetooth-Geräte finden und benutzen",
-          "Bluetooth verwenden", "prompt", "restart"),
+          "Bluetooth verwenden", "prompt", "restart", "\U000f00af", "#0a84ff"),
     _kind("usb", (TABLE, "usb"), "USB- und Eingabegeräte", "Controller, Sicherheitsschlüssel, andere USB-Geräte",
-          "auf USB- und Eingabegeräte zugreifen", "switch", "restart"),
+          "auf USB- und Eingabegeräte zugreifen", "switch", "restart", "\U000f0553", "#8e8e93"),
     _kind("secrets", (TABLE, "secrets"), "Passwörter", "Anmeldedaten im Schlüsselbund speichern und lesen",
-          "auf deine gespeicherten Passwörter zugreifen", "prompt", "restart"),
+          "auf deine gespeicherten Passwörter zugreifen", "prompt", "restart", "\U000f0306", "#8e8e93"),
     _kind("notifications", ("notifications", "notification"), "Mitteilungen", "Mitteilungen schicken",
-          "dir Mitteilungen senden", "prompt", "live"),
+          "dir Mitteilungen senden", "prompt", "live", "\U000f009a", "#ff3b30"),
     _kind("background", ("background", "background"), "Hintergrund", "Weiterlaufen ohne Fenster und bei der Anmeldung starten",
-          "im Hintergrund weiterlaufen", "portal", "live"),
+          "im Hintergrund weiterlaufen", "portal", "live", "\U000f0150", "#8e8e93"),
 ]
 BY_KEY = {k["key"]: k for k in KINDS}
 STATES = ("yes", "no", "ask")
