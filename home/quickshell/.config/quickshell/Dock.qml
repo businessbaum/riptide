@@ -118,23 +118,11 @@ PanelWindow {
     color: "transparent"
 
     // "Entfernen" above the dock while an icon is dragged out of it
-    Rectangle {
+    Tooltip {
         visible: dock.dragRemove
         x: Math.round(dock.dragX - width / 2)
         y: 4
-        width: removeLabel.implicitWidth + 20
-        height: 24
-        radius: 6
-        color: Config.glassMenu
-        border.color: Config.border
-        Text {
-            id: removeLabel
-            anchors.centerIn: parent
-            text: "Aus dem Dock entfernen"
-            font.family: Config.fontSans
-            font.pixelSize: 12
-            color: Config.text
-        }
+        text: "Aus dem Dock entfernen"
     }
 
     // Only the plate takes clicks; the transparent rest lets them through to windows

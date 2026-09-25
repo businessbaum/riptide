@@ -38,24 +38,12 @@ Item {
         }
     }
 
-    Rectangle {
+    Tooltip {
         visible: mouse.containsMouse && !(root.dockWindow?.dragging ?? false)
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.top
         anchors.bottomMargin: 16
-        width: label.implicitWidth + 20
-        height: 24
-        radius: 6
-        color: Config.glassMenu
-        border.color: Config.border
-        Text {
-            id: label
-            anchors.centerIn: parent
-            text: "Launchpad"
-            font.family: Config.fontSans
-            font.pixelSize: 13
-            color: Config.text
-        }
+        text: "Launchpad"
     }
 
     // Click opens Launchpad; it can be dragged to another place like every icon

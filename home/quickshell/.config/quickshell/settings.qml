@@ -23,6 +23,7 @@ FloatingWindow {
         { key: "network", title: "WLAN & Netzwerk", icon: "", colour: "#0a84ff" },
         { key: "bluetooth", title: "Bluetooth", icon: "", colour: "#0a84ff" },
         { key: "sound", title: "Ton", icon: "", colour: "#ff375f" },
+        { key: "notifications", title: "Mitteilungen", icon: "\uf0f3", colour: "#ff3b30" },
         null,
         { key: "general", title: "Allgemein", icon: "", colour: "#8e8e93" },
         { key: "apps", title: "Apps", icon: "\uf009", colour: "#0a84ff" },
@@ -144,7 +145,8 @@ FloatingWindow {
             source: {
                 const files = {
                     network: "settings/NetworkPage.qml", bluetooth: "settings/BluetoothPage.qml",
-                    sound: "settings/SoundPage.qml", general: "settings/GeneralPage.qml",
+                    sound: "settings/SoundPage.qml", notifications: "settings/NotificationsPage.qml",
+                    general: "settings/GeneralPage.qml",
                     apps: "settings/AppsPage.qml", storage: "settings/StoragePage.qml",
                     defaults: "settings/DefaultAppsPage.qml",
                     appearance: "settings/AppearancePage.qml", desktop: "settings/DesktopPage.qml",

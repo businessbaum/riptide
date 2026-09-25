@@ -56,11 +56,8 @@ PopupWindow {
         objects: [root.sink]
     }
 
-    Rectangle {
+    Glass {
         anchors.fill: parent
-        radius: Config.radiusPanel
-        color: Config.glassMenu
-        border.color: Config.border
 
         Column {
             id: content
@@ -153,7 +150,7 @@ PopupWindow {
                             title: "Nicht stören"
                             status: NotificationStore.doNotDisturb ? "Ein" : "Aus"
                             on: NotificationStore.doNotDisturb
-                            onToggled: NotificationStore.doNotDisturb = !NotificationStore.doNotDisturb
+                            onToggled: NotificationStore.setDoNotDisturb(!NotificationStore.doNotDisturb)
                         }
                     }
                 }

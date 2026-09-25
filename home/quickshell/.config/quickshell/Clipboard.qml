@@ -91,11 +91,8 @@ PanelWindow {
     implicitHeight: 470
     color: "transparent"
 
-    Rectangle {
+    Glass {
         anchors.fill: parent
-        radius: Config.radiusPanel
-        color: Config.glassMenu
-        border.color: Config.border
 
         Text {
             id: title

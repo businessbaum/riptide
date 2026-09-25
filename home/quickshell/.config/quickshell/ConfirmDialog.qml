@@ -20,13 +20,10 @@ PanelWindow {
 
     onVisibleChanged: if (visible) box.forceActiveFocus()
 
-    Rectangle {
+    Glass {
         id: box
         anchors.fill: parent
         implicitHeight: content.implicitHeight + 36
-        radius: Config.radiusPanel
-        color: Config.glassMenu
-        border.color: Config.border
 
         focus: true
         Keys.onReturnPressed: Confirm.answer(true)

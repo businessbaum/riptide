@@ -3,24 +3,17 @@ import Quickshell
 import Quickshell.Services.Notifications
 import Quickshell.Widgets
 
-// One notification banner: icon, app name, time, title, text; × while hovering.
-Rectangle {
+// App notification: icon, app name, time, title, text. The same card as a banner at the
+// top right (Banners.qml) and in the notification centre; the frame is Banner.qml.
+Banner {
     id: card
 
     // A live Notification (banner) or a history entry (notification centre)
     property var n
-    // Banner: hides itself after a while. In the centre the card stays until dismissed.
+    // Banner: hides itself (timeout from Banners.qml). In the centre it stays until removed.
     property bool banner: false
-    signal done
 
     readonly property var live: banner ? n : n?.live ?? null
-    function dismiss() {
-        if (banner)
-            n?.dismiss();
-        else
-            NotificationStore.remove(n.key);
-    }
-
     readonly property bool critical: n?.urgency === NotificationUrgency.Critical
     readonly property string iconSource: {
         if (!n)
@@ -47,25 +40,34 @@ Rectangle {
         onTriggered: card.updateAge()
     }
 
+    animated: banner
     implicitHeight: content.implicitHeight + 24
-    radius: Config.radiusPanel
-    color: Config.glassMenu
-    border.color: Config.border
 
-    // Gone from the server (closed by the app or expired) → remove the banner
+    // Click: the notification's default action, otherwise just close the banner.
+    // The banner hides; the notification stays in the centre.
+    onClicked: {
+        const action = live?.actions?.find(a => a.identifier === "default") ?? null;
+        if (action)
+            action.invoke();
+        else if (banner)
+            n?.dismiss();
+        leave();
+    }
+    // ×: gone for good (also from the centre)
+    onCloseClicked: {
+        if (banner)
+            n?.dismiss();
+        else
+            NotificationStore.remove(n.key);
+        leave();
+    }
+    // Closed by the app or expired → the banner goes
     Connections {
         target: card.banner ? card.n : null
         ignoreUnknownSignals: true
         function onClosed() {
-            card.done();
+            card.leave();
         }
-    }
-
-    Timer {
-        id: expire
-        interval: card.n && card.n.expireTimeout > 0 ? card.n.expireTimeout : 5000
-        running: card.banner && !card.critical && !mouse.containsMouse
-        onTriggered: card.done() // banner hides; the notification stays for the centre
     }
 
     Row {
@@ -91,7 +93,7 @@ Rectangle {
 
                 Text {
                     id: appName
-                    text: (card.n?.appName ?? "").toUpperCase()
+                    text: NotificationStore.nameOf(card.n).toUpperCase()
                     font.family: Config.fontSans
                     font.pixelSize: 10
                     font.letterSpacing: 0.4
@@ -128,49 +130,6 @@ Rectangle {
                 font.pixelSize: 13
                 color: Config.text
                 opacity: 0.85
-            }
-        }
-    }
-
-    MouseArea {
-        id: mouse
-        anchors.fill: parent
-        hoverEnabled: true
-        onClicked: {
-            const action = card.live?.actions?.find(a => a.identifier === "default") ?? null;
-            if (action)
-                action.invoke();
-            else if (card.banner)
-                card.n?.dismiss();
-            card.done();
-        }
-    }
-
-    // × in the top left corner while hovering, like on a Mac
-    Rectangle {
-        visible: mouse.containsMouse || closeMouse.containsMouse
-        x: -6
-        y: -6
-        width: 20
-        height: 20
-        radius: 10
-        color: Config.glassMenu
-        border.color: Config.border
-
-        Text {
-            anchors.centerIn: parent
-            text: ""
-            font.family: Config.fontSymbols
-            font.pixelSize: 10
-            color: Config.text
-        }
-        MouseArea {
-            id: closeMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            onClicked: {
-                card.dismiss();
-                card.done();
             }
         }
     }

@@ -14,7 +14,8 @@
 //   Clipboard.qml      SUPER+V clipboard history (cliphist)
 //   Switcher.qml       ⌘Tab / ⌥Tab panel (logic in Hyprland)
 //   ControlCenter.qml  + NotificationCenter.qml: panels from the menu bar
-//   Notifications.qml  notification server + banners (+ DeviceBanner.qml)
+//   BannerWindow.qml   everything at the top right (Banners.qml: notifications, system messages)
+//   BluetoothBanners   "AirPods · Verbunden" when a Bluetooth device connects
 //   Osd.qml            volume display
 //   PolkitDialog.qml   password dialog for administrator rights
 
@@ -57,7 +58,8 @@ ShellRoot {
     Launchpad {}
     Clipboard {}
     Switcher {}
-    Notifications {}
+    BannerWindow {}
+    BluetoothBanners {}
     Osd {}
     ConfirmDialog {}
     PolkitDialog {}

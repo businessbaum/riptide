@@ -45,11 +45,9 @@ PopupWindow {
         onCleared: root.close()
     }
 
-    Rectangle {
+    Glass {
         anchors.fill: parent
         radius: 10
-        color: Config.glassMenu
-        border.color: Config.border
         border.width: 1
 
         Column {

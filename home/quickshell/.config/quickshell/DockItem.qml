@@ -86,25 +86,12 @@ Item {
     }
 
     // App name above the icon while hovering
-    Rectangle {
+    Tooltip {
         visible: mouse.containsMouse && !menu.visible && !root.dockWindow.dragging
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.top
         anchors.bottomMargin: 16
-        width: tooltip.implicitWidth + 20
-        height: 24
-        radius: 6
-        color: Config.glassMenu
-        border.color: Config.border
-
-        Text {
-            id: tooltip
-            anchors.centerIn: parent
-            text: root.name
-            font.family: Config.fontSans
-            font.pixelSize: 13
-            color: Config.text
-        }
+        text: root.name
     }
 
     // Click opens; pressing and moving drags the icon (Dock.qml: reorder, pin, unpin)

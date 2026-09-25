@@ -59,11 +59,9 @@ Scope {
         implicitHeight: row.implicitHeight + 32
         color: "transparent"
 
-        Rectangle {
+        Glass {
             anchors.fill: parent
             radius: Config.radiusPanel + 6
-            color: Config.glassMenu
-            border.color: Config.border
 
             Row {
                 id: row

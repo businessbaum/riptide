@@ -79,13 +79,10 @@ PanelWindow {
     implicitHeight: panel.height
     color: "transparent"
 
-    Rectangle {
+    Glass {
         id: panel
         width: parent.width
         height: 56 + (root.results.length > 0 ? list.height + 9 : 0)
-        radius: Config.radiusPanel
-        color: Config.glassMenu
-        border.color: Config.border
 
         // Search field
         Item {

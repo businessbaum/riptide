@@ -27,7 +27,7 @@ Scope {
         const known = Object.assign({}, knownSinks);
         for (const n of bluetoothSinks) {
             if (!known[n.id] && sinksReady)
-                Pipewire.preferredDefaultAudioSink = n; // DeviceBanner shows the connection
+                Pipewire.preferredDefaultAudioSink = n; // BluetoothBanners shows the connection
             known[n.id] = true;
         }
         knownSinks = known;
@@ -84,11 +84,9 @@ Scope {
         color: "transparent"
         mask: Region {}
 
-        Rectangle {
+        Glass {
             anchors.fill: parent
             radius: height / 2
-            color: Config.glassMenu
-            border.color: Config.border
 
             Text {
                 id: speaker

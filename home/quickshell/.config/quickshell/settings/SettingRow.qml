@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import qs
 
-// One setting: title (+ subtitle) on the left, the control on the right.
+// One setting: (app icon,) title (+ subtitle) on the left, the control on the right.
 // A thin line separates it from the row above.
 Item {
     id: root
@@ -10,6 +10,10 @@ Item {
     property string title: ""
     property string subtitle: ""
     property bool first: false
+    // Optional app icon in front of the title: a desktop entry, or an icon name/app id
+    property var iconEntry: null
+    property string iconAppId: ""
+    readonly property bool hasIcon: iconEntry !== null || iconAppId !== ""
     default property alias control: slot.data
 
     Layout.fillWidth: true
@@ -23,10 +27,20 @@ Item {
         color: Config.border
     }
 
+    AppIcon {
+        id: icon
+        visible: root.hasIcon
+        x: 12
+        anchors.verticalCenter: parent.verticalCenter
+        size: 28
+        entry: root.iconEntry
+        appId: root.iconAppId
+    }
+
     Column {
         id: texts
-        anchors.left: parent.left
-        anchors.leftMargin: 12
+        anchors.left: root.hasIcon ? icon.right : parent.left
+        anchors.leftMargin: root.hasIcon ? 10 : 12
         anchors.right: slot.left
         anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter

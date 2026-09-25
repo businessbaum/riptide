@@ -73,22 +73,10 @@ Item {
     }
 
     // Tooltip: the app's name
-    Rectangle {
-        visible: mouse.containsMouse && !menu.visible && tip.text !== ""
+    Tooltip {
+        visible: mouse.containsMouse && !menu.visible && text !== ""
         anchors.top: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        width: tip.implicitWidth + 16
-        height: 22
-        radius: 5
-        color: Config.glassMenu
-        border.color: Config.border
-        Text {
-            id: tip
-            anchors.centerIn: parent
-            text: root.item.tooltipTitle || root.item.title || ""
-            font.family: Config.fontSans
-            font.pixelSize: 12
-            color: Config.text
-        }
+        text: root.item.tooltipTitle || root.item.title || ""
     }
 }

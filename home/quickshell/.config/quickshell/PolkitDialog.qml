@@ -50,13 +50,10 @@ Scope {
             }
         }
 
-        Rectangle {
+        Glass {
             id: box
             width: parent.width
             implicitHeight: content.implicitHeight + 40
-            radius: Config.radiusPanel
-            color: Config.glassMenu
-            border.color: Config.border
 
             SequentialAnimation on x {
                 id: shake
