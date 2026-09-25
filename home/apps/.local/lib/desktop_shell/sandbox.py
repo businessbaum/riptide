@@ -12,7 +12,8 @@ What the app sees:
       capture, no clipboard in the background, no input injection
   D-Bus: filtered (xdg-dbus-proxy): portals always; notifications, passwords,
       Bluetooth only with permission
-  Sound: PipeWire, only with permission for microphone or speakers
+  Sound: PipeWire unless microphone and speakers are both denied; WirePlumber decides
+      per device and asks (macos/app-permissions.lua)
   Network: none without permission
   /.flatpak-info names the app, so portals and PipeWire know who is asking.
 
@@ -148,11 +149,12 @@ def user_dirs():
 # ---------------------------------------------------------------- the sandbox
 
 class Sandbox:
-    def __init__(self, app, argv, profile, allowed):
+    def __init__(self, app, argv, profile, states):
         self.app = app
         self.argv = argv + profile.get("args", [])
         self.profile = profile
-        self.allowed = allowed  # {kind: True/False}
+        self.states = states  # {kind: "yes" | "no" | "ask"}
+        self.allowed = {kind: state == "yes" for kind, state in states.items()}
         self.instance = str(secrets.randbelow(2 ** 31))
         self.dir = RUNTIME / "macos-sandbox" / f"{app}-{self.instance}"
         self.tmp = RUNTIME / "macos-sandbox" / app / "tmp"  # shared by the app's windows
@@ -227,7 +229,7 @@ class Sandbox:
         return session, system
 
     def sound(self):
-        return self.allowed["microphone"] or self.allowed["speakers"]
+        return self.states["microphone"] != "no" or self.states["speakers"] != "no"
 
     # -------- bwrap
 
@@ -375,8 +377,6 @@ def main():
     if is_system_app(app, profiles) and mode == "run":
         os.execvp(argv[0], argv)
 
-    states = permissions.get(app)
-    allowed = {kind: state == "yes" for kind, state in states.items()}
-    sandbox = Sandbox(app, argv, profiles.get("apps", {}).get(app, {}), allowed)
+    sandbox = Sandbox(app, argv, profiles.get("apps", {}).get(app, {}), permissions.get(app))
     command = (rest or ["bash"]) if mode == "shell" else sandbox.argv
     sys.exit(sandbox.run(command, dry=(mode == "print")))

@@ -16,7 +16,7 @@ link)
     # every directory in home/ is one stow package mirroring $HOME. Config folders
     # are linked as a whole; shared folders under ~/.local/share get one link per
     # file (--no-folding), so other programs never write into this repo.
-    shared=(applications apps)
+    shared=(applications apps wireplumber)
     stow --dir=home --target="$HOME" --restow $(ls home | grep -vxF -f <(printf '%s\n' "${shared[@]}"))
     stow --dir=home --target="$HOME" --restow --no-folding "${shared[@]}"
     ;;

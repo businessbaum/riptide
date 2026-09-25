@@ -10,10 +10,14 @@ use; until then it does not get it).
     app-permissions get <app>                    {kind: yes|no|ask} of one app (JSON)
     app-permissions list                         every app with a decision (JSON)
     app-permissions set <app> <kind> <yes|no|ask>
+    app-permissions watch-sound                  one line of JSON per request of the sound
+                                                 system ({"app", "kind"}), for the shell
 """
 
 import json
+import subprocess
 import sys
+import time
 
 from gi.repository import Gio, GLib
 
@@ -138,6 +142,43 @@ def set_state(app, key, state):
         _call("SetPermission", GLib.Variant("(sbssas)", (table, True, entry, app, [state])))
 
 
+def watch_sound():
+    """Requests of WirePlumber (macos/app-permissions.lua): a sandboxed app wants a device
+    it has no decision for. They come through the PipeWire metadata "macos-permissions";
+    `pw-dump --monitor` follows it also when WirePlumber restarts and creates it anew.
+    Requests older than ten minutes are left out (the app has most likely given up)."""
+    # line-buffered: through a pipe pw-dump would keep the end of an update back
+    dump = subprocess.Popen(["stdbuf", "-oL", "pw-dump", "--monitor", "--no-colors"], stdout=subprocess.PIPE, text=True)
+    buffer = ""
+    seen = set()
+    for line in dump.stdout:
+        buffer += line
+        if line.rstrip() != "]":
+            continue  # every update is an array whose "]" stands alone on the last line
+        try:
+            objects = json.loads(buffer)
+        except ValueError:
+            continue
+        buffer = ""
+        for obj in objects if isinstance(objects, list) else []:
+            if obj.get("type") != "PipeWire:Interface:Metadata":
+                continue
+            if (obj.get("props") or {}).get("metadata.name") != "macos-permissions":
+                continue
+            for item in obj.get("metadata") or []:
+                value = item.get("value")
+                if not str(item.get("key", "")).startswith("request:") or not isinstance(value, dict):
+                    continue
+                key = (obj.get("id"), item["key"], value.get("time"))
+                if key in seen or not value.get("app") or value.get("kind") not in BY_KEY:
+                    continue
+                seen.add(key)
+                if time.time() - value.get("time", 0) > 600:
+                    continue
+                print(json.dumps({"app": value["app"], "kind": value["kind"]}), flush=True)
+    sys.exit(dump.wait())
+
+
 def main():
     args = sys.argv[1:]
     if args == ["kinds"]:
@@ -149,5 +190,7 @@ def main():
         print(json.dumps(list_all()))
     elif len(args) == 4 and args[0] == "set":
         set_state(args[1], args[2], args[3])
+    elif args == ["watch-sound"]:
+        watch_sound()
     else:
         sys.exit(__doc__)

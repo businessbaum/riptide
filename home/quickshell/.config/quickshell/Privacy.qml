@@ -12,7 +12,8 @@ import Quickshell.Io
 //   Privacy.state(app, kind)            "yes" | "no" | "ask" (not decided yet)
 //   Privacy.request(app, kind, done)    ask, once at a time per app and kind; done(state)
 //   Privacy.set(app, kind, state)       change it (System Settings)
-//   From outside (sandbox, sound):      qs ipc call privacy request <app> <kind>
+//   From outside (sandbox):             qs ipc call privacy request <app> <kind>
+//   From the sound system:              requests in the PipeWire metadata "macos-permissions"
 Singleton {
     id: root
 
@@ -111,6 +112,29 @@ Singleton {
         id: reload
         interval: 300
         onTriggered: load.running = true
+    }
+
+    // Requests from the sound system: a sandboxed app wants a microphone, an output or a
+    // camera it has no decision for (WirePlumber, macos/app-permissions.lua)
+    Process {
+        id: soundRequests
+        command: [root.tool, "watch-sound"]
+        running: true
+        stdout: SplitParser {
+            onRead: line => {
+                try {
+                    const r = JSON.parse(line);
+                    if (r.app && r.kind)
+                        root.request(r.app, r.kind, null);
+                } catch (e) {}
+            }
+        }
+        onExited: soundRestart.start() // PipeWire restarted: listen again
+    }
+    Timer {
+        id: soundRestart
+        interval: 5000
+        onTriggered: soundRequests.running = true
     }
 
     IpcHandler {
