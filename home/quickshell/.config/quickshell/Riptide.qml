@@ -48,12 +48,10 @@ Singleton {
         onConnectedChanged: {
             if (connected)
                 root.greet();
-            else {
+            else
                 root.greeted = false;
-                retry.start();
-            }
         }
-        onError: retry.start()
+        onError: root.greeted = false // e.g. the service restarted: connect again (retry)
         parser: SplitParser {
             onRead: line => {
                 let message;
@@ -76,10 +74,16 @@ Singleton {
         }
     }
 
-    // The service restarted or is not up yet: connect again
+    // Not connected and greeted (the service restarted or is not up yet): try again every
+    // 2 s, from scratch (a socket whose peer went away may still count as connected)
     Timer {
         id: retry
         interval: 2000
-        onTriggered: if (!socket.connected) socket.connected = true
+        repeat: true
+        running: !root.greeted
+        onTriggered: {
+            socket.connected = false;
+            socket.connected = true;
+        }
     }
 }

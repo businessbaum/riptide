@@ -10,6 +10,7 @@
 #   3. monitor brightness over DDC: load the i2c-dev kernel module at every boot
 #   4. the root helper riptide-helper (the only root part of the desktop) with its polkit
 #      rules and the list of protected system packages; the old appstore-helper goes
+#   5. our portal backend (riptide.portal): the portal's questions in our dialog
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -42,6 +43,10 @@ install -D -o root -g root -m 644 system/files/usr/local/share/riptide/protected
 install -D -o root -g root -m 644 system/files/usr/share/polkit-1/actions/org.riptide.helper.policy \
     /usr/share/polkit-1/actions/org.riptide.helper.policy
 rm -f /usr/local/sbin/appstore-helper /usr/share/polkit-1/actions/org.riptide.appstore.policy
+
+step "Portal-Backend (riptide.portal)"
+install -D -o root -g root -m 644 system/files/usr/share/xdg-desktop-portal/portals/riptide.portal \
+    /usr/share/xdg-desktop-portal/portals/riptide.portal
 
 echo
 echo "Fertig."

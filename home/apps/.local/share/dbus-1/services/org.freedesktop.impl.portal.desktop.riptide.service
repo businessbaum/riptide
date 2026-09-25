@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.riptide
+Exec=/bin/false
+SystemdService=riptide-session.service

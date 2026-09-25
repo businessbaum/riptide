@@ -146,6 +146,16 @@ def data_folders(app, argv, profile):
     return sorted(set(folders))
 
 
+def app_name(app):
+    """The name the user knows an app by (its start entry), else its id."""
+    for folder in ENTRY_DIRS:
+        path = folder / f"{app}.desktop"
+        if path.is_file():
+            entry = read_entry(path)
+            return entry.get("Name[de]") or entry.get("Name") or app
+    return app
+
+
 def user_dirs():
     """XDG user folders (Schreibtisch, Dokumente, …) as real paths."""
     found = {}

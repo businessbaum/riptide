@@ -42,9 +42,8 @@ def _kind(key, where, label, description, question, how, applies, glyph, colour)
             "enforced": key not in NOT_ENFORCED_YET}
 
 
-# local network: needs the app's own network namespace; background: needs our own portal
-# backend (docs/os-plan.md, order of work)
-NOT_ENFORCED_YET = {"local-network", "background"}
+# local network: needs the app's own network namespace (docs/os-plan.md, order of work)
+NOT_ENFORCED_YET = {"local-network"}
 
 
 KINDS = [

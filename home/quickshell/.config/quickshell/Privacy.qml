@@ -63,6 +63,23 @@ Singleton {
             done(value);
     }
 
+    // A question of the portal (camera, running in the background, …), same dialog
+    property var portalShown: ({}) // numbers already on screen (they come again on reconnect)
+    function portalQuestion(q) {
+        if (portalShown[q.pick])
+            return;
+        portalShown[q.pick] = true;
+        Confirm.request({
+            app: q.app,
+            title: q.title,
+            text: q.text,
+            button: q.grant,
+            cancel: q.deny,
+            action: () => Riptide.call("access.answered", { pick: q.pick, granted: true }),
+            cancelled: () => Riptide.call("access.answered", { pick: q.pick, granted: false })
+        });
+    }
+
     function set(app, kind, value) {
         states = Object.assign({}, states, { [app]: Object.assign({}, states[app], { [kind]: value }) });
         Riptide.call("permissions.set", { app: app, kind: kind, state: value });
@@ -83,6 +100,8 @@ Singleton {
                 root.states = message.states;
             else if (message.event === "request")
                 root.request(message.app, message.kind, null);
+            else if (message.event === "access")
+                root.portalQuestion(message);
         }
     }
 

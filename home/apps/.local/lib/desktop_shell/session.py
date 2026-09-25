@@ -15,6 +15,9 @@ It owns
                     (passwords, Bluetooth), which the user is then asked about
   screen sharing    the portal's picker (riptide-share-picker) asks here: permission
                     "screen" first, then the shell shows our dialog
+  portal backend    org.freedesktop.impl.portal.desktop.riptide: the portal's questions
+                    (Access: camera, background, …) in our dialog, and autostart for
+                    apps (Background), which then start in their sandbox
 
 The shell, System Settings and the command line tools talk to it through one Unix
 socket, $XDG_RUNTIME_DIR/riptide/session.sock (only this user can open it; sandboxes
@@ -26,10 +29,12 @@ never see it), one JSON object per line:
   ← {"event": "request", "app": "discord", "kind": "microphone"}  to the shell
 
   ← {"event": "share", "pick": 3, "app": "discord", "windows": [...]}   to the shell
+  ← {"event": "access", "pick": 4, "app": "discord", "title": …, "text": …, "grant": …, "deny": …}
 
   calls  hello, permissions.set {app, kind, state}, permissions.request {app, kind},
          apps.launch {app, args, run}, apps.sync,
          screen.pick {windows} (the picker), screen.picked {pick, selection} (the shell),
+         access.answered {pick, granted} (the shell),
          status (who is connected, what is open – for troubleshooting)
 """
 
@@ -118,7 +123,8 @@ class Service:
         self.timers = {}
         self.logs = {}       # dbus.log path → {"offset", "app", "dest"}
         self.screen_requests = []  # [(time, app)] apps that asked the portal to share the screen
-        self.picks = {}      # id → (picker client, message id) while our share dialog is open
+        self.picks = {}      # number → open share dialog (see screen_pick)
+        self.accesses = {}   # number → open portal question (see access)
         self.next_pick = 1
 
     # ------------------------------------------------------------ start
@@ -130,6 +136,7 @@ class Service:
         self.watch_sound()
         self.watch_apps()
         self.watch_proxy_logs()
+        self.portal = PortalBackend(self)
         GLib.timeout_add_seconds(300, lambda: (sandbox.gc(), True)[1])
         GLib.idle_add(self.sync)
         self.listen()
@@ -182,6 +189,8 @@ class Service:
                         client.send({"event": "request", "app": app, "kind": kind})
                     for pick, entry in sorted(self.picks.items()):
                         client.send(entry["event"])
+                    for pick, entry in sorted(self.accesses.items()):
+                        client.send(entry["event"])
             elif call == "permissions.set":
                 permissions.set_state(message["app"], message["kind"], message["state"])
                 client.reply(msg_id, True)  # the store's signal brings the new states to all
@@ -198,6 +207,9 @@ class Service:
                                       "picks": sorted(self.picks), "sandboxes": list(self.sandboxes.values())})
             elif call == "screen.pick":
                 self.screen_pick(client, msg_id, message.get("windows", []))
+            elif call == "access.answered":
+                self.access_answered(message["pick"], bool(message.get("granted")))
+                client.reply(msg_id, True)
             elif call == "screen.picked":
                 self.screen_picked(message["pick"], message.get("selection"))
                 client.reply(msg_id, True)
@@ -434,6 +446,25 @@ class Service:
         self.broadcast({"event": "share-cancelled", "pick": pick}, role="shell")
         return False
 
+    # ------------------------------------------------------------ questions of the portal
+
+    def access(self, app, title, text, grant, deny, done):
+        """Show one of the portal's questions in our dialog; done(granted)."""
+        pick = self.next_pick
+        self.next_pick += 1
+        event = {"event": "access", "pick": pick, "app": app, "title": title, "text": text,
+                 "grant": grant, "deny": deny}
+        self.accesses[pick] = {"done": done, "event": event}
+        if not any(c.role == "shell" for c in self.clients):
+            self.access_answered(pick, False)
+            return
+        self.broadcast(event, role="shell")
+
+    def access_answered(self, pick, granted):
+        entry = self.accesses.pop(pick, None)
+        if entry:
+            entry["done"](granted)
+
     # ------------------------------------------------------------ start entries
 
     def watch_apps(self):
@@ -453,6 +484,108 @@ class Service:
         except Exception:
             log(traceback.format_exc())
         return False
+
+
+PORTAL_XML = """
+<node>
+  <interface name="org.freedesktop.impl.portal.Access">
+    <method name="AccessDialog">
+      <arg type="o" name="handle" direction="in"/>
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="parent_window" direction="in"/>
+      <arg type="s" name="title" direction="in"/>
+      <arg type="s" name="subtitle" direction="in"/>
+      <arg type="s" name="body" direction="in"/>
+      <arg type="a{sv}" name="options" direction="in"/>
+      <arg type="u" name="response" direction="out"/>
+      <arg type="a{sv}" name="results" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.freedesktop.impl.portal.Background">
+    <method name="GetAppState">
+      <arg type="a{sv}" name="apps" direction="out"/>
+    </method>
+    <method name="NotifyBackground">
+      <arg type="o" name="handle" direction="in"/>
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="name" direction="in"/>
+      <arg type="u" name="response" direction="out"/>
+      <arg type="a{sv}" name="results" direction="out"/>
+    </method>
+    <method name="EnableAutostart">
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="b" name="enable" direction="in"/>
+      <arg type="as" name="commandline" direction="in"/>
+      <arg type="u" name="flags" direction="in"/>
+      <arg type="b" name="result" direction="out"/>
+    </method>
+    <signal name="RunningApplicationsChanged"/>
+  </interface>
+</node>
+"""
+AUTOSTART = HOME / ".config/autostart"
+
+
+class PortalBackend:
+    """Our backend of xdg-desktop-portal (registered by riptide.portal and
+    xdg-desktop-portal/hyprland-portals.conf): the questions the portal asks – camera,
+    running in the background, … – come to our dialog instead of GTK's, and apps that
+    want to start at login get an autostart entry that starts them in their sandbox."""
+
+    NAME = "org.freedesktop.impl.portal.desktop.riptide"
+    PATH = "/org/freedesktop/portal/desktop"
+
+    def __init__(self, service):
+        self.service = service
+        self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        info = Gio.DBusNodeInfo.new_for_xml(PORTAL_XML)
+        for interface in info.interfaces:
+            self.bus.register_object(self.PATH, interface, self.on_call, None, None)
+        Gio.bus_own_name_on_connection(self.bus, self.NAME, Gio.BusNameOwnerFlags.NONE, None, None)
+
+    def on_call(self, _bus, _sender, _path, interface, method, params, invocation):
+        try:
+            if method == "AccessDialog":
+                _handle, app_id, _parent, title, subtitle, body, options = params.unpack()
+                app = permissions.desktop_id(app_id)
+                # the portal names the app by its id; the user knows its name
+                name = sandbox.app_name(app)
+                text = "\n\n".join(t for t in (subtitle, body) if t).replace(app_id, name)
+
+                def done(granted):
+                    invocation.return_value(GLib.Variant("(ua{sv})", (0 if granted else 1, {})))
+                self.service.access(app, title.replace(app_id, name), text,
+                                    options.get("grant_label") or "Erlauben", options.get("deny_label") or "Nicht erlauben", done)
+            elif method == "GetAppState":
+                invocation.return_value(GLib.Variant("(a{sv})", ({},)))
+            elif method == "NotifyBackground":
+                # the permission "background" was already decided by the portal: allow this time
+                invocation.return_value(GLib.Variant("(ua{sv})", (0, {"result": GLib.Variant("u", 2)})))
+            elif method == "EnableAutostart":
+                app_id, enable, commandline, _flags = params.unpack()
+                invocation.return_value(GLib.Variant("(b)", (self.autostart(permissions.desktop_id(app_id), enable, commandline),)))
+            else:
+                invocation.return_dbus_error("org.freedesktop.DBus.Error.UnknownMethod", method)
+        except Exception as e:
+            log(traceback.format_exc())
+            invocation.return_dbus_error("org.freedesktop.DBus.Error.Failed", str(e))
+
+    def autostart(self, app, enable, commandline):
+        """~/.config/autostart/<app>.desktop: starts the app in its sandbox at login."""
+        path = AUTOSTART / f"{app}.riptide.desktop"
+        if not enable:
+            path.unlink(missing_ok=True)
+            return True
+        if not commandline or not re.fullmatch(r"[A-Za-z0-9_.+-]+", app):
+            return False
+        import shlex
+        me = HOME / ".local/bin/app-sandbox"
+        AUTOSTART.mkdir(parents=True, exist_ok=True)
+        path.write_text("[Desktop Entry]\nType=Application\n"
+                        f"Name={sandbox.app_name(app)}\n"
+                        f"Exec={me} --run {app} {shlex.join(commandline)}\n"
+                        "X-Riptide-Autostart=true\n", encoding="utf-8")
+        return True
 
 
 def main():
