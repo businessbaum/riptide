@@ -1,0 +1,47 @@
+# Packages that are the system itself: never removed through the App Store or System
+# Settings → Apps. One pattern per line (extended regular expression, whole name).
+# Read by /usr/local/sbin/riptide-helper (as root) and apps-info.py. Only root can change
+# this file (installed by system/setup-os.sh).
+base
+base-devel
+linux
+linux-lts
+linux-firmware
+linux-headers
+linux-lts-headers
+amd-ucode
+intel-ucode
+systemd
+pacman
+sudo
+glibc
+bash
+coreutils
+filesystem
+limine
+btrfs-progs
+cryptsetup
+snapper
+snap-pac
+networkmanager
+firewalld
+openssh
+nvidia.*
+mesa
+hyprland
+quickshell
+uwsm
+xdg-desktop-portal.*
+pipewire.*
+wireplumber
+polkit
+dbus.*
+git
+stow
+kitty
+nautilus
+gnome-keyring
+tpm2-.*
+bubblewrap
+xdg-dbus-proxy
+flatpak

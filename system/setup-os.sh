@@ -8,6 +8,8 @@
 #   2. services: disk health watch (smartd), monthly btrfs check (scrub), energy mode,
 #      firmware update check, NVIDIA sleep/wake (keeps the screen content across sleep)
 #   3. monitor brightness over DDC: load the i2c-dev kernel module at every boot
+#   4. the root helper riptide-helper (the only root part of the desktop) with its polkit
+#      rules and the list of protected system packages; the old appstore-helper goes
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -32,6 +34,14 @@ else
     echo i2c-dev > "$conf"
     modprobe i2c-dev
 fi
+
+step "Root-Helfer (riptide-helper) und Polkit-Regeln"
+install -D -o root -g root -m 755 system/files/usr/local/sbin/riptide-helper /usr/local/sbin/riptide-helper
+install -D -o root -g root -m 644 system/files/usr/local/share/riptide/protected-packages \
+    /usr/local/share/riptide/protected-packages
+install -D -o root -g root -m 644 system/files/usr/share/polkit-1/actions/org.riptide.helper.policy \
+    /usr/share/polkit-1/actions/org.riptide.helper.policy
+rm -f /usr/local/sbin/appstore-helper /usr/share/polkit-1/actions/org.riptide.appstore.policy
 
 echo
 echo "Fertig."

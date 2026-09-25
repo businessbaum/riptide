@@ -19,12 +19,17 @@ from pathlib import Path
 HOME = Path.home()
 ENV = dict(os.environ, LC_ALL="C")
 
-# Same list as /usr/local/sbin/appstore-helper: part of the system, never removed here
-PROTECTED = re.compile(r"^(base|base-devel|linux|linux-lts|linux-firmware|linux-headers|linux-lts-headers|"
-                       r"amd-ucode|intel-ucode|systemd|pacman|sudo|glibc|bash|coreutils|filesystem|limine|"
-                       r"btrfs-progs|cryptsetup|snapper|snap-pac|networkmanager|firewalld|openssh|nvidia.*|mesa|"
-                       r"hyprland|quickshell|uwsm|xdg-desktop-portal.*|pipewire.*|wireplumber|polkit|dbus.*|git|"
-                       r"stow|kitty|nautilus|gnome-keyring|tpm2-.*)$")
+# Part of the system, never removed here (the same list the root helper checks)
+def protected_patterns():
+    try:
+        lines = Path("/usr/local/share/riptide/protected-packages").read_text().splitlines()
+    except OSError:
+        lines = []
+    patterns = [l.strip() for l in lines if l.strip() and not l.startswith("#")]
+    return re.compile("^(" + "|".join(patterns) + ")$") if patterns else re.compile("(?!)")
+
+
+PROTECTED = protected_patterns()
 
 # Folders of our own desktop – never offered as "leftovers"
 OWN = {"macos", "hypr", "quickshell", "desktop-theme", "appstore", "uwsm", "systemd", "gtk-3.0", "gtk-4.0",

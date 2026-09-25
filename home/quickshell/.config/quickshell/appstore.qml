@@ -4,7 +4,7 @@
 
 // "App Store": a separate Quickshell instance (own app id → own dock icon), built on the
 // official Arch app catalog (appstream) and pacman. Installing and removing goes through
-// /usr/local/sbin/appstore-helper (pkexec → our password dialog), official repos only.
+// /usr/local/sbin/riptide-helper (pkexec → our password dialog), official repos only.
 //   Start:  scripts/app-store.sh   (org.riptide.AppStore.desktop)
 
 import QtQuick

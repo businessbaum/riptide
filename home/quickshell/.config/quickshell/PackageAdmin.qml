@@ -4,7 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Runs the root helper /usr/local/sbin/appstore-helper through pkexec (our password
+// Runs the root helper /usr/local/sbin/riptide-helper through pkexec (our password
 // dialog asks once, then polkit remembers it for a few minutes). Shared by the App Store
 // and System Settings (Apps, Speicher). One operation at a time.
 //   run("install" | "remove" | "upgrade" | "clean-cache", pkgs, displayName)
@@ -32,7 +32,7 @@ Singleton {
         busy = { action: action, pkgs: pkgs, name: name };
         log = [];
         lastError = "";
-        helper.command = ["pkexec", "/usr/local/sbin/appstore-helper", action].concat(pkgs);
+        helper.command = ["pkexec", "/usr/local/sbin/riptide-helper", "packages", action].concat(pkgs);
         helper.running = true;
     }
 
