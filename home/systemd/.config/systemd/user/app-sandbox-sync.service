@@ -1,0 +1,8 @@
+[Unit]
+Description=Make every app start in its sandbox (app-sandbox --sync)
+
+[Service]
+Type=oneshot
+# a package installs many files: wait for the rest before looking
+ExecStartPre=/usr/bin/sleep 3
+ExecStart=%h/.local/bin/app-sandbox --sync

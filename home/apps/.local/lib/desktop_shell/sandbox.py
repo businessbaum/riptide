@@ -1,8 +1,10 @@
 """Start a desktop app in its sandbox (docs/os-plan.md, "App permissions").
 
     app-sandbox <desktop-id> [file or URL …]   start the app
+    app-sandbox --run <desktop-id> <cmd …>     run this command as the app (desktop entries)
     app-sandbox --print <desktop-id>           show the sandbox command instead
     app-sandbox --shell <desktop-id> [cmd …]   a shell (or command) in the app's sandbox (testing)
+    app-sandbox --sync                         make every app start in its sandbox (see sync())
 
 What the app sees:
   /usr, /etc (read-only), its GPU, a private /tmp and /dev without other devices
@@ -21,6 +23,7 @@ System apps (sandbox.json → system_apps) start without a sandbox.
 """
 
 import configparser
+import fcntl
 import fnmatch
 import json
 import os
@@ -47,7 +50,9 @@ ENTRY_DIRS = [Path("/usr/local/share/applications"), Path("/usr/share/applicatio
 # The desktop's look, read-only in every sandbox
 LOOK = [".config/gtk-3.0", ".config/gtk-4.0", ".gtkrc-2.0", ".config/fontconfig", ".local/share/fonts",
         ".config/qt5ct", ".config/qt6ct", ".config/Kvantum", ".local/share/icons", ".icons",
-        ".config/user-dirs.dirs", ".config/user-dirs.locale"]
+        ".config/user-dirs.dirs", ".config/user-dirs.locale",
+        # default apps: read-only, so an app knows whether it is the default (Thunderbird)
+        ".config/mimeapps.list"]
 
 # Environment the app keeps; everything else is dropped (no SSH agent, no Hyprland socket …)
 KEEP_ENV = re.compile(r"^(PATH|LANG|LANGUAGE|LC_.*|TZ|USER|LOGNAME|HOME|SHELL|TERM|XDG_CURRENT_DESKTOP|"
@@ -118,10 +123,10 @@ def is_system_app(app, profiles):
 
 
 def data_folders(app, argv, profile):
-    """The app's own folders in the home folder: from its profile, else folders named
+    """The app's own folders (and files) in the home folder: from its profile, else folders named
     after it in ~/.config, ~/.local/share, ~/.local/state and ~/.cache. A name that is
     also another program (e.g. `claude`) is only used when the profile lists it."""
-    folders = [Path(p).expanduser() for p in profile.get("data", []) if Path(p).expanduser().is_dir()]
+    folders = [Path(p).expanduser() for p in profile.get("data", []) if Path(p).expanduser().exists()]
     names = {app.lower(), app.rsplit(".", 1)[-1].lower(), Path(argv[0]).name.lower()}
     for name in sorted(names):
         other = shutil.which(name)
@@ -151,7 +156,8 @@ def user_dirs():
 
 class Sandbox:
     def __init__(self, app, argv, profile, states):
-        self.app = app
+        self.app = app                            # desktop id (files, profile, the user)
+        self.id = permissions.store_key(app)      # id for portals, PipeWire, D-Bus
         self.argv = argv + profile.get("args", [])
         self.profile = profile
         self.states = states  # {kind: "yes" | "no" | "ask"}
@@ -164,13 +170,14 @@ class Sandbox:
         self.children = []
         self.data = []  # fds bwrap reads (--ro-bind-data), closed once it started
         self.hold = []  # fds that keep the helpers alive while the app runs
+        self.ref = None  # the instance's .ref, locked while the app runs
 
     # -------- helpers outside the sandbox
 
     def flatpak_info(self):
         shared = ["ipc"] + (["network"] if self.allowed["network"] else [])
         sockets = ["wayland"] + (["pulseaudio"] if self.sound() else [])
-        return (f"[Application]\nname={self.app}\nruntime=runtime/org.riptide.Host/x86_64/host\n\n"
+        return (f"[Application]\nname={self.id}\nruntime=runtime/org.riptide.Host/x86_64/host\n\n"
                 f"[Instance]\ninstance-id={self.instance}\ninstance-path={self.container.parent}\n"
                 f"app-path=/usr\nbranch=host\narch=x86_64\nflatpak-version=1.18.3\n"
                 f"session-bus-proxy=true\nsystem-bus-proxy=true\n\n"
@@ -186,7 +193,7 @@ class Sandbox:
 
     def start_wayland(self):
         socket = self.dir / "wayland-0"
-        helper = subprocess.Popen([HELPERS / "wl-security-context", socket, self.app, self.instance],
+        helper = subprocess.Popen([HELPERS / "wl-security-context", socket, self.id, self.instance],
                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         if helper.stdout.readline().strip() != "ready":
             fail("Der abgesicherte Bildschirmzugang konnte nicht eingerichtet werden.")
@@ -197,11 +204,19 @@ class Sandbox:
         """xdg-dbus-proxy for the session and system bus, itself in a small sandbox with
         the app's /.flatpak-info, so the portals see the app's identity behind it."""
         session, system = self.dir / "bus", self.dir / "system_bus"
-        rules = ["--filter", f"--own={self.app}", f"--own={self.app}.*",
+        # its own bus name, if its id can be one (needs a dot: "discord" cannot)
+        own = [f"--own={self.id}", f"--own={self.id}.*"]
+        rules = ["--filter", *own,
                  "--talk=org.freedesktop.portal.*", "--call=org.freedesktop.portal.*=*",
                  "--broadcast=org.freedesktop.portal.*=@/org/freedesktop/portal/*",
-                 # menu bar icon and media controls
-                 "--talk=org.kde.StatusNotifierWatcher", "--own=org.kde.*", "--own=org.mpris.MediaPlayer2.*"]
+                 # menu bar icon: exact names only (StatusNotifierItem-<pid>-<n>, pids inside
+                 # the sandbox are small), never a whole namespace: owning org.kde.* or
+                 # org.freedesktop.* would let an app pose as a system service
+                 "--talk=org.kde.StatusNotifierWatcher", "--talk=org.freedesktop.StatusNotifierWatcher",
+                 *[f"--own={ns}.StatusNotifierItem-{pid}-{n}" for ns in ("org.kde", "org.freedesktop")
+                   for pid in range(1, 40) for n in range(1, 4)],
+                 # media controls (now playing, media keys)
+                 "--own=org.mpris.MediaPlayer2.*"]
         rules += [f"--own={name}" for name in self.profile.get("dbus_own", [])]
         rules += [f"--talk={name}" for name in self.profile.get("dbus_own", [])]
         if self.allowed["notifications"]:
@@ -250,7 +265,9 @@ class Sandbox:
               # links and mail addresses open through the portal, never inside the sandbox
               "--ro-bind-try", "/usr/lib/flatpak-xdg-utils/xdg-open", "/usr/bin/xdg-open",
               "--ro-bind-try", "/usr/lib/flatpak-xdg-utils/xdg-email", "/usr/bin/xdg-email"]
-        for sys_dir in ("block", "bus", "class", "dev", "devices"):
+        # (module: the NVIDIA driver reads its parameters there, else apps fall back to the
+        # onboard GPU and fail to hand frames to the compositor)
+        for sys_dir in ("block", "bus", "class", "dev", "devices", "module"):
             a += ["--ro-bind-try", f"/sys/{sys_dir}", f"/sys/{sys_dir}"]
 
         # devices: the GPU always, the rest only with permission (never /dev/snd: sound
@@ -265,6 +282,8 @@ class Sandbox:
         if self.allowed["camera"]:
             for node in sorted(Path("/dev").glob("video*")):
                 a += ["--dev-bind", str(node), str(node)]
+        for node in self.profile.get("devices", []):  # what the app is known to need
+            a += ["--dev-bind-try", node, node]
 
         # home folder: all of it with permission, else the app's container with its own
         # folders, the look and the folders it may use
@@ -289,7 +308,7 @@ class Sandbox:
               "--bind", str(wayland), str(RUNTIME / "wayland-0"),
               "--bind", str(bus), str(RUNTIME / "bus"),
               "--bind", str(system_bus), "/run/dbus/system_bus_socket",
-              "--bind-try", str(RUNTIME / "doc/by-app" / self.app), str(RUNTIME / "doc")]
+              "--bind-try", str(RUNTIME / "doc/by-app" / self.id), str(RUNTIME / "doc")]
         if self.sound():
             a += ["--bind", str(RUNTIME / "pipewire-0"), str(RUNTIME / "pipewire-0"),
                   "--bind", str(RUNTIME / "pulse/native"), str(RUNTIME / "pulse/native")]
@@ -304,7 +323,7 @@ class Sandbox:
         a += ["--setenv", "XDG_RUNTIME_DIR", str(RUNTIME), "--setenv", "WAYLAND_DISPLAY", "wayland-0",
               "--setenv", "DBUS_SESSION_BUS_ADDRESS", f"unix:path={RUNTIME}/bus",
               "--setenv", "GTK_USE_PORTAL", "1", "--setenv", "NO_AT_BRIDGE", "1", "--setenv", "GTK_A11Y", "none",
-              "--setenv", "FLATPAK_ID", self.app, "--chdir", str(HOME)]
+              "--setenv", "FLATPAK_ID", self.id, "--chdir", str(HOME)]
         return a
 
     # -------- run
@@ -334,9 +353,15 @@ class Sandbox:
             self.close_data()
             with os.fdopen(info_r, "rb") as f:
                 bwrap_info = f.read()
+            # the same layout as a Flatpak instance: the portal reads every instance (e.g. for
+            # background apps) and crashes on an incomplete one. `.ref` stays read-locked
+            # while the app runs; that is how "running" is recognised.
             self.instance_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             (self.instance_dir / "bwrapinfo.json").write_bytes(bwrap_info)
             (self.instance_dir / "info").write_text(self.flatpak_info())
+            (self.instance_dir / "pid").write_text(str(app.pid))
+            self.ref = open(self.instance_dir / ".ref", "a+")  # a read lock needs read access
+            fcntl.lockf(self.ref, fcntl.LOCK_SH | fcntl.LOCK_NB)
             os.write(block_w, b"x")
             os.close(block_w)
             signal.signal(signal.SIGTERM, lambda *_: app.terminate())
@@ -352,6 +377,9 @@ class Sandbox:
 
     def stop(self):
         self.close_data()
+        if self.ref:
+            self.ref.close()
+            self.ref = None
         for fd in self.hold:
             os.close(fd)
         self.hold = []
@@ -378,23 +406,146 @@ def ask(app, kind, timeout=300):
     return "no"
 
 
+# ---------------------------------------------------------------- files handed to the app
+
+def forward_files(app_id, args):
+    """Files and folders passed to the app (a double click in the file manager, "open
+    with", an attachment) are given to it through the document portal – just these, like
+    Flatpak does – and it gets their path inside its sandbox. Other arguments stay."""
+    from urllib.parse import unquote, urlparse
+
+    from gi.repository import Gio, GLib
+
+    result = []
+    bus = None
+    for arg in args:
+        uri = arg.startswith("file://")
+        path = Path(unquote(urlparse(arg).path)) if uri else Path(arg)
+        if not path.is_absolute() or not path.exists():
+            result.append(arg)
+            continue
+        try:
+            bus = bus or Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            fd = os.open(path, os.O_PATH | os.O_CLOEXEC)
+            fds = Gio.UnixFDList.new_from_array([fd])
+            # flags: 1 reuse an existing document, 8 the path is a folder
+            flags = 1 | (8 if path.is_dir() else 0)
+            reply, _ = bus.call_with_unix_fd_list_sync(
+                "org.freedesktop.portal.Documents", "/org/freedesktop/portal/documents",
+                "org.freedesktop.portal.Documents", "AddFull",
+                GLib.Variant("(ahusas)", ([0], flags, app_id, ["read", "write"])),
+                GLib.VariantType("(asa{sv})"), Gio.DBusCallFlags.NONE, 5000, fds, None)
+            doc_id = reply.unpack()[0][0]
+            inside = RUNTIME / "doc" / doc_id / path.name
+            result.append(f"file://{inside}" if uri else str(inside))
+        except (OSError, GLib.Error) as e:
+            print(f"app-sandbox: {path} could not be handed to the app: {e}", file=sys.stderr)
+            result.append(arg)
+    return result
+
+
+# ---------------------------------------------------------------- every app sandboxed
+
+OVERRIDES = HOME / ".local/share/applications"
+DBUS_OVERRIDES = HOME / ".local/share/dbus-1/services"
+MARK = "X-Sandbox-Override"
+
+
+def sync():
+    """Make every app start in its sandbox, however it is started: dock, Spotlight,
+    Launchpad, a file or link opened by another app, D-Bus activation. For each app in
+    /usr/share/applications (not system apps, not hidden helpers, not terminal programs)
+    an override with the same id goes to ~/.local/share/applications, whose Exec lines run
+    `app-sandbox --run`; D-Bus activatable apps also get a service override. Overrides of
+    apps that are gone or became system apps are removed. Runs at login and whenever apps
+    are installed or removed (app-sandbox-sync.path)."""
+    profiles = load_profiles()
+    me = HOME / ".local/bin/app-sandbox"
+    wanted = {}
+    for folder in (Path("/usr/share/applications"), Path("/usr/local/share/applications")):
+        for source in sorted(folder.glob("*.desktop")):
+            app = source.stem
+            entry = read_entry(source)
+            if (entry.get("Type") != "Application" or entry.get("NoDisplay") == "true"
+                    or entry.get("Hidden") == "true" or entry.get("Terminal") == "true"
+                    or is_system_app(app, profiles) or "flatpak run" in entry.get("Exec", "")
+                    or app in wanted or own_entry(OVERRIDES / source.name)):
+                continue
+            wanted[app] = source
+
+    OVERRIDES.mkdir(parents=True, exist_ok=True)
+    DBUS_OVERRIDES.mkdir(parents=True, exist_ok=True)
+    for app, source in wanted.items():
+        lines, dbus = [], False
+        for line in source.read_text(encoding="utf-8").splitlines():
+            if line.startswith("Exec="):
+                line = f"Exec={me} --run {app} {line[5:]}"
+            elif line.startswith("DBusActivatable="):
+                dbus = line.strip() == "DBusActivatable=true"
+                continue  # launchers must use Exec (sandboxed), not D-Bus
+            lines.append(line)
+            if line.strip() == "[Desktop Entry]":
+                lines += [f"{MARK}=true", f"X-Sandbox-Source={source}"]
+        text = (f"# Made by app-sandbox --sync: starts {app} in its sandbox. Do not edit.\n"
+                + "\n".join(lines) + "\n")
+        write_if_changed(OVERRIDES / source.name, text)
+        service = Path("/usr/share/dbus-1/services") / f"{app}.service"
+        if dbus and service.is_file():
+            exec_line = next((l[5:] for l in service.read_text(encoding="utf-8").splitlines()
+                              if l.startswith("Exec=")), None)
+            if exec_line:
+                write_if_changed(DBUS_OVERRIDES / service.name,
+                                 f"# Made by app-sandbox --sync ({MARK}): starts {app} in its sandbox.\n"
+                                 f"[D-BUS Service]\nName={app}\nExec={me} --run {app} {exec_line}\n")
+
+    # remove overrides of apps that are gone or are system apps now
+    for path in OVERRIDES.glob("*.desktop"):
+        if not path.is_symlink() and path.stem not in wanted and read_entry(path).get(MARK) == "true":
+            path.unlink()
+    for path in DBUS_OVERRIDES.glob("*.service"):
+        if path.stem not in wanted and MARK in path.read_text(encoding="utf-8").split("\n", 1)[0]:
+            path.unlink()
+    subprocess.run(["update-desktop-database", str(OVERRIDES)], capture_output=True)
+
+
+def own_entry(path):
+    """A start entry of our own (dotfiles, e.g. hiding a helper app) is never replaced."""
+    return path.is_symlink() or (path.exists() and read_entry(path).get(MARK) != "true")
+
+
+def write_if_changed(path, text):
+    if path.is_symlink():
+        return
+    if not path.exists() or path.read_text(encoding="utf-8") != text:
+        tmp = path.with_name(f".{path.name}.tmp")
+        tmp.write_text(text, encoding="utf-8")
+        tmp.replace(path)
+
+
 def main():
     args = sys.argv[1:]
-    mode = "run"
-    if args and args[0] in ("--print", "--shell"):
+    if args == ["--sync"]:
+        return sync()
+    mode = "start"
+    if args and args[0] in ("--print", "--shell", "--run"):
         mode, args = args[0][2:], args[1:]
-    if not args:
+    if not args or (mode == "run" and len(args) < 2):
         sys.exit(__doc__)
     app, rest = args[0].removesuffix(".desktop"), args[1:]
-
-    entry = find_entry(app)
-    argv = exec_argv(entry, [] if mode == "shell" else rest)
     profiles = load_profiles()
-    if is_system_app(app, profiles) and mode == "run":
+    launching = mode in ("start", "run")
+    if launching and not is_system_app(app, profiles):
+        first = 1 if mode == "run" else 0  # (with --run the first word is the program)
+        rest = rest[:first] + forward_files(permissions.store_key(app), rest[first:])
+    if mode == "run":
+        argv = rest  # a desktop entry's command, field codes already filled in
+    else:
+        argv = exec_argv(find_entry(app), [] if mode == "shell" else rest)
+    if is_system_app(app, profiles) and launching:
         os.execvp(argv[0], argv)
 
     states = permissions.get(app)
-    if states["network"] == "ask" and mode == "run":
+    if states["network"] == "ask" and launching:
         states["network"] = ask(app, "network")
     sandbox = Sandbox(app, argv, profiles.get("apps", {}).get(app, {}), states)
     command = (rest or ["bash"]) if mode == "shell" else sandbox.argv

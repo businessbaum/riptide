@@ -15,6 +15,7 @@ use; until then it does not get it).
 """
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -87,6 +88,21 @@ KINDS = [
           "im Hintergrund weiterlaufen", "portal", "live", "\U000f0150", "#8e8e93"),
 ]
 BY_KEY = {k["key"]: k for k in KINDS}
+
+# The id an app has in the store, the sandbox and the portals. Portals need ids like
+# org.example.App (they even crash on others, e.g. "discord"), so apps whose desktop id is
+# not one get a prefix: discord → org.riptide.sandbox.discord. Everything user-facing keeps
+# using the desktop id; this is the only place that converts.
+PREFIX = "org.riptide.sandbox."
+_VALID_ID = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*(\.[A-Za-z_][A-Za-z0-9_-]*){2,}$")
+
+
+def store_key(app):
+    return app if _VALID_ID.match(app) and not app.startswith(PREFIX) else PREFIX + app
+
+
+def desktop_id(key):
+    return key[len(PREFIX):] if key.startswith(PREFIX) else key
 STATES = ("yes", "no", "ask")
 
 
@@ -119,7 +135,7 @@ def get(app):
         where = (k["table"], k["id"])
         if where not in cache:
             cache[where] = _lookup(*where)
-        values = cache[where].get(app, [])
+        values = cache[where].get(store_key(app), [])
         result[k["key"]] = values[0] if values and values[0] in ("yes", "no") else "ask"
     return result
 
@@ -131,7 +147,7 @@ def list_all():
     for k in KINDS:
         if (k["table"], k["id"]) not in seen:
             seen.add((k["table"], k["id"]))
-            apps |= set(_lookup(k["table"], k["id"]))
+            apps |= {desktop_id(key) for key in _lookup(k["table"], k["id"])}
     return {app: get(app) for app in sorted(apps)}
 
 
@@ -141,12 +157,12 @@ def set_state(app, key, state):
     table, entry = BY_KEY[key]["table"], BY_KEY[key]["id"]
     if state == "ask":
         try:
-            _call("DeletePermission", GLib.Variant("(sss)", (table, entry, app)))
+            _call("DeletePermission", GLib.Variant("(sss)", (table, entry, store_key(app))))
         except GLib.Error as e:
             if "NotFound" not in e.message and "not found" not in e.message.lower():
                 raise
     else:
-        _call("SetPermission", GLib.Variant("(sbssas)", (table, True, entry, app, [state])))
+        _call("SetPermission", GLib.Variant("(sbssas)", (table, True, entry, store_key(app), [state])))
 
 
 def watch_sound():
@@ -182,7 +198,7 @@ def watch_sound():
                 seen.add(key)
                 if time.time() - value.get("time", 0) > 600:
                     continue
-                print(json.dumps({"app": value["app"], "kind": value["kind"]}), flush=True)
+                print(json.dumps({"app": desktop_id(value["app"]), "kind": value["kind"]}), flush=True)
     sys.exit(dump.wait())
 
 
