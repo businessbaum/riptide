@@ -18,11 +18,16 @@
 //   BluetoothBanners   "AirPods · Verbunden" when a Bluetooth device connects
 //   Osd.qml            volume display
 //   PolkitDialog.qml   password dialog for administrator rights
+//   Privacy.qml        app permissions: asks, remembers (docs/os-plan.md)
 
 import QtQuick
 import Quickshell
 
 ShellRoot {
+    // Services that must run from the start (singletons start on first use otherwise):
+    // Privacy answers the sandbox's questions over IPC
+    readonly property var services: [Privacy]
+
     // No "Config reloaded" toast on every save; a failed reload becomes a notification
     Connections {
         target: Quickshell

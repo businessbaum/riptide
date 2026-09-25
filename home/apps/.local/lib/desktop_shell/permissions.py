@@ -24,29 +24,57 @@ INTERFACE = "org.freedesktop.impl.portal.PermissionStore"
 # Our own table for everything the portals have no table for
 TABLE = "org.riptide.sandbox"
 
-# key, (table, id), German label, what it allows, how the app gets asked
+# Every kind of permission:
+#   key, where it is stored (table, id), label, what it allows, the question
+#   ("„App“ möchte …"), how the app gets asked (prompt: on first use, portal: through the
+#   portal's dialog, switch: only in System Settings) and when a change applies (live, or
+#   restart: the next time the app starts).
+def _kind(key, where, label, description, question, how, applies):
+    return {"key": key, "table": where[0], "id": where[1], "label": label, "description": description,
+            "question": question, "how": how, "applies": applies}
+
+
 KINDS = [
-    ("microphone", ("devices", "microphone"), "Mikrofon", "Ton aufnehmen", "prompt"),
-    ("speakers", ("devices", "speakers"), "Lautsprecher", "Ton abspielen", "prompt"),
-    ("camera", ("devices", "camera"), "Kamera", "Bilder der Kamera sehen", "portal"),
-    ("screen", (TABLE, "screen"), "Bildschirmaufnahme", "Den Bildschirm oder Fenster sehen und teilen", "portal"),
-    ("network", (TABLE, "network"), "Internet", "Verbindungen ins Internet", "prompt"),
-    ("local-network", (TABLE, "local-network"), "Lokales Netzwerk", "Geräte im eigenen Netzwerk finden und erreichen", "prompt"),
-    ("desktop", (TABLE, "files-desktop"), "Schreibtisch", "Dateien im Ordner Schreibtisch", "switch"),
-    ("documents", (TABLE, "files-documents"), "Dokumente", "Dateien im Ordner Dokumente", "switch"),
-    ("downloads", (TABLE, "files-downloads"), "Downloads", "Dateien im Ordner Downloads", "switch"),
-    ("pictures", (TABLE, "files-pictures"), "Bilder", "Dateien im Ordner Bilder", "switch"),
-    ("music", (TABLE, "files-music"), "Musik", "Dateien im Ordner Musik", "switch"),
-    ("videos", (TABLE, "files-videos"), "Videos", "Dateien im Ordner Videos", "switch"),
-    ("removable", (TABLE, "files-removable"), "Wechseldatenträger", "USB-Sticks und externe Festplatten", "switch"),
-    ("home", (TABLE, "files-home"), "Ganzer Benutzerordner", "Alle deine Dateien", "switch"),
-    ("bluetooth", (TABLE, "bluetooth"), "Bluetooth", "Bluetooth-Geräte finden und benutzen", "switch"),
-    ("usb", (TABLE, "usb"), "USB- und Eingabegeräte", "Controller, Sicherheitsschlüssel, andere USB-Geräte", "switch"),
-    ("secrets", (TABLE, "secrets"), "Passwörter", "Anmeldedaten im Schlüsselbund speichern und lesen", "switch"),
-    ("notifications", ("notifications", "notification"), "Mitteilungen", "Mitteilungen schicken", "prompt"),
-    ("background", ("background", "background"), "Hintergrund", "Weiterlaufen ohne Fenster und bei der Anmeldung starten", "portal"),
+    _kind("microphone", ("devices", "microphone"), "Mikrofon", "Ton aufnehmen",
+          "auf das Mikrofon zugreifen", "prompt", "live"),
+    _kind("speakers", ("devices", "speakers"), "Lautsprecher", "Ton abspielen",
+          "Ton über Lautsprecher und Kopfhörer abspielen", "prompt", "live"),
+    _kind("camera", ("devices", "camera"), "Kamera", "Bilder der Kamera sehen",
+          "auf die Kamera zugreifen", "portal", "live"),
+    _kind("screen", (TABLE, "screen"), "Bildschirmaufnahme", "Den Bildschirm oder Fenster sehen und teilen",
+          "deinen Bildschirm sehen", "portal", "live"),
+    _kind("network", (TABLE, "network"), "Internet", "Verbindungen ins Internet",
+          "eine Verbindung ins Internet herstellen", "prompt", "restart"),
+    _kind("local-network", (TABLE, "local-network"), "Lokales Netzwerk", "Geräte im eigenen Netzwerk finden und erreichen",
+          "Geräte in deinem lokalen Netzwerk finden und sich mit ihnen verbinden", "prompt", "restart"),
+    _kind("desktop", (TABLE, "files-desktop"), "Schreibtisch", "Dateien im Ordner Schreibtisch",
+          "auf Dateien im Ordner „Schreibtisch“ zugreifen", "switch", "restart"),
+    _kind("documents", (TABLE, "files-documents"), "Dokumente", "Dateien im Ordner Dokumente",
+          "auf Dateien im Ordner „Dokumente“ zugreifen", "switch", "restart"),
+    _kind("downloads", (TABLE, "files-downloads"), "Downloads", "Dateien im Ordner Downloads",
+          "auf Dateien im Ordner „Downloads“ zugreifen", "switch", "restart"),
+    _kind("pictures", (TABLE, "files-pictures"), "Bilder", "Dateien im Ordner Bilder",
+          "auf Dateien im Ordner „Bilder“ zugreifen", "switch", "restart"),
+    _kind("music", (TABLE, "files-music"), "Musik", "Dateien im Ordner Musik",
+          "auf Dateien im Ordner „Musik“ zugreifen", "switch", "restart"),
+    _kind("videos", (TABLE, "files-videos"), "Videos", "Dateien im Ordner Videos",
+          "auf Dateien im Ordner „Videos“ zugreifen", "switch", "restart"),
+    _kind("removable", (TABLE, "files-removable"), "Wechseldatenträger", "USB-Sticks und externe Festplatten",
+          "auf USB-Sticks und externe Festplatten zugreifen", "switch", "restart"),
+    _kind("home", (TABLE, "files-home"), "Ganzer Benutzerordner", "Alle deine Dateien",
+          "auf alle deine Dateien zugreifen", "switch", "restart"),
+    _kind("bluetooth", (TABLE, "bluetooth"), "Bluetooth", "Bluetooth-Geräte finden und benutzen",
+          "Bluetooth verwenden", "prompt", "restart"),
+    _kind("usb", (TABLE, "usb"), "USB- und Eingabegeräte", "Controller, Sicherheitsschlüssel, andere USB-Geräte",
+          "auf USB- und Eingabegeräte zugreifen", "switch", "restart"),
+    _kind("secrets", (TABLE, "secrets"), "Passwörter", "Anmeldedaten im Schlüsselbund speichern und lesen",
+          "auf deine gespeicherten Passwörter zugreifen", "prompt", "restart"),
+    _kind("notifications", ("notifications", "notification"), "Mitteilungen", "Mitteilungen schicken",
+          "dir Mitteilungen senden", "prompt", "live"),
+    _kind("background", ("background", "background"), "Hintergrund", "Weiterlaufen ohne Fenster und bei der Anmeldung starten",
+          "im Hintergrund weiterlaufen", "portal", "live"),
 ]
-BY_KEY = {k[0]: k for k in KINDS}
+BY_KEY = {k["key"]: k for k in KINDS}
 STATES = ("yes", "no", "ask")
 
 
@@ -75,11 +103,12 @@ def get(app):
     """{kind: "yes" | "no" | "ask"} for one app."""
     cache = {}
     result = {}
-    for key, (table, entry), *_ in KINDS:
-        if (table, entry) not in cache:
-            cache[(table, entry)] = _lookup(table, entry)
-        values = cache[(table, entry)].get(app, [])
-        result[key] = values[0] if values and values[0] in ("yes", "no") else "ask"
+    for k in KINDS:
+        where = (k["table"], k["id"])
+        if where not in cache:
+            cache[where] = _lookup(*where)
+        values = cache[where].get(app, [])
+        result[k["key"]] = values[0] if values and values[0] in ("yes", "no") else "ask"
     return result
 
 
@@ -87,17 +116,17 @@ def list_all():
     """{app: {kind: state}} for every app with at least one decision."""
     apps = set()
     seen = set()
-    for _key, (table, entry), *_ in KINDS:
-        if (table, entry) not in seen:
-            seen.add((table, entry))
-            apps |= set(_lookup(table, entry))
+    for k in KINDS:
+        if (k["table"], k["id"]) not in seen:
+            seen.add((k["table"], k["id"]))
+            apps |= set(_lookup(k["table"], k["id"]))
     return {app: get(app) for app in sorted(apps)}
 
 
 def set_state(app, key, state):
     if key not in BY_KEY or state not in STATES:
         raise ValueError(f"unknown permission or state: {key} {state}")
-    _key, (table, entry), *_ = BY_KEY[key]
+    table, entry = BY_KEY[key]["table"], BY_KEY[key]["id"]
     if state == "ask":
         try:
             _call("DeletePermission", GLib.Variant("(sss)", (table, entry, app)))
@@ -111,8 +140,8 @@ def set_state(app, key, state):
 def main():
     args = sys.argv[1:]
     if args == ["kinds"]:
-        print(json.dumps([{"key": k, "label": label, "description": text, "ask": how}
-                          for k, _entry, label, text, how in KINDS], ensure_ascii=False))
+        print(json.dumps([{k: v for k, v in kind.items() if k not in ("table", "id")} for kind in KINDS],
+                         ensure_ascii=False))
     elif len(args) == 2 and args[0] == "get":
         print(json.dumps(get(args[1])))
     elif args == ["list"]:

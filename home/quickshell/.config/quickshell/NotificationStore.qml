@@ -6,11 +6,13 @@ import Quickshell.Io
 import Quickshell.Services.Notifications
 
 // The notification server, the rules per app and the history the notification centre shows.
-//   Rules (System Settings → Mitteilungen, settings.json → notifications.apps.<app>):
+//   Permission (Privacy.qml, permission "notifications"): an app's first notification
+//   asks "„App“ möchte dir Mitteilungen senden." and waits for the answer; without
+//   permission nothing is shown or kept.
+//   Style (System Settings → Mitteilungen, settings.json → notifications.apps.<app>):
 //     "banner"  banner for a few seconds, then in the notification centre (default)
 //     "alert"   "Hinweis": the banner stays until closed
 //     "quiet"   only in the notification centre
-//     "off"     not at all
 //   Every app that sent something is remembered for that settings page
 //   (~/.local/state/macos/notification-apps.json), also when it is not allowed.
 //   Allowed notifications go to Banners.qml, which shows them.
@@ -29,11 +31,14 @@ Singleton {
         });
     }
 
-    // Our own messages ("System": errors, warnings) can be quieter, never switched off
-    readonly property string systemApp: "System"
+    // Our own messages (errors, warnings, screenshots) need no permission
+    readonly property var systemApps: ["System", "Bildschirmfoto"]
+    function isSystem(app) {
+        return systemApps.includes(app);
+    }
     function modeOf(app) {
         const mode = Config.settings.notifications?.apps?.[app] ?? "banner";
-        return app === systemApp && mode === "off" ? "banner" : mode;
+        return mode === "off" ? "quiet" : mode;
     }
 
     // app key → { name, icon, last }
@@ -60,6 +65,13 @@ Singleton {
         });
         sendersFile.setText(JSON.stringify(senders, null, 1) + "\n");
         return app;
+    }
+
+    function deliver(n, app) {
+        const mode = modeOf(app);
+        add(n);
+        if (mode !== "quiet")
+            Banners.notify(n, mode === "alert");
     }
 
     function nameOf(n) {
@@ -176,13 +188,26 @@ Singleton {
                 n.closed.connect(() => known.live = null);
                 return;
             }
-            const mode = root.modeOf(root.remember(n));
-            if (mode === "off")
+            const app = root.remember(n);
+            const permission = root.isSystem(app) ? "yes" : Privacy.state(app, "notifications");
+            if (permission === "no")
                 return; // not tracked → discarded
             n.tracked = true;
-            root.add(n);
-            if (mode !== "quiet")
-                Banners.notify(n, mode === "alert");
+            if (permission === "yes") {
+                root.deliver(n, app);
+                return;
+            }
+            // First notification of this app: it waits for the answer
+            let closed = false;
+            n.closed.connect(() => closed = true);
+            Privacy.request(app, "notifications", answer => {
+                if (closed)
+                    return;
+                if (answer === "yes")
+                    root.deliver(n, app);
+                else
+                    n.dismiss();
+            });
         }
     }
 }
