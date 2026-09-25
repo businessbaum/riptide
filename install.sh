@@ -16,8 +16,12 @@ link)
     # every directory in home/ is one stow package mirroring $HOME. Config folders
     # are linked as a whole; shared folders under ~/.local/share get one link per
     # file (--no-folding), so other programs never write into this repo.
+    # Folded packages: only add what is missing, never --restow – that removes a link such
+    # as ~/.config/hypr for a moment, Hyprland reloads without its config in between and
+    # every window loses its floating size. Shared packages: --restow (per-file links, no
+    # folder vanishes) also drops links of files that are gone.
     shared=(applications apps wireplumber systemd)
-    stow --dir=home --target="$HOME" --restow $(ls home | grep -vxF -f <(printf '%s\n' "${shared[@]}"))
+    stow --dir=home --target="$HOME" $(ls home | grep -vxF -f <(printf '%s\n' "${shared[@]}"))
     stow --dir=home --target="$HOME" --restow --no-folding "${shared[@]}"
     ;;
 services)
