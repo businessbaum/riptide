@@ -18,6 +18,7 @@
 //   BluetoothBanners   "AirPods · Verbunden" when a Bluetooth device connects
 //   Osd.qml            volume display
 //   PolkitDialog.qml   password dialog for administrator rights
+//   ShareDialog.qml    what an app may see when sharing the screen
 //   Riptide.qml        the connection to the session's system services (riptide-session)
 //   Privacy.qml        app permissions: asks, remembers (docs/os-plan.md)
 
@@ -69,5 +70,6 @@ ShellRoot {
     BluetoothBanners {}
     Osd {}
     ConfirmDialog {}
+    ShareDialog {}
     PolkitDialog {}
 }

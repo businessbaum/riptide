@@ -62,15 +62,15 @@ Singleton {
                 } catch (e) {
                     return;
                 }
-                if (message.id !== undefined) {
+                if (message.event) {
+                    root.event(message);
+                } else if (message.id !== undefined) {
                     const done = root.pending[message.id];
                     delete root.pending[message.id];
                     if (message.error)
                         console.warn("riptide-session:", message.error);
                     else if (done)
                         done(message.result);
-                } else if (message.event) {
-                    root.event(message);
                 }
             }
         }

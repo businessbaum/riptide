@@ -42,9 +42,9 @@ def _kind(key, where, label, description, question, how, applies, glyph, colour)
             "enforced": key not in NOT_ENFORCED_YET}
 
 
-# local network: needs the app's own network namespace; screen and background: need our
-# own portal dialogs (docs/os-plan.md, order of work)
-NOT_ENFORCED_YET = {"local-network", "screen", "background"}
+# local network: needs the app's own network namespace; background: needs our own portal
+# backend (docs/os-plan.md, order of work)
+NOT_ENFORCED_YET = {"local-network", "background"}
 
 
 KINDS = [
@@ -55,7 +55,7 @@ KINDS = [
     _kind("camera", ("devices", "camera"), "Kamera", "Bilder der Kamera sehen",
           "auf die Kamera zugreifen", "portal", "live", "\U000f0100", "#30d158"),
     _kind("screen", (TABLE, "screen"), "Bildschirmaufnahme", "Den Bildschirm oder Fenster sehen und teilen",
-          "deinen Bildschirm sehen", "portal", "live", "\U000f0379", "#bf5af2"),
+          "deinen Bildschirm sehen", "prompt", "live", "\U000f0379", "#bf5af2"),
     _kind("network", (TABLE, "network"), "Internet", "Verbindungen ins Internet",
           "eine Verbindung ins Internet herstellen", "prompt", "restart", "\U000f01e7", "#0a84ff"),
     _kind("local-network", (TABLE, "local-network"), "Lokales Netzwerk", "Geräte im eigenen Netzwerk finden und erreichen",
@@ -77,11 +77,11 @@ KINDS = [
     _kind("home", (TABLE, "files-home"), "Ganzer Benutzerordner", "Alle deine Dateien",
           "auf alle deine Dateien zugreifen", "switch", "restart", "\U000f02dc", "#8e8e93"),
     _kind("bluetooth", (TABLE, "bluetooth"), "Bluetooth", "Bluetooth-Geräte finden und benutzen",
-          "Bluetooth verwenden", "switch", "restart", "\U000f00af", "#0a84ff"),
+          "Bluetooth verwenden", "prompt", "restart", "\U000f00af", "#0a84ff"),
     _kind("usb", (TABLE, "usb"), "USB- und Eingabegeräte", "Controller, Sicherheitsschlüssel, andere USB-Geräte",
           "auf USB- und Eingabegeräte zugreifen", "switch", "restart", "\U000f0553", "#8e8e93"),
     _kind("secrets", (TABLE, "secrets"), "Passwörter", "Anmeldedaten im Schlüsselbund speichern und lesen",
-          "auf deine gespeicherten Passwörter zugreifen", "switch", "restart", "\U000f0306", "#8e8e93"),
+          "auf deine gespeicherten Passwörter zugreifen", "prompt", "restart", "\U000f0306", "#8e8e93"),
     _kind("notifications", ("notifications", "notification"), "Mitteilungen", "Mitteilungen schicken",
           "dir Mitteilungen senden", "prompt", "live", "\U000f009a", "#ff3b30"),
     _kind("background", ("background", "background"), "Hintergrund", "Weiterlaufen ohne Fenster und bei der Anmeldung starten",

@@ -10,6 +10,11 @@ It owns
                     that are installed later
   sound requests    a sandboxed app wants a microphone, output or camera it has no
                     decision for (WirePlumber, macos/app-permissions.lua)
+  D-Bus of apps     what sandboxed apps ask for on D-Bus (their proxy's dbus.log): screen
+                    sharing requests (who is asking), and tries without permission
+                    (passwords, Bluetooth), which the user is then asked about
+  screen sharing    the portal's picker (riptide-share-picker) asks here: permission
+                    "screen" first, then the shell shows our dialog
 
 The shell, System Settings and the command line tools talk to it through one Unix
 socket, $XDG_RUNTIME_DIR/riptide/session.sock (only this user can open it; sandboxes
@@ -20,14 +25,20 @@ never see it), one JSON object per line:
   ← {"event": "permissions", "states": {app: {kind: state}}}      to everyone
   ← {"event": "request", "app": "discord", "kind": "microphone"}  to the shell
 
+  ← {"event": "share", "pick": 3, "app": "discord", "windows": [...]}   to the shell
+
   calls  hello, permissions.set {app, kind, state}, permissions.request {app, kind},
-         apps.launch {app, args, run}, apps.sync
+         apps.launch {app, args, run}, apps.sync,
+         screen.pick {windows} (the picker), screen.picked {pick, selection} (the shell),
+         status (who is connected, what is open – for troubleshooting)
 """
 
 import json
 import os
+import re
 import subprocess
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -38,6 +49,13 @@ from desktop_shell import permissions, sandbox
 SOCKET = sandbox.SERVICE_SOCKET
 HOME = Path.home()
 ANSWER_TIMEOUT = 300  # seconds a start waits for an answer; none counts as no
+RUNTIME = sandbox.RUNTIME
+
+# D-Bus names an app may only talk to with permission: a try without it asks
+DENIED_NAMES = {"org.freedesktop.secrets": "secrets", "org.bluez": "bluetooth"}
+LOG_CALL = re.compile(r"^C\d+: -> (\S+) call (\S+)")
+SCREEN_CALL = re.compile(r"^org\.freedesktop\.portal\.(ScreenCast|RemoteDesktop)\.(CreateSession|SelectSources|Start)$")
+LOG_LIMIT = 256 * 1024  # dbus.log is emptied beyond this
 
 
 def log(message):
@@ -98,6 +116,10 @@ class Service:
         self.waiters = []    # [(app, kind, callback, timeout source)] starts waiting for an answer
         self.sandboxes = {}  # pid of a sandbox → (app, instance)
         self.timers = {}
+        self.logs = {}       # dbus.log path → {"offset", "app", "dest"}
+        self.screen_requests = []  # [(time, app)] apps that asked the portal to share the screen
+        self.picks = {}      # id → (picker client, message id) while our share dialog is open
+        self.next_pick = 1
 
     # ------------------------------------------------------------ start
 
@@ -107,6 +129,7 @@ class Service:
         self.watch_store()
         self.watch_sound()
         self.watch_apps()
+        self.watch_proxy_logs()
         GLib.timeout_add_seconds(300, lambda: (sandbox.gc(), True)[1])
         GLib.idle_add(self.sync)
         self.listen()
@@ -131,6 +154,9 @@ class Service:
         client.open = False
         if client in self.clients:
             self.clients.remove(client)
+        for pick, entry in list(self.picks.items()):
+            if entry["picker"] is client:  # the portal gave up waiting
+                self.end_pick(pick, None)
 
     def later(self, name, seconds, callback):
         """Run callback once, `seconds` after the last call with this name."""
@@ -151,9 +177,11 @@ class Service:
             if call == "hello":
                 client.role = message.get("role", "tool")
                 client.reply(msg_id, {"kinds": self.kinds, "states": self.states})
-                if client.role == "shell":
-                    for app, kind in sorted(self.asked):  # questions still open (shell restarted)
+                if client.role == "shell":  # what is still open (the shell restarted)
+                    for app, kind in sorted(self.asked):
                         client.send({"event": "request", "app": app, "kind": kind})
+                    for pick, entry in sorted(self.picks.items()):
+                        client.send(entry["event"])
             elif call == "permissions.set":
                 permissions.set_state(message["app"], message["kind"], message["state"])
                 client.reply(msg_id, True)  # the store's signal brings the new states to all
@@ -164,6 +192,14 @@ class Service:
                 self.launch(client, msg_id, message["app"], message.get("args", []), message.get("run", False))
             elif call == "apps.sync":
                 self.sync()
+                client.reply(msg_id, True)
+            elif call == "status":  # for troubleshooting
+                client.reply(msg_id, {"clients": [c.role for c in self.clients], "asked": sorted(self.asked),
+                                      "picks": sorted(self.picks), "sandboxes": list(self.sandboxes.values())})
+            elif call == "screen.pick":
+                self.screen_pick(client, msg_id, message.get("windows", []))
+            elif call == "screen.picked":
+                self.screen_picked(message["pick"], message.get("selection"))
                 client.reply(msg_id, True)
             else:
                 client.reply(msg_id, error=f"unknown call {call}")
@@ -304,6 +340,99 @@ class Service:
         app, instance = self.sandboxes.pop(pid, (None, None))
         if app:
             sandbox.cleanup(app, instance)
+
+    # ------------------------------------------------------------ D-Bus of sandboxed apps
+
+    def watch_proxy_logs(self):
+        # logs of apps that were already running are read from their end on
+        for file in (RUNTIME / "macos-sandbox").glob("*-*/dbus.log"):
+            self.logs[str(file)] = {"offset": file.stat().st_size, "app": file.parent.name.rsplit("-", 1)[0], "dest": None}
+        GLib.timeout_add(500, self.read_proxy_logs)
+
+    def read_proxy_logs(self):
+        try:
+            present = set()
+            for file in (RUNTIME / "macos-sandbox").glob("*-*/dbus.log"):
+                path = str(file)
+                present.add(path)
+                entry = self.logs.setdefault(path, {"offset": 0, "app": file.parent.name.rsplit("-", 1)[0], "dest": None})
+                size = file.stat().st_size
+                if size < entry["offset"]:
+                    entry["offset"] = 0
+                if size == entry["offset"]:
+                    continue
+                with open(file, "rb") as f:
+                    f.seek(entry["offset"])
+                    data = f.read()
+                entry["offset"] += len(data)
+                for line in data.decode(errors="replace").splitlines():
+                    self.on_proxy_line(entry, line)
+                if entry["offset"] > LOG_LIMIT:
+                    os.truncate(file, 0)
+                    entry["offset"] = 0
+            for path in set(self.logs) - present:
+                del self.logs[path]
+        except Exception:
+            log(traceback.format_exc())
+        return True
+
+    def on_proxy_line(self, entry, line):
+        m = LOG_CALL.match(line)
+        if m:
+            entry["dest"] = m.group(1)
+            if SCREEN_CALL.match(m.group(2)):
+                now = time.monotonic()
+                self.screen_requests = [r for r in self.screen_requests if now - r[0] < 60] + [(now, entry["app"])]
+        elif line.startswith("*HIDDEN*") and entry["dest"] in DENIED_NAMES:
+            self.request(entry["app"], DENIED_NAMES[entry["dest"]])  # asks only if undecided
+
+    # ------------------------------------------------------------ screen sharing
+
+    def screen_pick(self, picker, msg_id, windows):
+        """The portal's picker asks what to share. The asking app is the one that called the
+        ScreenCast portal last (its proxy log); unknown for apps without a sandbox."""
+        self.read_proxy_logs()  # the portal starts the picker right after the app's call
+        now = time.monotonic()
+        recent = [app for t, app in self.screen_requests if now - t < 60]
+        app = recent[-1] if recent else ""
+
+        def show():
+            pick = self.next_pick
+            self.next_pick += 1
+            event = {"event": "share", "pick": pick, "app": app, "windows": windows}
+            # (the portal waits for its picker and handles nothing else meanwhile: an
+            # unanswered dialog must not block it for long)
+            timeout = GLib.timeout_add_seconds(120, lambda: self.pick_timed_out(pick))
+            self.picks[pick] = {"picker": picker, "msg": msg_id, "event": event, "timeout": timeout}
+            self.broadcast(event, role="shell")
+
+        if not app:
+            show()
+        elif self.state(app, "screen") == "yes":
+            show()
+        elif self.state(app, "screen") == "no":
+            picker.reply(msg_id, {"selection": None})
+        else:
+            self.wait_for(app, "screen", lambda state: show() if state == "yes" else picker.reply(msg_id, {"selection": None}))
+
+    def screen_picked(self, pick, selection):
+        self.end_pick(pick, selection)
+
+    def pick_timed_out(self, pick):
+        if pick in self.picks:
+            self.picks[pick]["timeout"] = None  # this source ends by returning False
+            self.end_pick(pick, None)
+        return False
+
+    def end_pick(self, pick, selection):
+        entry = self.picks.pop(pick, None)
+        if entry is None:
+            return False
+        if entry["timeout"]:
+            GLib.source_remove(entry["timeout"])
+        entry["picker"].reply(entry["msg"], {"selection": selection})
+        self.broadcast({"event": "share-cancelled", "pick": pick}, role="shell")
+        return False
 
     # ------------------------------------------------------------ start entries
 

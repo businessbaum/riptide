@@ -237,15 +237,21 @@ class Sandbox:
         system_rules = ["--filter"] + (["--talk=org.bluez"] if self.allowed["bluetooth"] else [])
 
         info = self.data_fd(self.flatpak_info())
-        args = [f"unix:path={RUNTIME}/bus", str(session), *rules,
-                "unix:path=/run/dbus/system_bus_socket", str(system), *system_rules]
+        # --log: every call goes to dbus.log; the session service reads it to see what the
+        # app asks for (screen sharing) and what it tried without permission (passwords,
+        # Bluetooth), and keeps the file small
+        args = [f"unix:path={RUNTIME}/bus", str(session), "--log", *rules,
+                "unix:path=/run/dbus/system_bus_socket", str(system), "--log", *system_rules]
+        log = open(self.dir / "dbus.log", "ab")
         proxy = subprocess.Popen(
             ["bwrap", "--ro-bind", "/usr", "/usr", "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib", "/lib64",
              "--symlink", "usr/bin", "/bin", "--ro-bind", "/etc", "/etc",
              "--bind", str(RUNTIME), str(RUNTIME), "--ro-bind", "/run/dbus", "/run/dbus",
              "--ro-bind-data", str(info), "/.flatpak-info", "--unshare-pid",
-             "--", "xdg-dbus-proxy", f"--fd={life_w}", *args],
-            pass_fds=(info, life_w), start_new_session=True)
+             # (line-buffered: the service must see a call the moment it happens)
+             "--", "stdbuf", "-oL", "-eL", "xdg-dbus-proxy", f"--fd={life_w}", *args],
+            pass_fds=(info, life_w), start_new_session=True, stdout=log, stderr=log)
+        log.close()
         self.close_data()
         self.children.append(proxy.pid)
         if os.read(life_r, 1) != b"x":
