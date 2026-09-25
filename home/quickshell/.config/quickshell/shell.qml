@@ -14,7 +14,7 @@
 //   Clipboard.qml      SUPER+V clipboard history (cliphist)
 //   Switcher.qml       ⌘Tab / ⌥Tab panel (logic in Hyprland)
 //   ControlCenter.qml  + NotificationCenter.qml: panels from the menu bar
-//   Notifications.qml  notification server + banners
+//   Notifications.qml  notification server + banners (+ DeviceBanner.qml)
 //   Osd.qml            volume display
 //   PolkitDialog.qml   password dialog for administrator rights
 

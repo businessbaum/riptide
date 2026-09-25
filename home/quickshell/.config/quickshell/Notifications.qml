@@ -8,6 +8,7 @@ import Quickshell.Wayland
 //   Normal banners disappear after 5 s (hovering pauses), critical ones stay.
 //   Click: run the notification's default action, otherwise just close it.
 // Every notification also stays in the notification centre (click on the clock).
+// Above them: the small banner for a newly connected Bluetooth device (DeviceBanner.qml).
 Scope {
     id: root
 
@@ -42,7 +43,8 @@ Scope {
     PanelWindow {
         id: window
 
-        visible: banners.count > 0
+        // (device.opacity, not device.visible: items count as invisible while the window is hidden)
+        visible: banners.count > 0 || device.opacity > 0
         screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? null
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "notifications"
@@ -60,6 +62,11 @@ Scope {
             y: 6
             width: parent.width - 8
             spacing: 8
+
+            DeviceBanner {
+                id: device
+                x: column.width - width
+            }
 
             Repeater {
                 model: banners

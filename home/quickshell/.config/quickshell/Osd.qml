@@ -26,10 +26,8 @@ Scope {
     onBluetoothSinksChanged: {
         const known = Object.assign({}, knownSinks);
         for (const n of bluetoothSinks) {
-            if (!known[n.id] && sinksReady) {
-                Pipewire.preferredDefaultAudioSink = n;
-                Notify.send("Ton", `Wiedergabe über ${n.description || n.nickname || n.name}`, false);
-            }
+            if (!known[n.id] && sinksReady)
+                Pipewire.preferredDefaultAudioSink = n; // DeviceBanner shows the connection
             known[n.id] = true;
         }
         knownSinks = known;
