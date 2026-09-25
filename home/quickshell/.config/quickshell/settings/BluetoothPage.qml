@@ -138,8 +138,11 @@ Page {
                 visible: dev.modelData.paired
                 Layout.preferredWidth: 80
                 text: "Entfernen"
-                onClicked: Confirm.ask(`„${page.nameOf(dev.modelData)}“ entfernen?`,
-                    "Danach muss es neu gekoppelt werden.", "Entfernen", () => dev.modelData.forget())
+                onClicked: {
+                    const device = dev.modelData; // the list may rebuild while the dialog is open
+                    Confirm.ask(`„${page.nameOf(device)}“ entfernen?`,
+                        "Danach muss es neu gekoppelt werden.", "Entfernen", () => device.forget());
+                }
             }
         }
     }
