@@ -17,6 +17,30 @@ Scope {
         objects: [root.sink]
     }
 
+    // Like on a Mac: when Bluetooth headphones connect, the sound switches to them.
+    // (Only new Bluetooth outputs; switching back happens by itself when they disconnect.)
+    property var knownSinks: ({})
+    property bool sinksReady: false
+    readonly property var bluetoothSinks: Pipewire.nodes.values.filter(n => n.isSink && !n.isStream
+        && (n.properties?.["device.api"] === "bluez5" || (n.name ?? "").startsWith("bluez_output")))
+    onBluetoothSinksChanged: {
+        const known = Object.assign({}, knownSinks);
+        for (const n of bluetoothSinks) {
+            if (!known[n.id] && sinksReady) {
+                Pipewire.preferredDefaultAudioSink = n;
+                Notify.send("Ton", `Wiedergabe über ${n.description || n.nickname || n.name}`, false);
+            }
+            known[n.id] = true;
+        }
+        knownSinks = known;
+    }
+    Timer {
+        // outputs present at start are not "new"
+        running: true
+        interval: 3000
+        onTriggered: root.sinksReady = true
+    }
+
     // Ignore the values the sink reports while it connects
     property bool armed: false
     Timer {
