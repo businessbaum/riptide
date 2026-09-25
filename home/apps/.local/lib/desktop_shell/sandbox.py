@@ -14,7 +14,7 @@ What the app sees:
       Bluetooth only with permission
   Sound: PipeWire unless microphone and speakers are both denied; WirePlumber decides
       per device and asks (macos/app-permissions.lua)
-  Network: none without permission
+  Network: none without permission; with no decision yet the launcher asks first
   /.flatpak-info names the app, so portals and PipeWire know who is asking.
 
 System apps (sandbox.json → system_apps) start without a sandbox.
@@ -31,6 +31,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from desktop_shell import permissions
@@ -362,6 +363,18 @@ class Sandbox:
         shutil.rmtree(self.instance_dir, ignore_errors=True)
 
 
+def ask(app, kind, timeout=300):
+    """Have the shell ask (Privacy.qml) and wait for the answer; no answer counts as no."""
+    subprocess.run(["qs", "ipc", "call", "privacy", "request", app, kind], capture_output=True)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        state = permissions.get(app)[kind]
+        if state != "ask":
+            return state
+        time.sleep(0.4)
+    return "no"
+
+
 def main():
     args = sys.argv[1:]
     mode = "run"
@@ -377,6 +390,9 @@ def main():
     if is_system_app(app, profiles) and mode == "run":
         os.execvp(argv[0], argv)
 
-    sandbox = Sandbox(app, argv, profiles.get("apps", {}).get(app, {}), permissions.get(app))
+    states = permissions.get(app)
+    if states["network"] == "ask" and mode == "run":
+        states["network"] = ask(app, "network")
+    sandbox = Sandbox(app, argv, profiles.get("apps", {}).get(app, {}), states)
     command = (rest or ["bash"]) if mode == "shell" else sandbox.argv
     sys.exit(sandbox.run(command, dry=(mode == "print")))

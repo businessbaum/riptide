@@ -33,10 +33,17 @@ TABLE = "org.riptide.sandbox"
 #   ("„App“ möchte …"), how the app gets asked (prompt: on first use, portal: through the
 #   portal's dialog, switch: only in System Settings) and when a change applies (live, or
 #   restart: the next time the app starts); glyph (Symbols Nerd Font) and tile colour
-#   for System Settings.
+#   for System Settings. Kinds in NOT_ENFORCED_YET are kept but not offered (no switch
+#   that does nothing).
 def _kind(key, where, label, description, question, how, applies, glyph, colour):
     return {"key": key, "table": where[0], "id": where[1], "label": label, "description": description,
-            "question": question, "how": how, "applies": applies, "glyph": glyph, "colour": colour}
+            "question": question, "how": how, "applies": applies, "glyph": glyph, "colour": colour,
+            "enforced": key not in NOT_ENFORCED_YET}
+
+
+# local network: needs the app's own network namespace; screen and background: need our
+# own portal dialogs (docs/os-plan.md, order of work)
+NOT_ENFORCED_YET = {"local-network", "screen", "background"}
 
 
 KINDS = [
@@ -69,11 +76,11 @@ KINDS = [
     _kind("home", (TABLE, "files-home"), "Ganzer Benutzerordner", "Alle deine Dateien",
           "auf alle deine Dateien zugreifen", "switch", "restart", "\U000f02dc", "#8e8e93"),
     _kind("bluetooth", (TABLE, "bluetooth"), "Bluetooth", "Bluetooth-Geräte finden und benutzen",
-          "Bluetooth verwenden", "prompt", "restart", "\U000f00af", "#0a84ff"),
+          "Bluetooth verwenden", "switch", "restart", "\U000f00af", "#0a84ff"),
     _kind("usb", (TABLE, "usb"), "USB- und Eingabegeräte", "Controller, Sicherheitsschlüssel, andere USB-Geräte",
           "auf USB- und Eingabegeräte zugreifen", "switch", "restart", "\U000f0553", "#8e8e93"),
     _kind("secrets", (TABLE, "secrets"), "Passwörter", "Anmeldedaten im Schlüsselbund speichern und lesen",
-          "auf deine gespeicherten Passwörter zugreifen", "prompt", "restart", "\U000f0306", "#8e8e93"),
+          "auf deine gespeicherten Passwörter zugreifen", "switch", "restart", "\U000f0306", "#8e8e93"),
     _kind("notifications", ("notifications", "notification"), "Mitteilungen", "Mitteilungen schicken",
           "dir Mitteilungen senden", "prompt", "live", "\U000f009a", "#ff3b30"),
     _kind("background", ("background", "background"), "Hintergrund", "Weiterlaufen ohne Fenster und bei der Anmeldung starten",
@@ -182,8 +189,8 @@ def watch_sound():
 def main():
     args = sys.argv[1:]
     if args == ["kinds"]:
-        print(json.dumps([{k: v for k, v in kind.items() if k not in ("table", "id")} for kind in KINDS],
-                         ensure_ascii=False))
+        print(json.dumps([{k: v for k, v in kind.items() if k not in ("table", "id")}
+                          for kind in KINDS if kind["enforced"]], ensure_ascii=False))
     elif len(args) == 2 and args[0] == "get":
         print(json.dumps(get(args[1])))
     elif args == ["list"]:
