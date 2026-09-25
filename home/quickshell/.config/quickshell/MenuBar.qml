@@ -44,6 +44,9 @@ PanelWindow {
         function notificationCenter(): void {
             notificationCenter.toggle();
         }
+        function sound(): void {
+            soundMixer.toggle();
+        }
     }
 
     // "Computer wachhalten" (control centre): no lock, screens stay on
