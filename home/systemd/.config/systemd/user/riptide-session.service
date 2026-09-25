@@ -1,0 +1,16 @@
+# The session's system services in one process (docs/os-plan.md, "Architecture"):
+# app permissions and questions, app sandboxes, start entries, sound requests.
+# Restarting it leaves running apps alone.
+[Unit]
+Description=riptide session services
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/riptide-session
+Restart=on-failure
+RestartSec=2
+Slice=session.slice
+
+[Install]
+WantedBy=graphical-session.target

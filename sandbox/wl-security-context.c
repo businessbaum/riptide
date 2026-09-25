@@ -5,11 +5,15 @@
 //
 //   wl-security-context <socket path> <app id> <instance id>
 //
-// Prints "ready" once the socket accepts connections and keeps it until stdin closes
-// (the launcher holds stdin for the app's lifetime); then the socket file is removed and
-// the compositor stops listening on it.
+// Prints "ready" once the socket accepts connections and keeps it until stdin hangs up:
+// stdin is the write end of a pipe whose only reader is the sandbox (bwrap --sync-fd),
+// so the socket lives exactly as long as the app. (A pipe we read from works as well:
+// then its end of file stops us.) Then the socket file is removed and the compositor
+// stops listening on it.
 #define _GNU_SOURCE
+#include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -95,9 +99,19 @@ int main(int argc, char **argv) {
 
     printf("ready\n");
     fflush(stdout);
-    char buffer[64];
-    while (read(STDIN_FILENO, buffer, sizeof buffer) > 0)
-        ;
+    struct pollfd watch = {.fd = STDIN_FILENO, .events = POLLIN};
+    for (;;) {
+        if (poll(&watch, 1, -1) < 0) {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+        if (watch.revents & (POLLHUP | POLLERR | POLLNVAL))
+            break;
+        char buffer[64];
+        if ((watch.revents & POLLIN) && read(STDIN_FILENO, buffer, sizeof buffer) <= 0)
+            break;
+    }
     unlink(path);
     return 0;
 }

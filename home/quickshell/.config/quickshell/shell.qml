@@ -18,15 +18,17 @@
 //   BluetoothBanners   "AirPods · Verbunden" when a Bluetooth device connects
 //   Osd.qml            volume display
 //   PolkitDialog.qml   password dialog for administrator rights
+//   Riptide.qml        the connection to the session's system services (riptide-session)
 //   Privacy.qml        app permissions: asks, remembers (docs/os-plan.md)
 
 import QtQuick
 import Quickshell
 
 ShellRoot {
-    // Services that must run from the start (singletons start on first use otherwise):
-    // Privacy answers the sandbox's questions over IPC
+    // Services that must run from the start (singletons start on first use otherwise).
+    // This is the main shell: it asks the questions apps have (Riptide role "shell").
     readonly property var services: [Privacy]
+    Component.onCompleted: Riptide.role = "shell"
 
     // No "Config reloaded" toast on every save; a failed reload becomes a notification
     Connections {

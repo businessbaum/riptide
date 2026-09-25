@@ -6,17 +6,23 @@
     app-sandbox --shell <desktop-id> [cmd …]   a shell (or command) in the app's sandbox (testing)
     app-sandbox --sync                         make every app start in its sandbox (see sync())
 
+Starting is done by the session service (riptide-session, session.py): this command only
+hands it the start and returns at once. The service asks first if needed, starts the
+sandbox in its own systemd scope and cleans up after it. Nothing of ours keeps running
+per app: the helpers end with the sandbox.
+
 What the app sees:
   /usr, /etc (read-only), its GPU, a private /tmp and /dev without other devices
   home folder: only its own data folders, a container for everything else
       (~/.local/share/macos/sandbox/<app>/home) and the folders it may use
   Wayland: its own socket in a security context (wl-security-context) – no screen
       capture, no clipboard in the background, no input injection
-  D-Bus: filtered (xdg-dbus-proxy): portals always; notifications, passwords,
-      Bluetooth only with permission
+  D-Bus: filtered (xdg-dbus-proxy): portals, notifications (the server asks), menu bar
+      icon and media controls; passwords and Bluetooth only with permission
   Sound: PipeWire unless microphone and speakers are both denied; WirePlumber decides
       per device and asks (macos/app-permissions.lua)
-  Network: none without permission; with no decision yet the launcher asks first
+  Network: none without permission; with no decision yet the service asks first
+  Files it is given (double click, "open with") come through the document portal.
   /.flatpak-info names the app, so portals and PipeWire know who is asking.
 
 System apps (sandbox.json → system_apps) start without a sandbox.
@@ -31,7 +37,6 @@ import re
 import secrets
 import shlex
 import shutil
-import signal
 import subprocess
 import sys
 import time
@@ -61,10 +66,12 @@ KEEP_ENV = re.compile(r"^(PATH|LANG|LANGUAGE|LC_.*|TZ|USER|LOGNAME|HOME|SHELL|TE
                       r"LIBVA_DRIVER_NAME|__GLX_VENDOR_LIBRARY_NAME|GBM_BACKEND|__GL_.*)$")
 
 
+class SandboxError(Exception):
+    """Something the user should hear about ("App konnte nicht starten")."""
+
+
 def fail(message):
-    print(f"app-sandbox: {message}", file=sys.stderr)
-    subprocess.run(["notify-send", "-a", "System", "-i", "dialog-warning", "App konnte nicht starten", message])
-    sys.exit(1)
+    raise SandboxError(message)
 
 
 # ---------------------------------------------------------------- desktop entry
@@ -167,6 +174,7 @@ class Sandbox:
         self.tmp = RUNTIME / "macos-sandbox" / app / "tmp"  # shared by the app's windows
         self.container = CONTAINERS / app / "home"
         self.instance_dir = RUNTIME / ".flatpak" / self.instance
+        self.unit = f"app-sandbox-{re.sub(r'[^A-Za-z0-9_.]', '_', app)}-{self.instance}"
         self.children = []
         self.data = []  # fds bwrap reads (--ro-bind-data), closed once it started
         self.hold = []  # fds that keep the helpers alive while the app runs
@@ -191,22 +199,25 @@ class Sandbox:
         self.data.append(r)
         return r
 
-    def start_wayland(self):
+    def start_wayland(self, life):
+        """The Wayland socket in a security context; the helper ends when `life` (the
+        write end of the sandbox's lifetime pipe) has no reader any more."""
         socket = self.dir / "wayland-0"
         helper = subprocess.Popen([HELPERS / "wl-security-context", socket, self.id, self.instance],
-                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-        if helper.stdout.readline().strip() != "ready":
-            fail("Der abgesicherte Bildschirmzugang konnte nicht eingerichtet werden.")
-        self.children.append(helper)
+                                  stdin=life, stdout=subprocess.PIPE, text=True, start_new_session=True)
+        ready = helper.stdout.readline().strip() == "ready"
+        helper.stdout.close()
+        self.children.append(helper.pid)
+        if not ready:
+            raise SandboxError("Der abgesicherte Bildschirmzugang konnte nicht eingerichtet werden.")
         return socket
 
-    def start_dbus(self):
+    def start_dbus(self, life_w, life_r):
         """xdg-dbus-proxy for the session and system bus, itself in a small sandbox with
-        the app's /.flatpak-info, so the portals see the app's identity behind it."""
+        the app's /.flatpak-info, so the portals see the app's identity behind it. It
+        writes one byte to `life_w` when ready and ends when that pipe has no reader."""
         session, system = self.dir / "bus", self.dir / "system_bus"
-        # its own bus name, if its id can be one (needs a dot: "discord" cannot)
-        own = [f"--own={self.id}", f"--own={self.id}.*"]
-        rules = ["--filter", *own,
+        rules = ["--filter", f"--own={self.id}", f"--own={self.id}.*",
                  "--talk=org.freedesktop.portal.*", "--call=org.freedesktop.portal.*=*",
                  "--broadcast=org.freedesktop.portal.*=@/org/freedesktop/portal/*",
                  # menu bar icon: exact names only (StatusNotifierItem-<pid>-<n>, pids inside
@@ -216,16 +227,15 @@ class Sandbox:
                  *[f"--own={ns}.StatusNotifierItem-{pid}-{n}" for ns in ("org.kde", "org.freedesktop")
                    for pid in range(1, 40) for n in range(1, 4)],
                  # media controls (now playing, media keys)
-                 "--own=org.mpris.MediaPlayer2.*"]
+                 "--own=org.mpris.MediaPlayer2.*",
+                 # notifications: the notification server itself asks and decides
+                 "--talk=org.freedesktop.Notifications"]
         rules += [f"--own={name}" for name in self.profile.get("dbus_own", [])]
         rules += [f"--talk={name}" for name in self.profile.get("dbus_own", [])]
-        if self.allowed["notifications"]:
-            rules.append("--talk=org.freedesktop.Notifications")
         if self.allowed["secrets"]:
             rules.append("--talk=org.freedesktop.secrets")
         system_rules = ["--filter"] + (["--talk=org.bluez"] if self.allowed["bluetooth"] else [])
 
-        ready_r, ready_w = os.pipe()
         info = self.data_fd(self.flatpak_info())
         args = [f"unix:path={RUNTIME}/bus", str(session), *rules,
                 "unix:path=/run/dbus/system_bus_socket", str(system), *system_rules]
@@ -233,15 +243,13 @@ class Sandbox:
             ["bwrap", "--ro-bind", "/usr", "/usr", "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib", "/lib64",
              "--symlink", "usr/bin", "/bin", "--ro-bind", "/etc", "/etc",
              "--bind", str(RUNTIME), str(RUNTIME), "--ro-bind", "/run/dbus", "/run/dbus",
-             "--ro-bind-data", str(info), "/.flatpak-info", "--die-with-parent", "--unshare-pid",
-             "--", "xdg-dbus-proxy", f"--fd={ready_w}", *args],
-            pass_fds=(info, ready_w))
-        os.close(ready_w)
+             "--ro-bind-data", str(info), "/.flatpak-info", "--unshare-pid",
+             "--", "xdg-dbus-proxy", f"--fd={life_w}", *args],
+            pass_fds=(info, life_w), start_new_session=True)
         self.close_data()
-        if os.read(ready_r, 1) != b"x":
-            fail("Der D-Bus-Filter konnte nicht gestartet werden.")
-        self.hold.append(ready_r)  # the proxy stops when this closes
-        self.children.append(proxy)
+        self.children.append(proxy.pid)
+        if os.read(life_r, 1) != b"x":
+            raise SandboxError("Der D-Bus-Filter konnte nicht gestartet werden.")
         return session, system
 
     def sound(self):
@@ -250,7 +258,8 @@ class Sandbox:
     # -------- bwrap
 
     def bwrap_args(self, wayland, bus, system_bus):
-        a = ["bwrap", "--unshare-pid", "--unshare-ipc", "--unshare-cgroup-try", "--die-with-parent",
+        # (no --die-with-parent: the app must outlive whoever started it)
+        a = ["bwrap", "--unshare-pid", "--unshare-ipc", "--unshare-cgroup-try",
              "--new-session", "--cap-drop", "ALL"]
         if not self.allowed["network"]:
             a.append("--unshare-net")
@@ -326,84 +335,195 @@ class Sandbox:
               "--setenv", "FLATPAK_ID", self.id, "--chdir", str(HOME)]
         return a
 
-    # -------- run
+    # -------- start
 
     def prepare(self):
-        for d in (self.dir, self.tmp, self.container):
+        for d in (self.dir, self.tmp, self.container, self.instance_dir):
             d.mkdir(parents=True, exist_ok=True, mode=0o700)
+        (self.instance_dir / ".ref").touch()
+        (self.instance_dir / "info").write_text(self.flatpak_info())
 
-    def run(self, command, dry=False):
+    def start(self, command, dry=False):
+        """Start the app in its sandbox and return its process at once. Nothing has to
+        keep running for it: the helpers end with the sandbox (they hold the write end of
+        a pipe whose only reader is bwrap, --sync-fd), bwrap keeps the instance marked as
+        running itself (--lock-file on .ref), and cleanup() removes what is left after it
+        ended (the session service, or gc() at its next start)."""
         self.prepare()
+        life_r, life_w = os.pipe()
         try:
-            wayland = self.start_wayland()
-            bus, system_bus = self.start_dbus()
+            wayland = self.start_wayland(life_w)
+            bus, system_bus = self.start_dbus(life_w, life_r)
+            os.close(life_w)
+            life_w = None
             # bwrap tells where the sandbox is (--info-fd) and waits (--block-fd) until the
             # portals can find that out, like Flatpak does: they check a caller against
             # $XDG_RUNTIME_DIR/.flatpak/<instance>/bwrapinfo.json
             info_r, info_w = os.pipe()
             block_r, block_w = os.pipe()
             argv = self.bwrap_args(wayland, bus, system_bus) + [
-                "--info-fd", str(info_w), "--block-fd", str(block_r), "--", *command]
+                "--ro-bind", str(self.instance_dir / ".ref"), "/run/.ref", "--lock-file", "/run/.ref",
+                "--sync-fd", str(life_r), "--info-fd", str(info_w), "--block-fd", str(block_r),
+                "--", *command]
             if dry:
                 print(shlex.join(argv))
-                return 0
-            app = subprocess.Popen(argv, pass_fds=self.data + [info_w, block_r])
-            os.close(info_w)
-            os.close(block_r)
+                return None
+            # its own systemd scope next to the other apps (not inside the service)
+            # (Delegate: so the helpers can be moved into it, join_scope)
+            scope = ["systemd-run", "--user", "--scope", "--quiet", "--collect", "--slice=app-graphical.slice",
+                     "--property=Delegate=yes", f"--unit={self.unit}"]
+            app = subprocess.Popen(scope + argv, pass_fds=self.data + [info_w, block_r, life_r],
+                                   start_new_session=True)
+            for fd in (info_w, block_r, life_r):
+                os.close(fd)
+            life_r = None
             self.close_data()
             with os.fdopen(info_r, "rb") as f:
                 bwrap_info = f.read()
-            # the same layout as a Flatpak instance: the portal reads every instance (e.g. for
-            # background apps) and crashes on an incomplete one. `.ref` stays read-locked
-            # while the app runs; that is how "running" is recognised.
-            self.instance_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             (self.instance_dir / "bwrapinfo.json").write_bytes(bwrap_info)
-            (self.instance_dir / "info").write_text(self.flatpak_info())
             (self.instance_dir / "pid").write_text(str(app.pid))
-            self.ref = open(self.instance_dir / ".ref", "a+")  # a read lock needs read access
-            fcntl.lockf(self.ref, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            self.join_scope()
             os.write(block_w, b"x")
             os.close(block_w)
-            signal.signal(signal.SIGTERM, lambda *_: app.terminate())
-            signal.signal(signal.SIGINT, lambda *_: app.terminate())
-            return app.wait()
+            return app
+        except BaseException:
+            self.close_data()
+            cleanup(self.app, self.instance)
+            raise
         finally:
-            self.stop()
+            for fd in (life_r, life_w):
+                if fd is not None:
+                    os.close(fd)
+
+    def join_scope(self):
+        """Move the helpers into the app's scope: all its processes together, and they
+        outlive whoever started them (a restart of the session service)."""
+        from gi.repository import Gio, GLib
+
+        pids = []
+        for pid in self.children:
+            pids += [pid, *descendants(pid)]
+        try:
+            Gio.bus_get_sync(Gio.BusType.SESSION, None).call_sync(
+                "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager",
+                "AttachProcessesToUnit", GLib.Variant("(ssau)", (f"{self.unit}.scope", "", pids)),
+                None, Gio.DBusCallFlags.NONE, 5000, None)
+        except GLib.Error as e:
+            print(f"app-sandbox: helpers stay outside the app's scope: {e.message}", file=sys.stderr)
 
     def close_data(self):
         for fd in self.data:
             os.close(fd)
         self.data = []
 
-    def stop(self):
-        self.close_data()
-        if self.ref:
-            self.ref.close()
-            self.ref = None
-        for fd in self.hold:
-            os.close(fd)
-        self.hold = []
-        for child in self.children:
-            if child.stdin:
-                child.stdin.close()
-            try:
-                child.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                child.kill()
-        shutil.rmtree(self.dir, ignore_errors=True)
-        shutil.rmtree(self.instance_dir, ignore_errors=True)
+
+def descendants(pid):
+    """Child processes of pid, and theirs."""
+    found = []
+    for task in Path(f"/proc/{pid}/task").glob("*"):
+        try:
+            children = (task / "children").read_text().split()
+        except OSError:
+            continue
+        for child in map(int, children):
+            found += [child, *descendants(child)]
+    return found
 
 
-def ask(app, kind, timeout=300):
-    """Have the shell ask (Privacy.qml) and wait for the answer; no answer counts as no."""
-    subprocess.run(["qs", "ipc", "call", "privacy", "request", app, kind], capture_output=True)
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        state = permissions.get(app)[kind]
-        if state != "ask":
-            return state
-        time.sleep(0.4)
-    return "no"
+def cleanup(app, instance):
+    """Remove what a sandbox leaves behind once it has ended."""
+    shutil.rmtree(RUNTIME / "macos-sandbox" / f"{app}-{instance}", ignore_errors=True)
+    shutil.rmtree(RUNTIME / ".flatpak" / instance, ignore_errors=True)
+
+
+def running(instance_dir):
+    """Is the sandbox of this instance still running? (bwrap holds a lock on .ref)"""
+    try:
+        with open(instance_dir / ".ref", "a+") as ref:
+            fcntl.lockf(ref, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return False
+    except BlockingIOError:
+        return True
+    except OSError:
+        return False
+
+
+def instances():
+    """[(app, instance, instance_dir)] of our sandboxes (running or ended)."""
+    found = []
+    for folder in (RUNTIME / ".flatpak").glob("*"):
+        try:
+            info = (folder / "info").read_text()
+        except OSError:
+            continue
+        if "runtime=runtime/org.riptide.Host/" in info:
+            app = next((d.name.rsplit("-", 1)[0] for d in (RUNTIME / "macos-sandbox").glob(f"*-{folder.name}")), None)
+            found.append((app, folder.name, folder))
+    return found
+
+
+def gc():
+    """Clean up after sandboxes that have ended (e.g. while the service was not running)."""
+    for app, instance, folder in instances():
+        if not running(folder):
+            if app:
+                cleanup(app, instance)
+            else:
+                shutil.rmtree(folder, ignore_errors=True)
+
+
+def prepare_launch(app, args, run):
+    """What starting `app` means: (system app?, command, profile, permissions). With `run`
+    the args are a desktop entry's command, else files or links for the app. Files are
+    handed over through the document portal (forward_files)."""
+    profiles = load_profiles()
+    system = is_system_app(app, profiles)
+    first = 1 if run else 0  # (with run the first word is the program)
+    if not system:
+        args = args[:first] + forward_files(permissions.store_key(app), args[first:])
+    argv = args if run else exec_argv(find_entry(app), args)
+    if not argv:
+        fail("Die App hat keinen Startbefehl.")
+    return system, argv, profiles.get("apps", {}).get(app, {}), permissions.get(app)
+
+
+SERVICE_SOCKET = RUNTIME / "riptide" / "session.sock"
+
+
+def call_service(message, timeout=360):
+    """One call to the session service (riptide-session); starts it when it is not running."""
+    import socket
+
+    for attempt in range(2):
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            sock.connect(str(SERVICE_SOCKET))
+            break
+        except OSError:
+            sock.close()
+            if attempt:
+                fail("Der Systemdienst riptide-session läuft nicht.")
+            subprocess.run(["systemctl", "--user", "start", "riptide-session.service"], capture_output=True)
+            for _ in range(50):
+                if SERVICE_SOCKET.exists():
+                    break
+                time.sleep(0.1)
+    with sock:
+        sock.settimeout(timeout)
+        sock.sendall((json.dumps({"id": 1, **message}) + "\n").encode())
+        data = b""
+        while not data.endswith(b"\n"):
+            chunk = sock.recv(65536)
+            if not chunk:
+                break
+            data += chunk
+    try:
+        reply = json.loads(data)
+    except ValueError:
+        fail("Keine Antwort vom Systemdienst.")
+    if "error" in reply:
+        fail(reply["error"])
+    return reply.get("result")
 
 
 # ---------------------------------------------------------------- files handed to the app
@@ -524,29 +644,32 @@ def write_if_changed(path, text):
 
 def main():
     args = sys.argv[1:]
-    if args == ["--sync"]:
-        return sync()
-    mode = "start"
-    if args and args[0] in ("--print", "--shell", "--run"):
-        mode, args = args[0][2:], args[1:]
-    if not args or (mode == "run" and len(args) < 2):
-        sys.exit(__doc__)
-    app, rest = args[0].removesuffix(".desktop"), args[1:]
-    profiles = load_profiles()
-    launching = mode in ("start", "run")
-    if launching and not is_system_app(app, profiles):
-        first = 1 if mode == "run" else 0  # (with --run the first word is the program)
-        rest = rest[:first] + forward_files(permissions.store_key(app), rest[first:])
-    if mode == "run":
-        argv = rest  # a desktop entry's command, field codes already filled in
-    else:
-        argv = exec_argv(find_entry(app), [] if mode == "shell" else rest)
-    if is_system_app(app, profiles) and launching:
-        os.execvp(argv[0], argv)
+    try:
+        if args == ["--sync"]:
+            return sync()
+        mode = "start"
+        if args and args[0] in ("--print", "--shell", "--run"):
+            mode, args = args[0][2:], args[1:]
+        if not args or (mode == "run" and len(args) < 2):
+            sys.exit(__doc__)
+        app, rest = args[0].removesuffix(".desktop"), args[1:]
 
-    states = permissions.get(app)
-    if states["network"] == "ask" and launching:
-        states["network"] = ask(app, "network")
-    sandbox = Sandbox(app, argv, profiles.get("apps", {}).get(app, {}), states)
-    command = (rest or ["bash"]) if mode == "shell" else sandbox.argv
-    sys.exit(sandbox.run(command, dry=(mode == "print")))
+        if mode in ("start", "run"):
+            # the session service starts it (asks first if needed, cleans up afterwards)
+            call_service({"call": "apps.launch", "app": app, "args": rest, "run": mode == "run"})
+            return
+
+        # --print, --shell: here, for testing
+        system, argv, profile, states = prepare_launch(app, [], False)
+        box = Sandbox(app, argv, profile, states)
+        if mode == "print":
+            box.start(box.argv, dry=True)
+            return
+        app_process = box.start(rest or ["bash"])
+        code = app_process.wait()
+        cleanup(app, box.instance)
+        sys.exit(code)
+    except SandboxError as e:
+        print(f"app-sandbox: {e}", file=sys.stderr)
+        subprocess.run(["notify-send", "-a", "System", "-i", "dialog-warning", "App konnte nicht starten", str(e)])
+        sys.exit(1)

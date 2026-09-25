@@ -24,7 +24,7 @@ services)
     ((EUID != 0)) || { echo "Bitte ohne sudo ausführen." >&2; exit 1; }
     systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service
     systemctl --user enable hypridle.service   # starts with the next Hyprland session
-    systemctl --user enable --now app-sandbox-sync.path   # new apps start sandboxed
+    systemctl --user enable --now riptide-session.service   # permissions, sandboxes, new apps
     ~/.local/bin/app-sandbox --sync
     ;;
 *)

@@ -165,24 +165,32 @@ def set_state(app, key, state):
         _call("SetPermission", GLib.Variant("(sbssas)", (table, True, entry, store_key(app), [state])))
 
 
-def watch_sound():
+class SoundRequests:
     """Requests of WirePlumber (macos/app-permissions.lua): a sandboxed app wants a device
     it has no decision for. They come through the PipeWire metadata "macos-permissions";
-    `pw-dump --monitor` follows it also when WirePlumber restarts and creates it anew.
-    Requests older than ten minutes are left out (the app has most likely given up)."""
-    # line-buffered: through a pipe pw-dump would keep the end of an update back
-    dump = subprocess.Popen(["stdbuf", "-oL", "pw-dump", "--monitor", "--no-colors"], stdout=subprocess.PIPE, text=True)
-    buffer = ""
-    seen = set()
-    for line in dump.stdout:
-        buffer += line
+    `pw-dump --monitor` shows every change of it, also when WirePlumber restarts and
+    creates it anew. feed() takes its output line by line and returns the new requests
+    as (desktop id, kind). Requests older than ten minutes are left out (the app has
+    most likely given up)."""
+
+    COMMAND = ["stdbuf", "-oL", "pw-dump", "--monitor", "--no-colors"]  # line-buffered
+
+    def __init__(self):
+        self.buffer = ""
+        self.seen = set()
+
+    def feed(self, line):
+        self.buffer += line
         if line.rstrip() != "]":
-            continue  # every update is an array whose "]" stands alone on the last line
+            return []  # every update is an array whose "]" stands alone on the last line
         try:
-            objects = json.loads(buffer)
+            objects = json.loads(self.buffer)
         except ValueError:
-            continue
-        buffer = ""
+            return []
+        finally:
+            if line.rstrip() == "]":
+                self.buffer = ""
+        found = []
         for obj in objects if isinstance(objects, list) else []:
             if obj.get("type") != "PipeWire:Interface:Metadata":
                 continue
@@ -193,12 +201,21 @@ def watch_sound():
                 if not str(item.get("key", "")).startswith("request:") or not isinstance(value, dict):
                     continue
                 key = (obj.get("id"), item["key"], value.get("time"))
-                if key in seen or not value.get("app") or value.get("kind") not in BY_KEY:
+                if key in self.seen or not value.get("app") or value.get("kind") not in BY_KEY:
                     continue
-                seen.add(key)
-                if time.time() - value.get("time", 0) > 600:
-                    continue
-                print(json.dumps({"app": desktop_id(value["app"]), "kind": value["kind"]}), flush=True)
+                self.seen.add(key)
+                if time.time() - value.get("time", 0) <= 600:
+                    found.append((desktop_id(value["app"]), value["kind"]))
+        return found
+
+
+def watch_sound():
+    """The requests as JSON lines (for testing; the session service watches them itself)."""
+    dump = subprocess.Popen(SoundRequests.COMMAND, stdout=subprocess.PIPE, text=True)
+    requests = SoundRequests()
+    for line in dump.stdout:
+        for app, kind in requests.feed(line):
+            print(json.dumps({"app": app, "kind": kind}), flush=True)
     sys.exit(dump.wait())
 
 
