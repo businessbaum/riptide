@@ -191,7 +191,7 @@ void windowButtonsInit() {
     static auto MOUSE = Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent e, Event::SCallbackInfo& info) {
         if (e.button == BTN_LEFT)
             g_buttonDown = e.state == WL_POINTER_BUTTON_STATE_PRESSED;
-        if (e.button == BTN_LEFT && e.state == WL_POINTER_BUTTON_STATE_PRESSED && !g_dragging && moveInsteadOfTopResize(info))
+        if (e.button == BTN_LEFT && e.state == WL_POINTER_BUTTON_STATE_PRESSED && !g_dragging && !dialogOpen() && moveInsteadOfTopResize(info))
             return;
         if (!g_dragging || e.state == WL_POINTER_BUTTON_STATE_PRESSED)
             return;
