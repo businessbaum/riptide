@@ -62,10 +62,14 @@ Page {
         onTriggered: if (pairProcess.running) pairProcess.signal(15)
     }
     function pair(d) {
+        // Without "pairable" BlueZ only makes a temporary pairing (no stored key): the device
+        // is forgotten as soon as it disconnects. Also set permanently (setup-bluetooth.sh).
+        if (adapter)
+            adapter.pairable = true;
         pairing = d.address;
         pairResult = "";
         pairProcess.name = nameOf(d);
-        pairProcess.command = ["sh", "-c", "bluetoothctl --agent NoInputNoOutput --timeout 30 pair \"$1\" && bluetoothctl trust \"$1\" && bluetoothctl --timeout 15 connect \"$1\"", "sh", d.address];
+        pairProcess.command = ["sh", "-c", "bluetoothctl pairable on >/dev/null; bluetoothctl --agent NoInputNoOutput --timeout 30 pair \"$1\" && bluetoothctl trust \"$1\" && bluetoothctl --timeout 15 connect \"$1\"", "sh", d.address];
         pairProcess.running = true;
         pairWatchdog.restart();
     }
