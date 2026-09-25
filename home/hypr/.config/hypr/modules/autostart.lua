@@ -19,7 +19,6 @@ hl.on("hyprland.start", function()
     -- config: loading triggers a config reload.
     -- Built by ~/dotfiles/plugins/build.sh for one Hyprland version; after a Hyprland update
     -- it is rebuilt here first (a few seconds, the old build would crash).
-    -- (Until riptide-wm has proven itself: if it does not load, the two plugins it replaced.)
     hl.exec_cmd([[dir=~/.local/lib/hyprland-plugins
         running=$(hyprctl version -j | jq -r .tag | sed 's/^v//; s/-.*//')
         if [ "$(cat "$dir/built-for" 2>/dev/null)" != "$running" ]; then
@@ -34,9 +33,6 @@ hl.on("hyprland.start", function()
         if [ "$a" != ok ]; then
             sleep 3
             notify-send -a System -i dialog-warning -u critical "Plugin riptide-wm konnte nicht geladen werden" "$a"
-            for p in hyprbars window-buttons; do
-                [ -f "$dir/$p.so" ] && hyprctl plugin load "$dir/$p.so" >/dev/null
-            done
         fi
         # Apply the whole config once more with the plugin present: the reloads it
         # triggers while loading can run before its options exist.
