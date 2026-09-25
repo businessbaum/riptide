@@ -85,6 +85,20 @@ Singleton {
         return list;
     }
 
+    // Pinned to the dock (settings.json → dock.pinned), for the dock and Launchpad
+    function isPinned(entry) {
+        return !!entry && Config.dockPinned.some(p => plainId(p) === plainId(entry.id));
+    }
+    function setPinned(entry, pinned) {
+        Config.updateSettings(s => {
+            s.dock = s.dock ?? {};
+            const list = (s.dock.pinned ?? []).filter(p => plainId(p) !== plainId(entry.id));
+            if (pinned)
+                list.push(plainId(entry.id) + ".desktop");
+            s.dock.pinned = list;
+        });
+    }
+
     // Apps started in the last seconds that have no window yet: key → start time
     property var starting: ({})
 

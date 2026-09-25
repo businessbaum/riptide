@@ -37,14 +37,7 @@ Item {
     }
 
     function togglePinned() {
-        const id = Apps.plainId(entry.id) + ".desktop";
-        Config.updateSettings(s => {
-            s.dock = s.dock ?? {};
-            const pinned = (s.dock.pinned ?? []).filter(p => Apps.plainId(p) !== Apps.plainId(entry.id));
-            if (!root.pinned)
-                pinned.push(id);
-            s.dock.pinned = pinned;
-        });
+        Apps.setPinned(entry, !root.pinned);
     }
 
     // Give up bouncing if the app never shows a window

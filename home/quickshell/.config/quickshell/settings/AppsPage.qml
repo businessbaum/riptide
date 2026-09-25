@@ -35,6 +35,23 @@ Page {
     }
     property string query: ""
     property string removing: ""   // key of the row whose remove panel is open
+
+    // Deep link "apps/<desktop id>" (Launchpad → Deinstallieren …): only that app, with its
+    // remove panel open – the same removal as here, with its personal data
+    property string selected: ""
+    onSelectedChanged: openSelected()
+    onAppsChanged: openSelected()
+    function openSelected() {
+        if (selected === "")
+            return;
+        const a = apps.find(r => Apps.plainId(r.desktop) === Apps.plainId(selected));
+        if (!a)
+            return; // not loaded yet
+        selected = "";
+        search.text = a.names[0];
+        if (removable(a))
+            openRemove(a);
+    }
     property var leftovers: []     // [{ path, size, shared, chosen }]
     property string pendingTrash: ""
 
