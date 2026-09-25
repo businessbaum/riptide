@@ -9,7 +9,10 @@
 -- again once decided. Once allowed, waiting streams are linked right away.
 --
 -- Recording anything (also what the speakers play) needs the microphone permission.
+-- Taking a permission away cuts the app's running streams at once.
 
+lutils = require ("linking-utils")
+cutils = require ("common-utils")
 log = Log.open_topic ("s-client")
 pps = Plugin.find ("portal-permissionstore")
 
@@ -75,6 +78,14 @@ pm:add_interest_match (device_rule ("camera"),
     Interest { type = "node", Constraint { "media.class", "#", "Video/Source*" } })
 pm:add_interest_match (function () return Perm.NONE end,
     Interest { type = "metadata", Constraint { "metadata.name", "=", "macos-permissions" } })
+-- Other apps' streams stay invisible (what they play, their titles); their own are theirs
+pm:add_interest_match (function (_, client, node)
+      if tonumber (node.properties ["client.id"]) == client ["bound-id"] then
+        return Perm.ALL
+      end
+      return Perm.NONE
+    end,
+    Interest { type = "node", Constraint { "media.class", "#", "Stream/*" } })
 
 SimpleEventHook {
   name = "client/macos-app-permissions",
@@ -117,6 +128,21 @@ end
 clients_om = ObjectManager { Interest { type = "client" } }
 clients_om:activate ()
 
+-- Remove the links of a stream (permission taken away while it runs)
+function unlink (si)
+  local om = cutils.get_object_manager ("session-item")
+  for link in om:iterate { type = "SiLink" } do
+    local out_id = tonumber (link.properties ["out.item.id"])
+    local in_id = tonumber (link.properties ["in.item.id"])
+    if out_id == si.id or in_id == si.id then
+      lutils:get_flags (out_id).peer_id = nil
+      lutils:get_flags (in_id).peer_id = nil
+      link:remove ()
+      log:info (si, "... link removed: permission taken away")
+    end
+  end
+end
+
 -- Before any target is picked: no link for a stream the app may not use
 SimpleEventHook {
   name = "linking/macos-app-permissions",
@@ -140,7 +166,20 @@ SimpleEventHook {
     local client = clients_om:lookup {
       Constraint { "bound-id", "=", tonumber (client_id), type = "gobject" },
     }
-    local app = client and sandboxed_app (client)
+    if client == nil then
+      -- not known here yet: no link now (never let it through unchecked), look again soon
+      log:info (si, "client " .. client_id .. " not known yet: linking later")
+      event:stop_processing ()
+      Core.timeout_add (300, function ()
+        local source = Plugin.find ("standard-event-source")
+        if source then
+          source:call ("schedule-rescan", "linking")
+        end
+        return false
+      end)
+      return
+    end
+    local app = sandboxed_app (client)
     if app == nil then
       return
     end
@@ -152,6 +191,7 @@ SimpleEventHook {
     if now == "ask" then
       ask (app, entry)
     end
+    unlink (si)
     event:stop_processing ()
   end
 }:register ()

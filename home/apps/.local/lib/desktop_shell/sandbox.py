@@ -246,7 +246,10 @@ class Sandbox:
               "--ro-bind", "/etc", "/etc", "--ro-bind-try", "/opt", "/opt",
               "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/var", "--tmpfs", "/run",
               "--ro-bind-try", "/var/cache/fontconfig", "/var/cache/fontconfig",
-              "--bind", str(self.tmp), "/tmp", "--tmpfs", "/var/tmp"]
+              "--bind", str(self.tmp), "/tmp", "--tmpfs", "/var/tmp",
+              # links and mail addresses open through the portal, never inside the sandbox
+              "--ro-bind-try", "/usr/lib/flatpak-xdg-utils/xdg-open", "/usr/bin/xdg-open",
+              "--ro-bind-try", "/usr/lib/flatpak-xdg-utils/xdg-email", "/usr/bin/xdg-email"]
         for sys_dir in ("block", "bus", "class", "dev", "devices"):
             a += ["--ro-bind-try", f"/sys/{sys_dir}", f"/sys/{sys_dir}"]
 
