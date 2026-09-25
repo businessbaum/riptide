@@ -19,7 +19,7 @@ hl.config({
 
         -- Resize windows by dragging any edge (8 px around the window). Clicks on the title
         -- bar – including the window's rounded top corners below it – belong to the bar
-        -- (our hyprbars patch), so dragging there always moves the window.
+        -- (riptide-wm), so dragging there always moves the window.
         resize_on_border        = true,
         extend_border_grab_area = 8,
 

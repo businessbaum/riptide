@@ -1,9 +1,9 @@
 -- Apps that draw their own title bar ("client-side decorations"): GNOME/GTK4 apps
 -- like Finder, our Vorschau, browsers, Electron apps like Claude and Discord. They get no
--- second bar from hyprbars. Their traffic lights come from our theme (GTK: gtk.css from
+-- second bar from riptide-wm. Their traffic lights come from our theme (GTK: gtk.css from
 -- desktop-theme); Claude and Discord draw their own buttons, which cannot be restyled.
 -- Not here: System Settings (Quickshell, no title bar of its own), kitty. Dragging/minimizing/zooming is done by our plugin
--- window-buttons (plugins/window-buttons).
+-- riptide-wm (plugins/riptide-wm/window_buttons.cpp).
 -- Add more such apps here (class name: hyprctl clients).
 
 local M = {}

@@ -1,6 +1,7 @@
 -- Title bars with the three traffic-light buttons (close, minimize, zoom).
--- They come from the plugin "hyprbars" (official source + our patch), built by
--- ~/dotfiles/plugins/build.sh into ~/.local/lib/hyprland-plugins/.
+-- They come from our plugin riptide-wm (its title bar part is based on hyprbars and keeps
+-- its names: plugin.hyprbars.*, hl.plugin.hyprbars), built by ~/dotfiles/plugins/build.sh
+-- into ~/.local/lib/hyprland-plugins/.
 --
 -- It is NOT loaded here but once at startup (autostart.lua): loading a plugin
 -- triggers a config reload. Loading it here would reload → load → reload … → crash.
@@ -78,7 +79,7 @@ local ok, err = pcall(function()
 
     -- Apps with their own title bar (GNOME apps like Finder) get no second one.
     -- Their bar has the traffic lights itself (desktop-theme); dragging, minimizing
-    -- and zooming is done by our plugin window-buttons. List: csd_apps.lua.
+    -- and zooming is done by riptide-wm (window_buttons.cpp). List: csd_apps.lua.
     hl.window_rule({
         name  = "own-titlebar",
         match = { class = require("modules.csd_apps").regex },
@@ -92,8 +93,8 @@ if not ok then
 end
 
 -- After dragging by the title bar: snap to screen edges (snapping.lua).
--- The option on_drag_end only exists with our patch (plugins/hyprbars-on-drag-end.patch),
--- so set it only if the loaded plugin knows it.
+-- The option on_drag_end is one of our changes (riptide-wm), so set it only if the loaded
+-- plugin knows it.
 local _, unknown = hl.get_config("plugin.hyprbars.on_drag_end")
 if not unknown then
     hl.config({
