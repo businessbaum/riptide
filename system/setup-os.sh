@@ -19,6 +19,8 @@
 #   8. security: the firewall lets mDNS in (finding printers and devices) and no longer SSH
 #      (remote login is off); snapshots of the system are readable for the user (their
 #      date in System Settings; later Time Machine)
+#   9. Time Machine, local part: hourly snapshots of /home (snapper config "home": the
+#      last 24 hours, 7 days, 4 weeks, 6 months), readable for the user – "Frühere Versionen"
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -87,6 +89,18 @@ user=${SUDO_USER:-}
 if [[ -n "$user" ]] && snapper -c root get-config >/dev/null 2>&1; then
     snapper -c root set-config "ALLOW_USERS=$user" SYNC_ACL=yes
     echo "  Snapshots für $user lesbar"
+fi
+
+step "Time Machine: stündliche Snapshots des Benutzerordners"
+if [[ -f /etc/snapper/configs/home ]]; then
+    echo "  schon eingerichtet"
+elif [[ -n "$user" ]]; then
+    snapper -c home create-config /home
+    snapper -c home set-config "ALLOW_USERS=$user" SYNC_ACL=yes TIMELINE_CREATE=yes TIMELINE_CLEANUP=yes \
+        TIMELINE_LIMIT_HOURLY=24 TIMELINE_LIMIT_DAILY=7 TIMELINE_LIMIT_WEEKLY=4 TIMELINE_LIMIT_MONTHLY=6 \
+        TIMELINE_LIMIT_YEARLY=0
+    snapper -c home create --description "Erster Snapshot"
+    echo "  /home: stündlich (24 Std., 7 Tage, 4 Wochen, 6 Monate)"
 fi
 
 echo

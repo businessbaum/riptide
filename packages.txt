@@ -129,6 +129,8 @@ gvfs-mtp
 gvfs-afc
 seahorse
 gnome-disk-utility
+# Time Machine: backups to an external disk (encrypted, deduplicated)
+restic
 
 ## App sandbox (docs/os-plan.md, batch 1)
 bubblewrap
