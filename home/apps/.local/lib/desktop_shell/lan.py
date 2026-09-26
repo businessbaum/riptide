@@ -11,11 +11,14 @@ applies at once: the rules go (or come) for the app's running scopes.
 Until the installed helper knows this (system/setup-os.sh), the kind stays unoffered.
 """
 
+import os
 import re
 import subprocess
 from pathlib import Path
 
 from gi.repository import Gio, GLib
+
+from desktop_shell import sandbox
 
 HELPER = "/usr/local/sbin/riptide-helper"
 KIND = "local-network"
@@ -51,6 +54,7 @@ class LocalNetwork:
     def start(self):
         if not self.enforced:
             return
+        self.adopt()
         try:
             self.proc = Gio.Subprocess.new(["journalctl", "--dmesg", "--follow", "--lines=0", "--output=cat",
                                             "--grep=riptide-lan "], Gio.SubprocessFlags.STDOUT_PIPE)
@@ -61,6 +65,16 @@ class LocalNetwork:
         self.read_next()
 
     # ------------------------------------------------------------ apps start and end
+
+    def adopt(self):
+        """Sandboxes that run already (the service restarted): the same rules as at a start"""
+        for app, instance, folder in sandbox.instances():
+            if not app or not sandbox.running(folder) or self.session.state(app, "network") != "yes":
+                continue
+            unit = f"app-sandbox-{re.sub(r'[^A-Za-z0-9_.]', '_', app)}-{instance}.scope"
+            if Path(f"/sys/fs/cgroup/user.slice/user-{os.getuid()}.slice/user@{os.getuid()}.service/app.slice/"
+                    f"app-graphical.slice/{unit}").is_dir():
+                self.guard(app, unit)
 
     def guard(self, app, unit):
         """Before the app runs (its scope exists, bwrap still waits)"""
