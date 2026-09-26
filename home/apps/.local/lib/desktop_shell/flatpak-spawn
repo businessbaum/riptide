@@ -1,0 +1,58 @@
+#!/bin/sh
+# flatpak-spawn inside the sandbox of an app (sandbox.py binds it over the real one,
+# /usr/lib/flatpak-xdg-utils/flatpak-spawn, which /usr/bin/flatpak-spawn links to).
+#
+# Our apps look like Flatpak apps (/.flatpak-info, so the portals know who asks). Libraries
+# that run a helper through "flatpak-spawn --sandbox" believe that too – above all glycin,
+# the image loader behind GTK and gdk-pixbuf, which starts one for every image. The real
+# flatpak-spawn asks the Flatpak portal, which cannot start anything for apps that are not
+# installed as Flatpaks: every image failed, slowly, and was tried again on every mouse
+# move (Thunderbird lagged half a second behind the pointer).
+#
+# Here the helper runs inside the app's own sandbox instead. With --sandbox in a tighter
+# one, like the portal would do it: no network, no files but the system's, no D-Bus.
+# --host is refused: an app never reaches outside its sandbox this way.
+#
+#   flatpak-spawn [--sandbox] [--directory=DIR] [--env=VAR=VALUE] [--unset-env=VAR]
+#                 [--clear-env] [other options: accepted, not needed here] COMMAND [ARG …]
+
+sandbox=0
+clear=0
+dir=
+while [ $# -gt 0 ]; do
+    case $1 in
+        --host)
+            echo "flatpak-spawn: --host is not available in this sandbox" >&2
+            exit 1 ;;
+        --sandbox) sandbox=1 ;;
+        --no-network) sandbox=1 ;;
+        --directory=*) dir=${1#--directory=} ;;
+        --env=*) export "${1#--env=}" ;;
+        --unset-env=*) unset "${1#--unset-env=}" ;;
+        --clear-env) clear=1 ;;
+        --) shift; break ;;
+        # --watch-bus, --forward-fd=N (open descriptors are inherited anyway),
+        # --sandbox-expose*… (nothing extra is shown), --latest-version, --verbose
+        -*) ;;
+        *) break ;;
+    esac
+    shift
+done
+if [ $# -eq 0 ]; then
+    echo "usage: flatpak-spawn [options] COMMAND [ARG …]" >&2
+    exit 1
+fi
+
+if [ $sandbox = 1 ]; then
+    if [ $clear = 1 ]; then set -- --clearenv -- "$@"; else set -- -- "$@"; fi
+    exec bwrap --unshare-all --die-with-parent --new-session --cap-drop ALL \
+        --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/bin /sbin \
+        --symlink usr/lib /lib --symlink usr/lib /lib64 \
+        --ro-bind-try /etc/ld.so.cache /etc/ld.so.cache --ro-bind-try /etc/fonts /etc/fonts \
+        --ro-bind-try /var/cache/fontconfig /var/cache/fontconfig \
+        --dev /dev --proc /proc --tmpfs /tmp --chdir "${dir:-/}" "$@"
+fi
+
+[ -n "$dir" ] && cd "$dir"
+[ $clear = 1 ] && exec env -i "$@"
+exec "$@"

@@ -1,0 +1,343 @@
+/* Thunderbird in the look of the system, laid out like Outlook:
+ *   app bar on the left (mail, calendar, contacts …), folders, the message list as cards,
+ *   the reading pane on the right; "Neue Nachricht" as the one big button on top.
+ *
+ * desktop-theme puts this into every Thunderbird profile (chrome/userChrome.css and
+ * chrome/userContent.css), after the colours of theme.json (--rt-*). Both modes are in
+ * it (light-dark), so a mode change needs no new file.
+ *
+ * A user style sheet loses against Thunderbird's own rules unless it says !important,
+ * so everything here does. Colours go through Thunderbird's own variables wherever it
+ * has one: then its states (hover, selected, focused) keep working. */
+
+/* ---------- colours ---------- */
+
+:root {
+  /* the design tokens of Mozilla (both modes) */
+  --color-surface-base-light: var(--rt-view-light) !important;
+  --color-surface-base-dark: var(--rt-view-dark) !important;
+  --color-surface-raised-light: var(--rt-popover-light) !important;
+  --color-surface-raised-dark: var(--rt-popover-dark) !important;
+  --color-surface-subtle-light: var(--rt-popover-light) !important;
+  --color-surface-subtle-dark: var(--rt-popover-dark) !important;
+  --color-surface-lower-light: var(--rt-sidebar-light) !important;
+  --color-surface-lower-dark: var(--rt-sidebar-dark) !important;
+  --color-surface-deep-light: var(--rt-step-3-light) !important;
+  --color-surface-deep-dark: var(--rt-step-3-dark) !important;
+  --color-surface-border-light: var(--rt-border-light) !important;
+  --color-surface-border-dark: var(--rt-border-dark) !important;
+  --color-surface-border-intense-light: var(--rt-step-4-light) !important;
+  --color-surface-border-intense-dark: var(--rt-step-4-dark) !important;
+  --color-text-base-light: var(--rt-text-light) !important;
+  --color-text-base-dark: var(--rt-text-dark) !important;
+  --color-text-secondary-light: var(--rt-text-secondary-light) !important;
+  --color-text-secondary-dark: var(--rt-text-secondary-dark) !important;
+  --color-text-muted-light: var(--rt-text-secondary-light) !important;
+  --color-text-muted-dark: var(--rt-text-secondary-dark) !important;
+
+  /* Thunderbird's layout steps: 0 = content, 1 = window, 2–4 = controls */
+  --layout-background-0: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
+  --layout-background-1: light-dark(var(--rt-window-light), var(--rt-window-dark)) !important;
+  --layout-background-2: light-dark(var(--rt-step-2-light), var(--rt-step-2-dark)) !important;
+  --layout-background-3: light-dark(var(--rt-step-3-light), var(--rt-step-3-dark)) !important;
+  --layout-background-4: light-dark(var(--rt-step-4-light), var(--rt-step-4-dark)) !important;
+  --layout-color-0: light-dark(var(--rt-text-light), var(--rt-text-dark)) !important;
+  --layout-color-1: light-dark(var(--rt-text-light), var(--rt-text-dark)) !important;
+  --layout-color-2: light-dark(var(--rt-text-secondary-light), var(--rt-text-secondary-dark)) !important;
+  --layout-color-3: light-dark(var(--rt-text-secondary-light), var(--rt-text-secondary-dark)) !important;
+  --layout-border-0: light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+  --layout-border-1: light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+  --layout-border-2: light-dark(var(--rt-step-4-light), var(--rt-step-4-dark)) !important;
+
+  /* the accent: selection, primary buttons, links in the UI */
+  --selected-item-color: var(--rt-accent) !important;
+  --selected-item-text-color: #ffffff !important;
+  --color-accent-primary: var(--rt-accent) !important;
+  --color-accent-primary-hover: color-mix(in srgb, var(--rt-accent) 88%, black) !important;
+  --color-accent-primary-active: color-mix(in srgb, var(--rt-accent) 76%, black) !important;
+  --button-primary-background-color: var(--rt-accent) !important;
+  --button-primary-hover-background-color: color-mix(in srgb, var(--rt-accent) 88%, black) !important;
+  --button-primary-active-background-color: color-mix(in srgb, var(--rt-accent) 76%, black) !important;
+  --button-primary-border-color: transparent !important;
+  --focus-outline-color: var(--rt-accent) !important;
+  --new-folder-color: var(--rt-accent) !important;
+  --new-subject-color: var(--rt-accent) !important;
+  --new-color: var(--rt-accent) !important;
+
+  /* surfaces */
+  --toolbar-background-color: light-dark(var(--rt-window-light), var(--rt-window-dark)) !important;
+  --sidebar-background-color: light-dark(var(--rt-sidebar-light), var(--rt-sidebar-dark)) !important;
+  --sidebar-background: light-dark(var(--rt-sidebar-light), var(--rt-sidebar-dark)) !important;
+  --sidebar-border: transparent !important;
+  --tree-view-bg: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
+  --tree-pane-background: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
+  --spaces-bg-color: light-dark(var(--rt-sidebar-light), var(--rt-sidebar-dark)) !important;
+  --spaces-bg-image: none !important;
+  --search-bar-background: light-dark(var(--rt-tile-light), var(--rt-tile-dark)) !important;
+  --search-bar-focus-background: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
+  --search-bar-border-color: transparent !important;
+  --toolbar-field-background-color: light-dark(var(--rt-tile-light), var(--rt-tile-dark)) !important;
+  --panel-background-color: light-dark(var(--rt-popover-light), var(--rt-popover-dark)) !important;
+  --arrowpanel-background: light-dark(var(--rt-popover-light), var(--rt-popover-dark)) !important;
+  --arrowpanel-border-color: light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+  --arrowpanel-border-radius: 12px !important;
+  --panel-border-radius: 12px !important;
+
+  /* rounder, like the rest of the system */
+  --button-border-radius: 6px !important;
+  --listbox-border-radius: 10px !important;
+
+  /* folder list: pills like in a macOS sidebar */
+  --treeitem-background-hover: light-dark(var(--rt-hover-light), var(--rt-hover-dark)) !important;
+  --treeitem-background-selected: light-dark(var(--rt-tile-light), var(--rt-hover-dark)) !important;
+  --treeitem-background-active: color-mix(in srgb, var(--rt-accent) 26%, transparent) !important;
+  --treeitem-text-active: light-dark(var(--rt-text-light), var(--rt-text-dark)) !important;
+  --listbox-hover: light-dark(var(--rt-hover-light), var(--rt-hover-dark)) !important;
+  --listbox-selected-bg: light-dark(var(--rt-tile-light), var(--rt-hover-dark)) !important;
+  --listbox-focused-selected-bg: color-mix(in srgb, var(--rt-accent) 26%, transparent) !important;
+  --listbox-focused-selected-color: light-dark(var(--rt-text-light), var(--rt-text-dark)) !important;
+  --listbox-selected-color: light-dark(var(--rt-text-light), var(--rt-text-dark)) !important;
+  --folderpane-unread-count-background: transparent !important;
+  --folderpane-unread-count-text: var(--rt-accent) !important;
+  --folderpane-unread-new-count-background: transparent !important;
+  --folderpane-total-count-background: transparent !important;
+  --folderpane-total-count-text: light-dark(var(--rt-text-secondary-light), var(--rt-text-secondary-dark)) !important;
+
+  /* message list: cards without frames; hover grey, selection in the accent */
+  --tree-card-border: transparent !important;
+  --tree-card-border-hover: transparent !important;
+  --tree-card-border-focus: transparent !important;
+  --tree-card-border-selected: transparent !important;
+  --tree-card-border-selected-unfocused: transparent !important;
+  --tree-card-background: transparent !important;
+  --tree-card-background-current: light-dark(var(--rt-hover-light), var(--rt-hover-dark)) !important;
+  --tree-card-background-selected: color-mix(in srgb, var(--rt-accent) 20%, transparent) !important;
+  --tree-card-background-selected-current: color-mix(in srgb, var(--rt-accent) 28%, transparent) !important;
+  --tree-card-background-current-unfocused: transparent !important;
+  --tree-card-background-selected-unfocused: light-dark(var(--rt-tile-light), var(--rt-hover-dark)) !important;
+  --tree-card-background-selected-current-unfocused: light-dark(var(--rt-tile-light), var(--rt-hover-dark)) !important;
+  --tree-card-background-selected-current-unfocused-hover: light-dark(var(--rt-hover-light), var(--rt-hover-dark)) !important;
+}
+
+/* ---------- main window (messenger.xhtml) ---------- */
+
+/* window buttons: the traffic lights of the other windows (colours from theme.json) */
+.titlebar-buttonbox {
+  --titlebar-button-size: var(--rt-light-size) !important;
+  --titlebar-button-spacing: calc(var(--rt-light-spacing) / 2) !important;
+  --titlebar-button-end-spacing: calc(var(--rt-light-spacing) / 2) !important;
+  padding-inline: 8px !important;
+}
+.titlebar-button > .toolbarbutton-icon {
+  appearance: none !important;
+  background-size: 10px !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12) !important;
+  transition: none !important;
+}
+.titlebar-close > .toolbarbutton-icon { background-color: var(--rt-light-close) !important; stroke: var(--rt-light-close-glyph) !important; }
+.titlebar-min > .toolbarbutton-icon { background-color: var(--rt-light-minimize) !important; stroke: var(--rt-light-minimize-glyph) !important; }
+:is(.titlebar-max, .titlebar-restore) > .toolbarbutton-icon { background-color: var(--rt-light-zoom) !important; stroke: var(--rt-light-zoom-glyph) !important; }
+/* the symbols show while the pointer is over the three, like on a Mac */
+.titlebar-buttonbox:hover .titlebar-close > .toolbarbutton-icon { background-image: -moz-symbolic-icon(window-close-symbolic) !important; }
+.titlebar-buttonbox:hover .titlebar-min > .toolbarbutton-icon { background-image: -moz-symbolic-icon(window-minimize-symbolic) !important; }
+.titlebar-buttonbox:hover .titlebar-max > .toolbarbutton-icon { background-image: -moz-symbolic-icon(window-maximize-symbolic) !important; }
+.titlebar-buttonbox:hover .titlebar-restore > .toolbarbutton-icon { background-image: -moz-symbolic-icon(window-restore-symbolic) !important; }
+.titlebar-button:hover:active > .toolbarbutton-icon { filter: brightness(0.85) !important; }
+/* a window in the background: grey, like on a Mac */
+.titlebar-button:-moz-window-inactive > .toolbarbutton-icon {
+  background-color: color-mix(in srgb, currentColor 18%, transparent) !important;
+}
+
+/* app bar on the left, like Outlook's */
+#spacesToolbar {
+  border-inline-end: none !important;
+  padding-block-start: 8px !important;
+}
+#spacesToolbar .spaces-toolbar-button {
+  border-radius: 10px !important;
+}
+#spacesToolbar .spaces-toolbar-button.current {
+  background-color: color-mix(in srgb, var(--rt-accent) 22%, transparent) !important;
+  color: var(--rt-accent) !important;
+  box-shadow: inset 3px 0 0 var(--rt-accent) !important;
+}
+
+/* top bar: the search in the middle, as a soft rounded field */
+unified-toolbar {
+  border-block-end: 1px solid light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+}
+#unifiedToolbarContent global-search-bar,
+#unifiedToolbarContent .search-bar {
+  --search-field-border-radius: 8px !important;
+}
+
+/* tabs: quiet, the current one lifted */
+.tabmail-tab {
+  border-radius: 8px !important;
+}
+.tabmail-tab[selected] {
+  background-color: light-dark(var(--rt-view-light), var(--rt-hover-dark)) !important;
+}
+
+/* ---------- folders, list and reading pane (about:3pane) ---------- */
+
+#folderPane {
+  border-inline-end: 1px solid light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+}
+#folderPaneHeaderBar {
+  padding: 10px 8px 8px 10px !important;
+  gap: 4px !important;
+  background: transparent !important;
+  border: none !important;
+}
+/* "Neue Nachricht": Outlook's big button, in the accent */
+#folderPaneWriteMessage {
+  flex: 1 !important;
+  justify-content: center !important;
+  min-block-size: 34px !important;
+  padding-inline: 8px !important;
+  gap: 6px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  font-weight: 600 !important;
+  background-color: var(--rt-accent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18) !important;
+}
+#folderPaneWriteMessage:hover {
+  background-color: color-mix(in srgb, var(--rt-accent) 88%, black) !important;
+}
+#folderPaneWriteMessage:active {
+  background-color: color-mix(in srgb, var(--rt-accent) 76%, black) !important;
+}
+/* mail comes in by itself; "Nachrichten abrufen" stays in the folder's context menu */
+#folderPaneGetMessages {
+  display: none !important;
+}
+#folderPaneMoreButton {
+  border: none !important;
+  background-color: transparent !important;
+  border-radius: 8px !important;
+}
+#folderPaneMoreButton:hover {
+  background-color: light-dark(var(--rt-hover-light), var(--rt-hover-dark)) !important;
+}
+
+/* folder rows: rounded pills with some air */
+#folderTree li > .container {
+  margin-inline: 8px !important;
+  border-radius: 7px !important;
+}
+#folderTree > li > .mode-container {
+  border-block-start: none !important;
+}
+#folderTree > li > .mode-container > .mode-name {
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  color: light-dark(var(--rt-text-secondary-light), var(--rt-text-secondary-dark)) !important;
+  padding-inline-start: 16px !important;
+}
+/* unread count: a plain number in the accent, like Outlook */
+.unread-count {
+  font-weight: 700 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+#folderTree:focus-within li.selected > .container > .unread-count {
+  color: var(--rt-accent) !important;
+  background-color: transparent !important;
+}
+
+/* message list */
+#threadPane {
+  background-color: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
+}
+#threadPaneHeaderBar {
+  background: transparent !important;
+  border-block-end: none !important;
+  padding-block: 8px !important;
+}
+#threadPaneFolderName {
+  font-size: 1.3rem !important;
+  font-weight: 700 !important;
+}
+#threadPaneFolderCount,
+#threadPaneSelectedCount {
+  color: light-dark(var(--rt-text-secondary-light), var(--rt-text-secondary-dark)) !important;
+  background: transparent !important;
+  border: none !important;
+}
+#threadTree[rows="thread-card"] .card-layout > td {
+  padding-inline: 8px !important;
+  padding-block: 1px !important;
+}
+#threadTree[rows="thread-card"] .card-container {
+  border-radius: 10px !important;
+}
+/* the selected message gets the accent bar on its left, like in Outlook */
+#threadTree[rows="thread-card"] .card-layout.selected .card-container {
+  box-shadow: inset 3px 0 0 var(--rt-accent) !important;
+}
+/* unread: the dot in the accent instead of green */
+#threadTree[rows="thread-card"] .card-layout[data-properties~="unread"] {
+  --read-status-fill: var(--rt-accent) !important;
+  --read-status-stroke: var(--rt-accent) !important;
+}
+#threadTree[rows="thread-card"] .card-layout[data-properties~="unread"] .subject {
+  color: var(--rt-accent) !important;
+}
+#threadTree[rows="thread-card"] .date {
+  color: light-dark(var(--rt-text-secondary-light), var(--rt-text-secondary-dark)) !important;
+}
+
+/* reading pane */
+#messagePane {
+  background-color: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
+}
+
+/* splitters: a hairline */
+#folderPaneSplitter,
+#messagePaneSplitter {
+  --splitter-color: light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+}
+
+/* ---------- message header (about:message) ---------- */
+
+#messageHeader {
+  background-color: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
+  border-block-end: 1px solid light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+  padding: 12px 16px 10px !important;
+}
+#headerSubjectSecurityContainer {
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+}
+/* reply, forward, archive …: flat buttons that show on hover, like Outlook's */
+#header-view-toolbar > toolbarbutton,
+#header-view-toolbar .toolbarbutton-1,
+.message-header-view-button {
+  border: none !important;
+  background-color: transparent !important;
+  border-radius: 7px !important;
+}
+#header-view-toolbar > toolbarbutton:hover,
+#header-view-toolbar .toolbarbutton-1:hover,
+.message-header-view-button:hover {
+  background-color: light-dark(var(--rt-hover-light), var(--rt-hover-dark)) !important;
+}
+
+/* notices in a message ("Zum Schutz Ihrer Privatsphäre …"): calm, not bright yellow */
+notification-message {
+  --message-bar-background-color: color-mix(in srgb, var(--rt-accent) 14%, light-dark(var(--rt-view-light), var(--rt-view-dark))) !important;
+  --message-bar-text-color: light-dark(var(--rt-text-light), var(--rt-text-dark)) !important;
+  --background-color-box-info: light-dark(var(--rt-tile-light), var(--rt-tile-dark)) !important;
+  border-radius: 10px !important;
+}
+notification-message[type="warning"] {
+  --message-bar-background-color: color-mix(in srgb, #ff9f0a 16%, light-dark(var(--rt-view-light), var(--rt-view-dark))) !important;
+}
+notification-message[value="remoteContent"] {
+  --message-bar-background-color: color-mix(in srgb, var(--rt-accent) 14%, light-dark(var(--rt-view-light), var(--rt-view-dark))) !important;
+  --message-bar-text-color: light-dark(var(--rt-text-light), var(--rt-text-dark)) !important;
+}

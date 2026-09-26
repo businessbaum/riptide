@@ -47,6 +47,8 @@ from desktop_shell import permissions
 HOME = Path.home()
 RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
 HELPERS = HOME / ".local/lib/macos-sandbox"
+# our flatpak-spawn, bound over the real one in every sandbox (see that file)
+FLATPAK_SPAWN = Path(__file__).resolve().parent / "flatpak-spawn"
 CONTAINERS = HOME / ".local/share/macos/sandbox"
 PROFILES = HOME / ".config/macos/sandbox.json"
 ENTRY_DIRS = [Path("/usr/local/share/applications"), Path("/usr/share/applications"),
@@ -58,6 +60,11 @@ LOOK = [".config/gtk-3.0", ".config/gtk-4.0", ".gtkrc-2.0", ".config/fontconfig"
         ".config/user-dirs.dirs", ".config/user-dirs.locale",
         # default apps: read-only, so an app knows whether it is the default (Thunderbird)
         ".config/mimeapps.list"]
+
+# The portals an app may use: the desktop portal (files, screen, camera, links …), the
+# document portal (files it was given) and the input method portals
+PORTALS = ("org.freedesktop.portal.Desktop", "org.freedesktop.portal.Documents",
+           "org.freedesktop.portal.IBus", "org.freedesktop.portal.Fcitx")
 
 # Environment the app keeps; everything else is dropped (no SSH agent, no Hyprland socket …)
 KEEP_ENV = re.compile(r"^(PATH|LANG|LANGUAGE|LC_.*|TZ|USER|LOGNAME|HOME|SHELL|TERM|XDG_CURRENT_DESKTOP|"
@@ -228,8 +235,11 @@ class Sandbox:
         writes one byte to `life_w` when ready and ends when that pipe has no reader."""
         session, system = self.dir / "bus", self.dir / "system_bus"
         rules = ["--filter", f"--own={self.id}", f"--own={self.id}.*",
-                 "--talk=org.freedesktop.portal.*", "--call=org.freedesktop.portal.*=*",
-                 "--broadcast=org.freedesktop.portal.*=@/org/freedesktop/portal/*",
+                 # the portals by name, not org.freedesktop.portal.*: that includes the
+                 # Flatpak portal, which starts programs outside the sandbox (and cannot
+                 # for our apps, they are no real Flatpaks; flatpak-spawn is our own here)
+                 *[f"--talk={name}" for name in PORTALS],
+                 *[f"--broadcast={name}=@/org/freedesktop/portal/*" for name in PORTALS],
                  # menu bar icon: exact names only (StatusNotifierItem-<pid>-<n>, pids inside
                  # the sandbox are small), never a whole namespace: owning org.kde.* or
                  # org.freedesktop.* would let an app pose as a system service
@@ -289,7 +299,10 @@ class Sandbox:
               "--bind", str(self.tmp), "/tmp", "--tmpfs", "/var/tmp",
               # links and mail addresses open through the portal, never inside the sandbox
               "--ro-bind-try", "/usr/lib/flatpak-xdg-utils/xdg-open", "/usr/bin/xdg-open",
-              "--ro-bind-try", "/usr/lib/flatpak-xdg-utils/xdg-email", "/usr/bin/xdg-email"]
+              "--ro-bind-try", "/usr/lib/flatpak-xdg-utils/xdg-email", "/usr/bin/xdg-email",
+              # helpers of the app (glycin's image loaders) start inside its sandbox, not
+              # through the Flatpak portal, which cannot start anything for our apps
+              "--ro-bind", str(FLATPAK_SPAWN), "/usr/lib/flatpak-xdg-utils/flatpak-spawn"]
         # (module: the NVIDIA driver reads its parameters there, else apps fall back to the
         # onboard GPU and fail to hand frames to the compositor)
         for sys_dir in ("block", "bus", "class", "dev", "devices", "module"):
