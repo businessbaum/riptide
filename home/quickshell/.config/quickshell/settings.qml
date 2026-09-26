@@ -57,6 +57,9 @@ FloatingWindow {
 
     ConfirmDialog {}
 
+    // Closing the window ends the app (else the process stayed, windowless, forever)
+    onClosed: Qt.quit()
+
     title: "Systemeinstellungen"
     implicitWidth: 860
     implicitHeight: 600

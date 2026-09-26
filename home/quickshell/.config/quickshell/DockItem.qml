@@ -2,8 +2,8 @@ import QtQuick
 import Quickshell
 
 // One app in the dock.
-//   click:        running → bring its last window to the front, else start it
-//                 (the icon bounces until the app shows a window)
+//   click:        running → in front: minimize it, else bring its last window to the
+//                 front; not running → start it (the icon bounces until it shows a window)
 //   right-click:  menu with "Neues Fenster", "Im Dock behalten"/"Aus dem Dock entfernen", "Beenden"
 //   hover:        the app name above the icon
 Item {
@@ -28,7 +28,7 @@ Item {
 
     function click() {
         if (running) {
-            Apps.activate(windows[0].appId);
+            Apps.toggle(windows[0].appId);
         } else if (entry && !launching) {
             launching = true;
             launchTimeout.restart();

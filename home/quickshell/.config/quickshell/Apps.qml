@@ -101,6 +101,17 @@ Singleton {
 
     // Apps started in the last seconds that have no window yet: key → start time
     property var starting: ({})
+    // An app that shows a window has started: forget it, so it can be started again
+    // right after that window is closed (else the next click only bounced)
+    onWindowsChanged: {
+        const done = Object.keys(starting).filter(k => windowsOf(entryById(k)?.id ?? k).length > 0);
+        if (done.length === 0)
+            return;
+        const s = Object.assign({}, starting);
+        for (const k of done)
+            delete s[k];
+        starting = s;
+    }
 
     // Open an app like on a Mac: never a second copy. Already running → its window comes
     // to the front; just started (still bouncing) → nothing happens.
@@ -133,6 +144,11 @@ Singleton {
     // Bring the most recently used window of an app to the front (also from "minimized")
     function activate(appId) {
         Hyprland.dispatch(`macos.activate_app('${safe(appId)}')`);
+    }
+
+    // Dock click on a running app: in front → minimize it, else bring it to the front
+    function toggle(appId) {
+        Hyprland.dispatch(`macos.toggle_app('${safe(appId)}')`);
     }
 
     function quit(appId) {

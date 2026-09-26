@@ -33,6 +33,32 @@ function macos.activate_app(class)
     return hl.dsp.no_op()
 end
 
+local function minimized(w)
+    return w.workspace and w.workspace.name == "special:minimized"
+end
+
+-- Dock click on a running app, like on Windows: the app in front goes down into the
+-- dock (its windows on this desktop are minimized); an app behind or minimized comes to
+-- the front – from the minimized desktop with all its windows, the last used on top
+function macos.toggle_app(class)
+    local windows = app_windows(class)
+    local active = hl.get_active_window()
+    if active and active.class == class and not minimized(active) then
+        for _, w in ipairs(windows) do
+            if not minimized(w) and w.workspace and active.workspace and w.workspace.id == active.workspace.id then
+                hl.dispatch(hl.dsp.window.move({ window = w, workspace = "special:minimized", follow = false }))
+            end
+        end
+    elseif windows[1] and minimized(windows[1]) then
+        for i = #windows, 1, -1 do
+            if minimized(windows[i]) then bring_to_front(windows[i]) end
+        end
+    elseif windows[1] then
+        bring_to_front(windows[1])
+    end
+    return hl.dsp.no_op()
+end
+
 -- Dock menu "Beenden"
 function macos.quit_app(class)
     for _, w in ipairs(app_windows(class)) do

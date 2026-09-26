@@ -68,7 +68,7 @@
   --toolbar-background-color: light-dark(var(--rt-window-light), var(--rt-window-dark)) !important;
   --sidebar-background-color: light-dark(var(--rt-sidebar-light), var(--rt-sidebar-dark)) !important;
   --sidebar-background: light-dark(var(--rt-sidebar-light), var(--rt-sidebar-dark)) !important;
-  --sidebar-border: transparent !important;
+  --sidebar-border: light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
   --tree-view-bg: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
   --tree-pane-background: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
   --spaces-bg-color: light-dark(var(--rt-sidebar-light), var(--rt-sidebar-dark)) !important;
@@ -150,8 +150,9 @@
 }
 
 /* app bar on the left, like Outlook's */
+/* (keep its border: the window content is moved in by the bar's width including that
+   border – without it a 1px strip stays unpainted and shows garbage) */
 #spacesToolbar {
-  border-inline-end: none !important;
   padding-block-start: 8px !important;
 }
 #spacesToolbar .spaces-toolbar-button {

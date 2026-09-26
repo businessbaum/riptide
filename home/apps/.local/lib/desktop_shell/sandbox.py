@@ -361,7 +361,10 @@ class Sandbox:
         a += ["--setenv", "XDG_RUNTIME_DIR", str(RUNTIME), "--setenv", "WAYLAND_DISPLAY", "wayland-0",
               "--setenv", "DBUS_SESSION_BUS_ADDRESS", f"unix:path={RUNTIME}/bus",
               "--setenv", "GTK_USE_PORTAL", "1", "--setenv", "NO_AT_BRIDGE", "1", "--setenv", "GTK_A11Y", "none",
-              "--setenv", "FLATPAK_ID", self.id, "--chdir", str(HOME)]
+              "--setenv", "FLATPAK_ID", self.id,
+              # Electron/Chromium name their notifications after it (desktop-entry), else
+              # they arrive without any sender and cannot be told apart
+              "--setenv", "CHROME_DESKTOP", f"{self.app}.desktop", "--chdir", str(HOME)]
         return a
 
     # -------- start
