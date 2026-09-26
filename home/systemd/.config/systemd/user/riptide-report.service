@@ -1,0 +1,6 @@
+[Unit]
+Description=Daily report of everything that went wrong (~/.local/state/macos/reports)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/riptide-report --quiet

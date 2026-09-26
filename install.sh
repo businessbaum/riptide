@@ -29,6 +29,7 @@ services)
     systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service
     systemctl --user enable hypridle.service   # starts with the next Hyprland session
     systemctl --user enable --now riptide-session.service   # permissions, sandboxes, new apps
+    systemctl --user enable --now riptide-report.timer      # daily error report
     ~/.local/bin/app-sandbox --sync
     ;;
 *)

@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""Everything that went wrong, from all sources (source: ~/.local/lib/desktop_shell/report.py)."""
+import os
+import sys
+
+sys.path.insert(0, os.path.expanduser("~/.local/lib"))
+from desktop_shell.report import main  # noqa: E402
+
+main()
