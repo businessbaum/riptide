@@ -4,9 +4,13 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Widgets
 import Quickshell.Wayland
+import "calc.js" as Calc
+import "settings-index.js" as SettingsIndex
 
-// ⌘Space: search apps by name, description or keywords and start them.
-//   ↑/↓ choose, Enter starts, Esc or a click outside closes.
+// ⌘Space, like Spotlight on a Mac: apps, a calculation or unit conversion ("12*7",
+// "5 km in m" – Enter copies the result), System Settings pages ("WLAN", "Zeitzone") and
+// files (the desktop's search index, localsearch).
+//   ↑/↓ choose, Enter opens, Esc or a click outside closes.
 // Opened by Hyprland via:  qs ipc call spotlight toggle
 PanelWindow {
     id: root
@@ -14,7 +18,7 @@ PanelWindow {
     property string query: ""
     property int selected: 0
 
-    readonly property var results: {
+    readonly property var apps: {
         const q = query.trim().toLowerCase();
         if (q === "")
             return [];
@@ -34,7 +38,82 @@ PanelWindow {
                 scored.push({ entry: e, score: score - name.length / 100 });
         }
         scored.sort((a, b) => b.score - a.score);
-        return scored.slice(0, 8).map(s => s.entry);
+        return scored.slice(0, 6).map(s => s.entry);
+    }
+    readonly property var calculation: Calc.evaluate(query) ?? Calc.convert(query)
+
+    // files from the search index, a moment after typing stops
+    property var files: []
+    onQueryChanged: fileSearch.restart()
+    Timer {
+        id: fileSearch
+        interval: 180
+        onTriggered: {
+            const words = root.query.trim().split(/\s+/).filter(w => w !== "");
+            if (root.query.trim().length < 3 || root.calculation) {
+                root.files = [];
+                return;
+            }
+            finder.command = ["localsearch", "search", "-f", "--limit=6"].concat(words);
+            finder.running = true;
+        }
+    }
+    Process {
+        id: finder
+        stdout: StdioCollector {
+            onStreamFinished: root.files = text.split("\n").filter(l => l.startsWith("file://"))
+                .map(u => decodeURIComponent(u.slice(7)))
+        }
+    }
+    function fileGlyph(path) {
+        const ext = (path.match(/\.([a-z0-9]+)$/i)?.[1] ?? "").toLowerCase();
+        if (ext === "") return "\u{f024b}"; // folder
+        if (ext === "pdf") return "\u{f0226}";
+        if (["png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "tiff"].includes(ext)) return "\u{f021f}";
+        if (["mp3", "flac", "ogg", "wav", "m4a", "opus"].includes(ext)) return "\u{f0223}";
+        if (["mp4", "mkv", "webm", "mov", "avi"].includes(ext)) return "\u{f022b}";
+        if (["zip", "tar", "gz", "xz", "7z", "rar", "zst"].includes(ext)) return "\u{f0227}";
+        if (["doc", "docx", "odt", "txt", "md", "rtf"].includes(ext)) return "\u{f0219}";
+        if (["xls", "xlsx", "ods", "csv"].includes(ext)) return "\u{f021b}";
+        return "\u{f0214}";
+    }
+
+    // Every row: a section header or a result { kind, title, subtitle, entry | glyph, colour, open() }
+    readonly property var rows: {
+        const list = [];
+        const section = (title, items) => {
+            if (items.length === 0)
+                return;
+            list.push({ header: title });
+            for (const i of items)
+                list.push(i);
+        };
+        if (calculation)
+            section("Rechner", [{ kind: "calc", title: "= " + calculation.text, subtitle: query.trim() + "  ·  ⏎ kopiert das Ergebnis",
+                glyph: "\u{f00ec}", colour: "#ff9f0a", value: calculation.text }]);
+        section("Programme", apps.map(e => ({ kind: "app", title: e.name, subtitle: e.genericName ?? "", entry: e })));
+        section("Systemeinstellungen", SettingsIndex.search(query).map(e => ({ kind: "setting", title: e.title,
+            subtitle: "Systemeinstellungen", glyph: "\uf013", colour: "#8e8e93", page: e.page })));
+        section("Dateien", (calculation ? [] : files).map(f => ({ kind: "file", title: f.split("/").pop(),
+            subtitle: f.replace(Quickshell.env("HOME"), "~").replace(/\/[^/]*$/, ""), glyph: fileGlyph(f), colour: "#0a84ff", path: f })));
+        return list;
+    }
+    readonly property var picks: rows.map((r, i) => r.header ? -1 : i).filter(i => i >= 0)
+    readonly property int current: picks.length > 0 ? picks[Math.min(selected, picks.length - 1)] : -1
+
+    function open(row) {
+        if (!row)
+            return;
+        hide();
+        if (row.kind === "app")
+            Apps.launch(row.entry);
+        else if (row.kind === "calc") {
+            Quickshell.execDetached(["wl-copy", row.value]);
+            Banners.show({ key: "spotlight-copy", glyph: "\u{f00ec}", title: row.value, subtitle: "In die Zwischenablage kopiert" });
+        } else if (row.kind === "setting")
+            Quickshell.execDetached([Quickshell.shellPath("scripts/system-settings.sh"), row.page]);
+        else if (row.kind === "file")
+            Quickshell.execDetached(["xdg-open", row.path]);
     }
 
     function show() {
@@ -47,11 +126,6 @@ PanelWindow {
     function hide() {
         grab.active = false;
         visible = false;
-    }
-    function launch(entry) {
-        hide();
-        if (entry)
-            Apps.launch(entry);
     }
 
     IpcHandler {
@@ -82,7 +156,7 @@ PanelWindow {
     Glass {
         id: panel
         width: parent.width
-        height: 56 + (root.results.length > 0 ? list.height + 9 : 0)
+        height: 56 + (root.rows.length > 0 ? list.height + 9 : 0)
 
         // Search field
         Item {
@@ -118,11 +192,11 @@ PanelWindow {
                     root.selected = 0;
                 }
                 Keys.onEscapePressed: root.hide()
-                Keys.onReturnPressed: root.launch(root.results[root.selected])
-                Keys.onEnterPressed: root.launch(root.results[root.selected])
+                Keys.onReturnPressed: root.open(root.rows[root.current])
+                Keys.onEnterPressed: root.open(root.rows[root.current])
                 Keys.onUpPressed: root.selected = Math.max(0, root.selected - 1)
-                Keys.onDownPressed: root.selected = Math.min(root.results.length - 1, root.selected + 1)
-                Keys.onTabPressed: root.selected = (root.selected + 1) % Math.max(1, root.results.length)
+                Keys.onDownPressed: root.selected = Math.min(root.picks.length - 1, root.selected + 1)
+                Keys.onTabPressed: root.selected = (root.selected + 1) % Math.max(1, root.picks.length)
 
                 Text {
                     visible: input.text === ""
@@ -135,7 +209,7 @@ PanelWindow {
         }
 
         Rectangle {
-            visible: root.results.length > 0
+            visible: root.rows.length > 0
             anchors.top: field.bottom
             width: parent.width
             height: 1
@@ -150,44 +224,71 @@ PanelWindow {
             width: parent.width - 12
 
             Repeater {
-                model: root.results
+                model: root.rows
 
-                Rectangle {
+                Item {
                     id: result
                     required property var modelData
                     required property int index
+                    readonly property bool chosen: index === root.current
                     width: list.width
-                    height: 40
-                    radius: 8
-                    color: index === root.selected ? Config.accent : "transparent"
+                    height: modelData.header ? 24 : 40
 
-                    AppIcon {
-                        id: resultIcon
-                        anchors.left: parent.left
-                        anchors.leftMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
-                        size: 32
-                        entry: result.modelData
-                    }
+                    // section header
                     Text {
-                        anchors.left: resultIcon.right
-                        anchors.leftMargin: 12
-                        anchors.right: parent.right
-                        anchors.rightMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        elide: Text.ElideRight
-                        text: result.modelData.name
-                            + (result.modelData.genericName ? "  <font color='" + (result.index === root.selected ? "#ccffffff" : Config.textSecondary) + "'>– " + result.modelData.genericName + "</font>" : "")
-                        textFormat: Text.StyledText
+                        visible: result.modelData.header !== undefined
+                        x: 10
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 3
+                        text: result.modelData.header ?? ""
                         font.family: Config.fontSans
-                        font.pixelSize: 15
-                        color: result.index === root.selected ? "white" : Config.text
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        color: Config.textSecondary
                     }
-                    MouseArea {
+
+                    Rectangle {
+                        visible: !result.modelData.header
                         anchors.fill: parent
-                        hoverEnabled: true
-                        onEntered: root.selected = result.index
-                        onClicked: root.launch(result.modelData)
+                        radius: 8
+                        color: result.chosen ? Config.accent : "transparent"
+
+                        AppIcon {
+                            id: resultIcon
+                            visible: result.modelData.kind === "app"
+                            anchors.left: parent.left
+                            anchors.leftMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            size: 32
+                            entry: result.modelData.kind === "app" ? result.modelData.entry : null
+                        }
+                        GlyphTile {
+                            visible: result.modelData.kind !== "app"
+                            anchors.centerIn: resultIcon
+                            size: 26
+                            glyph: result.modelData.glyph ?? ""
+                            color: result.modelData.colour ?? "#8e8e93"
+                        }
+                        Text {
+                            anchors.left: resultIcon.right
+                            anchors.leftMargin: 12
+                            anchors.right: parent.right
+                            anchors.rightMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            elide: Text.ElideRight
+                            text: result.modelData.title
+                                + (result.modelData.subtitle ? "  <font color='" + (result.chosen ? "#ccffffff" : Config.textSecondary) + "'>– " + result.modelData.subtitle + "</font>" : "")
+                            textFormat: Text.StyledText
+                            font.family: Config.fontSans
+                            font.pixelSize: 15
+                            color: result.chosen ? "white" : Config.text
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onEntered: root.selected = root.picks.indexOf(result.index)
+                            onClicked: root.open(result.modelData)
+                        }
                     }
                 }
             }
