@@ -111,7 +111,38 @@ Singleton {
         return app;
     }
 
+    // Dock badges: new notifications of an app since you last had it in front – for Discord
+    // or Thunderbird about the unread messages. Gone once the app is in front.
+    property var unseen: ({}) // app (desktop id) → count
+    function badgeOf(key) {
+        return unseen[Apps.plainId(key ?? "")] ?? 0;
+    }
+    function frontApp() {
+        const id = Hyprland.activeToplevel?.wayland?.appId ?? Hyprland.activeToplevel?.lastIpcObject?.class ?? "";
+        return id ? Apps.plainId(Apps.keyForAppId(id)) : "";
+    }
+    function countUnseen(app) {
+        const key = Apps.plainId(app ?? "");
+        if (!key || key === frontApp() || isSystem(app))
+            return;
+        const u = Object.assign({}, unseen);
+        u[key] = (u[key] ?? 0) + 1;
+        unseen = u;
+    }
+    Connections {
+        target: Hyprland
+        function onActiveToplevelChanged() {
+            const key = root.frontApp();
+            if (key && root.unseen[key]) {
+                const u = Object.assign({}, root.unseen);
+                delete u[key];
+                root.unseen = u;
+            }
+        }
+    }
+
     function deliver(n, app) {
+        countUnseen(app);
         const mode = modeOf(app);
         add(n, app);
         if (mode !== "quiet")
@@ -165,8 +196,21 @@ Singleton {
         return entry;
     }
 
+    function forgetUnseen(app, all) {
+        const key = Apps.plainId(app ?? "");
+        if (!unseen[key])
+            return;
+        const u = Object.assign({}, unseen);
+        if (all || u[key] <= 1)
+            delete u[key];
+        else
+            u[key]--;
+        unseen = u;
+    }
     function remove(key) {
         const e = history.find(h => h.key === key);
+        if (e)
+            forgetUnseen(e.app);
         e?.live?.dismiss();
         history = history.filter(h => h.key !== key);
         save();
@@ -177,6 +221,7 @@ Singleton {
         return entry.app || entry.appName || "?";
     }
     function removeGroup(group) {
+        forgetUnseen(group, true);
         for (const e of history)
             if (groupOf(e) === group)
                 e.live?.dismiss();
@@ -184,6 +229,7 @@ Singleton {
         save();
     }
     function clearAll() {
+        unseen = {};
         for (const e of history)
             e.live?.dismiss();
         history = [];

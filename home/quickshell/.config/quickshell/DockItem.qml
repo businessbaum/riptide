@@ -65,6 +65,30 @@ Item {
         }
     }
 
+    // Badge: new notifications since the app was last in front (NotificationStore)
+    Rectangle {
+        readonly property int count: NotificationStore.badgeOf(root.key)
+        visible: count > 0
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.rightMargin: -2
+        anchors.topMargin: -2
+        width: Math.max(height, badgeText.implicitWidth + 10)
+        height: Math.round(root.size * 0.34)
+        radius: height / 2
+        color: "#ff3b30"
+        border.color: "#26000000"
+        Text {
+            id: badgeText
+            anchors.centerIn: parent
+            text: parent.count > 99 ? "99+" : parent.count
+            font.family: Config.fontSans
+            font.pixelSize: Math.round(parent.height * 0.62)
+            font.weight: Font.DemiBold
+            color: "white"
+        }
+    }
+
     // Running indicator
     Rectangle {
         visible: root.running
