@@ -215,6 +215,14 @@ PanelWindow {
     property int targetIndex: -1 // index in `items` of the tile the app would join
     property int dragIndex: -1   // where the dragged tile was, while arranging
     property int dropIndex: -1   // where it would go: the tiles in between make room
+    // Making room waits until the pointer rests between icons a moment, like on a Mac –
+    // right away, icons slid away under the pointer and a folder could not be made
+    property int pendingDrop: -1
+    Timer {
+        id: makeRoom
+        interval: 350
+        onTriggered: if (root.arranging) root.dropIndex = root.pendingDrop
+    }
 
     // Arranging: the grid (not an open folder, not a search) in your own order
     readonly property bool arranging: dragIndex >= 0
@@ -254,10 +262,14 @@ PanelWindow {
         const cy = row * grid.cellHeight + 52 - grid.contentY;
         const ontoTile = shown >= 0 && shown !== dragIndex && keyOf(items[shown]) !== keyOf(dragItem)
             && Math.hypot(g.x - cx, g.y - cy) < 40;
-        if (ontoTile && dragItem.kind === "app")
+        if (ontoTile && dragItem.kind === "app") {
             targetIndex = shown; // right onto an icon: a folder forms (or the app joins it)
-        else if (arranging && !ontoTile)
-            dropIndex = cell;    // between icons: make room there
+            makeRoom.stop();
+            pendingDrop = -1;
+        } else if (arranging && !ontoTile && cell !== dropIndex && cell !== pendingDrop) {
+            pendingDrop = cell;  // between icons: make room there, if the pointer stays
+            makeRoom.restart();
+        }
     }
     function endDrag() {
         const item = dragItem, target = targetIndex >= 0 ? items[targetIndex] : null;
@@ -282,6 +294,8 @@ PanelWindow {
             targetIndex = -1;
             dragIndex = -1;
             dropIndex = -1;
+            pendingDrop = -1;
+            makeRoom.stop();
         }
     }
 
