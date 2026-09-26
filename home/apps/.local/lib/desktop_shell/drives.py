@@ -110,7 +110,8 @@ class Drives:
             model = " ".join(x for x in (prop(drive, "Vendor", "").strip(), prop(drive, "Model", "").strip()) if x)
             found.append({"id": obj.get_object_path(), "name": label or model or "Externes Laufwerk",
                           "mount": mounts[0], "size": prop(block, "Size", 0), "fs": prop(block, "IdType", ""),
-                          "drive": prop(block, "Drive", ""), "uuid": prop(block, "IdUUID", "")})
+                          "drive": prop(block, "Drive", ""), "uuid": prop(block, "IdUUID", ""),
+                          "device": text(prop(block, "PreferredDevice", b"")) or text(prop(block, "Device", b""))})
         return found
 
     def mount_new(self):

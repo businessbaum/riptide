@@ -177,6 +177,14 @@ Page {
             }
         }
         SettingRow {
+            title: "Papierkorb automatisch leeren"
+            subtitle: "Objekte, die seit mehr als 30 Tagen im Papierkorb liegen, werden gelöscht"
+            Toggle {
+                checked: Store.get("storage", "empty_trash_after_30_days", false)
+                onToggled: on => Store.set("storage", "empty_trash_after_30_days", on)
+            }
+        }
+        SettingRow {
             title: "Paket-Cache aufräumen"
             subtitle: "Behält von jedem Paket nur die neueste Version (für eine schnelle Rückkehr), löscht alte und die deinstallierter Programme."
             DialogButton {

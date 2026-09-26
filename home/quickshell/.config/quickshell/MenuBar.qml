@@ -179,6 +179,9 @@ PanelWindow {
             list.push({ separator: true });
             for (const d of Drives.list)
                 list.push({ text: `„${d.name}“ auswerfen`, action: () => Drives.eject(d) });
+            list.push({ separator: true });
+            for (const d of Drives.list)
+                list.push({ text: `„${d.name}“ formatieren …`, action: () => Quickshell.execDetached(["gnome-disks", "--block-device", d.device]) });
             return list;
         }
     }

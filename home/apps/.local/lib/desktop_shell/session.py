@@ -58,7 +58,7 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib
 
-from desktop_shell import crashes, drives, health, lan, permissions, sandbox, updates
+from desktop_shell import crashes, drives, health, lan, permissions, sandbox, trash, updates
 
 SOCKET = sandbox.SERVICE_SOCKET
 HOME = Path.home()
@@ -158,6 +158,7 @@ class Service:
         self.lan.start()
         self.drives = drives.Drives(self.on_drives)  # USB sticks, disks
         self.drives.start()
+        trash.start()  # "Papierkorb automatisch leeren" after 30 days
         GLib.timeout_add_seconds(300, lambda: (sandbox.gc(), True)[1])
         GLib.idle_add(self.sync)
         self.listen()
