@@ -8,7 +8,7 @@ import Quickshell.Services.Pipewire
 
 // Control centre (icon next to the clock), laid out like macOS:
 //   network, Bluetooth | appearance, do not disturb
-//   sound slider, now playing
+//   screens (brightness, Night Shift), sound slider, now playing
 MenuBarPopup {
     id: root
 
@@ -142,6 +142,121 @@ MenuBarPopup {
                 status: Session.keepAwake ? "Keine Sperre, Bildschirme bleiben an" : "Aus"
                 on: Session.keepAwake
                 onToggled: Session.keepAwake = !Session.keepAwake
+            }
+        }
+
+        // Screens: one slider for all; unfolded, one per screen (DDC, Brightness.qml) –
+        // and Night Shift
+        Rectangle {
+            id: screensBox
+            property bool unfolded: false
+            width: parent.width
+            height: screensColumn.implicitHeight + 20
+            radius: Config.radiusTile
+            color: Config.tile
+            border.color: Config.border
+            Behavior on height {
+                NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+            }
+
+            // "BenQ EX2710Q", with left/right when two look alike
+            function label(d) {
+                const same = Brightness.displays.filter(o => o.model === d.model).length > 1;
+                if (!same)
+                    return d.model;
+                const x = s => Quickshell.screens.find(q => q.name === s)?.x ?? 0;
+                const others = Brightness.displays.filter(o => o.model === d.model && o.name !== d.name);
+                return d.model + (others.every(o => x(o.name) > x(d.name)) ? " – links"
+                    : others.every(o => x(o.name) < x(d.name)) ? " – rechts" : " – " + d.name);
+            }
+
+            Column {
+                id: screensColumn
+                x: 12
+                y: 10
+                width: parent.width - 24
+                spacing: 8
+
+                Item {
+                    width: parent.width
+                    height: screensTitle.implicitHeight
+                    Text {
+                        id: screensTitle
+                        text: Brightness.displays.length > 1 ? "Bildschirme" : "Bildschirm"
+                        font.family: Config.fontSans
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                        color: Config.text
+                    }
+                    // unfold: one slider per screen
+                    Text {
+                        visible: Brightness.displays.length > 1
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: screensBox.unfolded ? "\u{f0143}" : "\u{f0140}" // chevron up / down
+                        font.family: Config.fontSymbols
+                        font.pixelSize: 16
+                        color: unfold.containsMouse ? Config.text : Config.textSecondary
+                        MouseArea {
+                            id: unfold
+                            anchors.fill: parent
+                            anchors.margins: -8
+                            hoverEnabled: true
+                            onClicked: screensBox.unfolded = !screensBox.unfolded
+                        }
+                    }
+                }
+                Slider {
+                    visible: Brightness.available && !screensBox.unfolded
+                    width: parent.width
+                    icon: "\u{f00df}" // sun
+                    from: 0
+                    to: 100
+                    value: Brightness.average
+                    onMoved: v => Brightness.setAll(v)
+                }
+                Repeater {
+                    model: screensBox.unfolded ? Brightness.displays : []
+                    Column {
+                        required property var modelData
+                        width: screensColumn.width
+                        spacing: 4
+                        Text {
+                            text: screensBox.label(modelData)
+                            font.family: Config.fontSans
+                            font.pixelSize: 11
+                            color: Config.textSecondary
+                        }
+                        Slider {
+                            width: parent.width
+                            icon: "\u{f00df}"
+                            from: 0
+                            to: 100
+                            value: modelData.value
+                            onMoved: v => Brightness.set(modelData.name, v)
+                        }
+                    }
+                }
+                Text {
+                    visible: !Brightness.available
+                    text: "Die Helligkeit lässt sich an diesen Bildschirmen nicht einstellen."
+                    width: parent.width
+                    wrapMode: Text.Wrap
+                    font.family: Config.fontSans
+                    font.pixelSize: 11
+                    color: Config.textSecondary
+                }
+                ControlTile {
+                    width: parent.width
+                    icon: "\u{f0594}" // moon and stars
+                    title: "Night Shift"
+                    status: NightShift.active
+                        ? (NightShift.override?.on ? "An bis " + Qt.formatTime(new Date(NightShift.override.until), "H:mm") + " Uhr"
+                            : "An bis " + Math.floor(NightShift.to) + " Uhr")
+                        : NightShift.schedule ? "Ab " + Math.floor(NightShift.from) + " Uhr" : "Aus"
+                    on: NightShift.active
+                    onToggled: NightShift.toggle()
+                }
             }
         }
 

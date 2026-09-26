@@ -53,7 +53,8 @@ Page {
                 requery.restart();
             }
 
-            title: `${modelData.make ?? ""} ${modelData.model ?? ""}`.trim() || name
+            // (make is often the maker's three-letter code: "BNQ" for "BenQ EX2710Q")
+            title: `${/^[A-Z]{3}$/.test(modelData.make ?? "") ? "" : modelData.make ?? ""} ${modelData.model ?? ""}`.trim() || name
             description: `${name} · ${modelData.width} × ${modelData.height}`
 
             SettingRow {
@@ -75,6 +76,72 @@ Page {
                     current: group.saved.scale ?? group.modelData.scale
                     onPicked: v => group.save("scale", v)
                 }
+            }
+        }
+    }
+
+    // Night Shift (NightShift.qml in the shell applies it; switched by hand in the control
+    // centre). Temperature: 2700 K warm … 5500 K a little.
+    readonly property var nightShift: Config.settings.nightshift ?? ({})
+    readonly property var nightHours: Array.from({ length: 24 }, (_, h) => ({ value: h, text: (h < 10 ? "0" : "") + h + ":00" }))
+    function setNightShift(key, value) {
+        Config.updateSettings(s => {
+            s.nightshift = s.nightshift ?? {};
+            s.nightshift[key] = value;
+            if (key !== "temperature")
+                s.nightshift.override = null; // a new schedule decides again
+        });
+    }
+
+    Group {
+        title: "Night Shift"
+        description: "Macht die Farben am Abend wärmer, damit das Licht der Bildschirme weniger blendet. "
+            + "Im Kontrollzentrum kannst du es jederzeit von Hand ein- und ausschalten."
+        SettingRow {
+            first: true
+            title: "Nach Zeitplan"
+            Row {
+                spacing: 8
+                Choice {
+                    visible: page.nightShift.schedule === true
+                    window: page.window
+                    options: page.nightHours
+                    current: page.nightShift.from ?? 22
+                    onPicked: v => page.setNightShift("from", v)
+                }
+                Text {
+                    visible: page.nightShift.schedule === true
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "bis"
+                    font.family: Config.fontSans
+                    font.pixelSize: 12
+                    color: Config.textSecondary
+                }
+                Choice {
+                    visible: page.nightShift.schedule === true
+                    window: page.window
+                    options: page.nightHours
+                    current: page.nightShift.to ?? 7
+                    onPicked: v => page.setNightShift("to", v)
+                }
+                Toggle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: page.nightShift.schedule === true
+                    onToggled: on => page.setNightShift("schedule", on)
+                }
+            }
+        }
+        SettingRow {
+            title: "Farbtemperatur"
+            subtitle: "Weniger warm ↔ Wärmer"
+            Slider {
+                width: 220
+                // right = warmer (lower Kelvin)
+                from: -5500
+                to: -2700
+                stepSize: 100
+                value: -(page.nightShift.temperature ?? 3800)
+                onMoved: v => page.setNightShift("temperature", -v)
             }
         }
     }

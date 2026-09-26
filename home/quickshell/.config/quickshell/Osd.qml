@@ -5,13 +5,15 @@ import Quickshell.Services.Pipewire
 import Quickshell.Wayland
 
 // Volume display: appears for a moment whenever the volume or mute state of the
-// default output changes (keys, menu bar, any app), on the active screen.
+// default output changes (keys, menu bar, any app), on the active screen – and the
+// brightness when its keys change it (Brightness.qml).
 Scope {
     id: root
 
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var audio: sink?.audio
     property bool shown: false
+    property string kind: "volume" // or "brightness"
 
     PwObjectTracker {
         objects: [root.sink]
@@ -57,10 +59,19 @@ Scope {
             root.flash();
         }
     }
+    Connections {
+        target: Brightness
+        function onStepped() {
+            root.kind = "brightness";
+            root.shown = true;
+            hideTimer.restart();
+        }
+    }
 
     function flash() {
         if (!armed)
             return;
+        kind = "volume";
         shown = true;
         hideTimer.restart();
     }
@@ -94,7 +105,7 @@ Scope {
                 anchors.leftMargin: 18
                 anchors.verticalCenter: parent.verticalCenter
                 width: 20
-                text: root.audio?.muted ? "" : ""
+                text: root.kind === "brightness" ? "\u{f00df}" : root.audio?.muted ? "" : ""
                 font.family: Config.fontSymbols
                 font.pixelSize: 18
                 color: Config.text
@@ -111,7 +122,8 @@ Scope {
                 color: Config.tile
 
                 Rectangle {
-                    width: parent.width * Math.min(1, root.audio?.muted ? 0 : (root.audio?.volume ?? 0))
+                    width: parent.width * (root.kind === "brightness" ? Brightness.average / 100
+                        : Math.min(1, root.audio?.muted ? 0 : (root.audio?.volume ?? 0)))
                     height: parent.height
                     radius: 3
                     color: Config.text

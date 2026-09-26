@@ -30,6 +30,7 @@ services)
     systemctl --user enable hypridle.service   # starts with the next Hyprland session
     systemctl --user enable --now riptide-session.service   # permissions, sandboxes, new apps
     systemctl --user enable riptide-shell.service           # the shell; restarted should it crash
+    systemctl --user enable hyprsunset.service              # Night Shift (started neutral)
     systemctl --user enable --now riptide-report.timer      # daily error report
     ~/.local/bin/app-sandbox --sync
     ;;
