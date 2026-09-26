@@ -12,6 +12,7 @@
 //   Spotlight.qml      ⌘Space app search
 //   Launchpad.qml      all apps as a grid (dock)
 //   Clipboard.qml      SUPER+V clipboard history (cliphist)
+//   EmojiPicker.qml    ⌃⌘Space emoji & symbols
 //   Switcher.qml       ⌘Tab / ⌥Tab panel (logic in Hyprland)
 //   ControlCenter.qml  + NotificationCenter.qml: panels from the menu bar
 //   BannerWindow.qml   everything at the top right (Banners.qml: notifications, system messages)
@@ -30,7 +31,7 @@ import Quickshell
 ShellRoot {
     // Services that must run from the start (singletons start on first use otherwise).
     // This is the main shell: it asks the questions apps have (Riptide role "shell").
-    readonly property var services: [Privacy, HyprDialogs, Updates, NightShift, Brightness, Session, Microphone, Drives]
+    readonly property var services: [Privacy, HyprDialogs, Updates, NightShift, Brightness, Session, Microphone, Drives, Tools]
     Component.onCompleted: Riptide.role = "shell"
 
     // No "Config reloaded" toast on every save; a failed reload becomes a notification
@@ -67,6 +68,7 @@ ShellRoot {
     Spotlight {}
     Launchpad {}
     Clipboard {}
+    EmojiPicker {}
     Switcher {}
     BannerWindow {}
     BluetoothBanners {}

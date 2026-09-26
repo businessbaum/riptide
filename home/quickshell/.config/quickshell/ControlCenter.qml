@@ -9,7 +9,7 @@ import Quickshell.Services.UPower
 
 // Control centre (icon next to the clock), laid out like macOS:
 //   network, Bluetooth | appearance, do not disturb
-//   keep awake, energy mode, screens (brightness, Night Shift), sound slider, now playing
+//   keep awake, energy mode, screens (brightness, Night Shift), sound slider, tools, now playing
 MenuBarPopup {
     id: root
 
@@ -391,6 +391,62 @@ MenuBarPopup {
                         root.sink.audio.volume = v;
                     }
                 }
+            }
+        }
+
+        // Tools: screenshot, colour, emoji (the panel closes first, so they see the screen)
+        Row {
+            width: parent.width
+            spacing: 10
+            Repeater {
+                model: [
+                    { glyph: "\u{f0104}", name: "Bildschirmfoto", run: () => Tools.screenshot("area") },
+                    { glyph: "\u{f020a}", name: "Farbpipette", run: () => Tools.pickColour() },
+                    { glyph: "\u{f0785}", name: "Emoji", run: () => Quickshell.execDetached(["qs", "ipc", "call", "emoji", "toggle"]) }
+                ]
+                Rectangle {
+                    required property var modelData
+                    width: (parent.width - 20) / 3
+                    height: 62
+                    radius: Config.radiusTile
+                    color: toolMouse.containsMouse ? Config.hover : Config.tile
+                    border.color: Config.border
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 4
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: modelData.glyph
+                            font.family: Config.fontSymbols
+                            font.pixelSize: 18
+                            color: Config.text
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: modelData.name
+                            font.family: Config.fontSans
+                            font.pixelSize: 11
+                            color: Config.textSecondary
+                        }
+                    }
+                    MouseArea {
+                        id: toolMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            root.close();
+                            // a moment for the panel to go away
+                            toolDelay.run = modelData.run;
+                            toolDelay.restart();
+                        }
+                    }
+                }
+            }
+            Timer {
+                id: toolDelay
+                property var run: null
+                interval: 250
+                onTriggered: run?.()
             }
         }
 

@@ -76,9 +76,10 @@ function macos.close_all_windows()
     return hl.dsp.no_op()
 end
 
--- ⌘Space: Spotlight (pressed again it closes), SUPER+V: clipboard history
+-- ⌘Space: Spotlight (pressed again it closes), SUPER+V: clipboard history, ⌃⌘Space: emoji
 hl.bind("SUPER + space", hl.dsp.exec_cmd("qs ipc call spotlight toggle"))
 hl.bind("SUPER + V",     hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
+hl.bind("CTRL + SUPER + space", hl.dsp.exec_cmd("qs ipc call emoji toggle")) -- ⌃⌘Space: Emoji & Symbole
 
 -- Start the shell with the session (riptide-shell.service: systemd starts it again should
 -- it crash; the session target starts it too – this is for when it is not enabled).
