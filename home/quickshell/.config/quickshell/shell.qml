@@ -15,7 +15,7 @@
 //   Switcher.qml       ⌘Tab / ⌥Tab panel (logic in Hyprland)
 //   ControlCenter.qml  + NotificationCenter.qml: panels from the menu bar
 //   BannerWindow.qml   everything at the top right (Banners.qml: notifications, system messages)
-//   BluetoothBanners   "AirPods · Verbunden" when a Bluetooth device connects
+//   BluetoothBanners   "AirPods · Verbunden" when a Bluetooth device connects (UsbBanners: USB)
 //   Osd.qml            volume display
 //   PolkitDialog.qml   password dialog for administrator rights
 //   ShareDialog.qml    what an app may see when sharing the screen
@@ -70,6 +70,7 @@ ShellRoot {
     Switcher {}
     BannerWindow {}
     BluetoothBanners {}
+    UsbBanners {}
     Osd {}
     ConfirmDialog {}
     ShareDialog {}
