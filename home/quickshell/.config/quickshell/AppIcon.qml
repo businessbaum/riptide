@@ -16,8 +16,8 @@ Item {
     property int size: 64
 
     // Candidates in order; the next one is tried when an image cannot be loaded
-    readonly property var candidates: source !== "" ? [source, Apps.genericIcon]
-                                                   : Apps.iconCandidates(entry?.icon ?? appId ?? "")
+    readonly property string iconName: entry?.icon ?? appId ?? ""
+    readonly property var candidates: source !== "" ? [source, Apps.genericIcon] : Apps.iconCandidates(iconName)
     property int attempt: 0
     onCandidatesChanged: attempt = 0
     readonly property string src: candidates[Math.min(attempt, candidates.length - 1)]
@@ -68,7 +68,12 @@ Item {
             height: px
             source: root.src
             asynchronous: true
-            onStatusChanged: if (status === Image.Error && root.attempt < root.candidates.length - 1) root.attempt++
+            onStatusChanged: {
+                if (status === Image.Error && root.attempt < root.candidates.length - 1)
+                    root.attempt++;
+                else if (status === Image.Ready && root.source === "")
+                    Apps.iconFound(root.iconName, root.src); // found: the next icon of this name looks here first
+            }
         }
     }
 

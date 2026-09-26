@@ -136,6 +136,13 @@ class PdfDocument:
         page.delete_annot(page.load_annot(hit))
         return True
 
+    def words_in(self, n, x0, y0, x1, y1):
+        """Where the words inside a rectangle are, as display rectangles (to show a selection)."""
+        page = self.doc[n]
+        area = self._rect_to_pdf(page, x0, y0, x1, y1)
+        return [tuple(self._rect_to_display(page, w[:4])) for w in page.get_text("words")
+                if fitz.Rect(w[:4]).intersects(area)]
+
     def text_in(self, n, x0, y0, x1, y1):
         """The text inside a rectangle (for copying)."""
         page = self.doc[n]

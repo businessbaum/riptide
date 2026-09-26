@@ -6,6 +6,7 @@ Rectangle {
 
     property string glyph: ""
     property int size: 20
+    property real glyphScale: 1  // for symbols drawn smaller than the others
 
     width: size
     height: size
@@ -16,7 +17,7 @@ Rectangle {
         anchors.centerIn: parent
         text: root.glyph
         font.family: Config.fontSymbols
-        font.pixelSize: Math.round(root.size * 0.55)
+        font.pixelSize: Math.round(root.size * 0.55 * root.glyphScale)
         color: "white"
     }
 }

@@ -64,9 +64,28 @@ Singleton {
     // Where an icon may be, best first. The icon theme is read once when the shell starts,
     // so apps installed later are looked up directly in the usual folders (AppIcon.qml
     // tries one after the other). The last one is the generic app icon.
+    // Icons already found: name → URL (the generic icon if there was none). Filled by
+    // AppIcon.qml; a plain object on purpose – new icons use it, shown ones stay as they are.
+    // (Without it every icon on screen searched all folders again, e.g. each time the sound
+    // menu rebuilt its list: hundreds of failed loads.)
+    property var foundIcons: ({})
+    function iconFound(name, url) {
+        if (name)
+            foundIcons[name] = url;
+    }
+    // an app was installed or removed: its icon may be there now
+    Connections {
+        target: DesktopEntries.applications
+        function onValuesChanged() {
+            root.foundIcons = {};
+        }
+    }
+
     function iconCandidates(name) {
         if (!name)
             return [genericIcon];
+        if (foundIcons[name])
+            return [foundIcons[name], genericIcon];
         if (name.startsWith("/"))
             return ["file://" + name, genericIcon];
         if (name.startsWith("file:") || name.startsWith("image:"))

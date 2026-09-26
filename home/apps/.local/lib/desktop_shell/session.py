@@ -120,6 +120,7 @@ class Service:
         self.asked = set()   # (app, kind) the shell asks about right now
         self.waiters = []    # [(app, kind, callback, timeout source)] starts waiting for an answer
         self.sandboxes = {}  # pid of a sandbox → (app, instance)
+        self.first_starts = {}  # app → [(client, msg id)] of starts joining its first start
         self.timers = {}
         self.logs = {}       # dbus.log path → {"offset", "app", "dest"}
         self.screen_requests = []  # [(time, app)] apps that asked the portal to share the screen
@@ -337,10 +338,21 @@ class Service:
                 log(traceback.format_exc())
                 client.reply(msg_id, error=f"{type(e).__name__}: {e}")
 
-        if states["network"] == "ask":
-            self.wait_for(app, "network", go)  # asked before the first start
-        else:
+        if states["network"] != "ask":
             go(states["network"])
+            return
+        # The first start waits for "Internet?" – more starts meanwhile (dock, Spotlight)
+        # must not each start the app once the answer comes: they join that one start
+        if app in self.first_starts:
+            self.first_starts[app].append((client, msg_id))
+            return
+        self.first_starts[app] = []
+
+        def answered(network):
+            go(network)
+            for later_client, later_id in self.first_starts.pop(app, []):
+                later_client.reply(later_id, {"sandbox": True})
+        self.wait_for(app, "network", answered)
 
     def spawn_system(self, argv):
         process = subprocess.Popen(["systemd-run", "--user", "--scope", "--quiet", "--collect",

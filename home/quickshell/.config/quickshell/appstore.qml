@@ -16,6 +16,10 @@ import qs.appstore
 FloatingWindow {
     id: window
 
+    // Closing the window ends the app (else the process stayed, windowless) – after a
+    // running installation or update, which quitting would break off in the middle
+    onClosed: PackageAdmin.busy ? PackageAdmin.finished.connect(() => Qt.quit()) : Qt.quit()
+
     property string page: "discover"
     property var detail: null     // app shown in detail, or null
     property string query: ""

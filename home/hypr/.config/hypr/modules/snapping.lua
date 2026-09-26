@@ -90,10 +90,13 @@ local function place(w, r)
     hl.dispatch(hl.dsp.window.move({ window = w, x = r.x, y = r.y }))
 end
 
-local function snap(w, kind)
+-- `old`: the size to come back to, when it is not the window's current one (a window
+-- that reopens zoomed, window_memory.lua)
+local function snap(w, kind, old)
     if not before[w.address] then
-        before[w.address] = { x = w.at.x, y = w.at.y, w = w.size.x, h = w.size.y }
+        before[w.address] = old or { x = w.at.x, y = w.at.y, w = w.size.x, h = w.size.y }
     end
+    before[w.address].kind = kind
     local m = w.monitor or hl.get_monitor_at_cursor()
     place(w, target(kind, usable_area(m), titlebar(w)))
 end
@@ -257,6 +260,7 @@ hl.bind("CTRL + ALT + down",  macos.arrange("restore"))
 local function fit_on_screen(address)
     local w = hl.get_window("address:" .. address)
     if not w or not w.floating or w.fullscreen ~= 0 then return end
+    if before[address] then return end -- reopened zoomed or snapped: placed exactly
     local m = w.monitor or hl.get_monitor_at_cursor()
     if not m then return end
     local a, bar = usable_area(m), titlebar(w)
@@ -277,7 +281,21 @@ hl.on("window.open", function(w)
     hl.timer(function() fit_on_screen(address) end, { timeout = 150, type = "oneshot" })
 end)
 
--- Forget closed windows
+-- Forget closed windows – a moment later, after window_memory.lua has read whether the
+-- window was zoomed (its close handler runs after this one)
 hl.on("window.close", function(w)
-    if w then before[w.address] = nil end
+    if not w then return end
+    local address = w.address
+    hl.timer(function() before[address] = nil end, { timeout = 50, type = "oneshot" })
 end)
+
+-- For window_memory.lua
+return {
+    -- how the window is snapped ("full" = zoomed, "left" …) and the size it had before
+    snapped = function(w)
+        local b = before[w.address]
+        return b and b.kind, b
+    end,
+    -- snap a reopened window again; `old` is the size the green button brings back
+    snap = function(w, kind, old) snap(w, kind, old) end,
+}

@@ -385,6 +385,7 @@ class PdfPage:
         self.widget.add_css_class("page")
         self.rendered_zoom = None
         self.drag = None  # current drag: list of display points
+        self.selection = []  # selected words: display rectangles, blue until the next click
         self.resize()
 
         drag = Gtk.GestureDrag()
@@ -420,6 +421,7 @@ class PdfPage:
 
     def on_drag_begin(self, _gesture, x, y):
         self.drag = [self.to_points(x, y)]
+        self.view.clear_selection()
         self.layer.queue_draw()
 
     def on_drag_update(self, gesture, dx, dy):
@@ -443,6 +445,12 @@ class PdfPage:
         cr.set_source_rgba(1.0, 0.8, 0.0, 0.35)
         for n, (x0, y0, x1, y1) in self.view.search_hits:
             if n == self.n:
+                cr.rectangle(x0 * z, y0 * z, (x1 - x0) * z, (y1 - y0) * z)
+                cr.fill()
+        # selected text, like in a text editor
+        if self.selection:
+            cr.set_source_rgba(0.04, 0.52, 1.0, 0.35)
+            for x0, y0, x1, y1 in self.selection:
                 cr.rectangle(x0 * z, y0 * z, (x1 - x0) * z, (y1 - y0) * z)
                 cr.fill()
         if not self.drag:
@@ -561,7 +569,14 @@ class PdfView:
             action.connect("activate", lambda *_, c=callback: c())
             self.window.add_action(action)
 
+    def clear_selection(self):
+        for p in self.pages:
+            if p.selection:
+                p.selection = []
+                p.layer.queue_draw()
+
     def set_tool(self, name):
+        self.clear_selection()
         self.tool = name or "select"
         cursor = {"text": "text", "draw": "crosshair", "rect": "crosshair",
                   "highlight": "text", "erase": "pointer"}.get(self.tool, "default")
@@ -712,6 +727,9 @@ class PdfView:
             if click:
                 self.fill_field(page, x0, y0, widget_pos)
             else:
+                # the words stay marked (blue) and are copied at once
+                page.selection = self.doc.words_in(n, x0, y0, x1, y1)
+                page.layer.queue_draw()
                 text = self.doc.text_in(n, x0, y0, x1, y1)
                 if text:
                     Gdk.Display.get_default().get_clipboard().set(text)

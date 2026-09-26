@@ -130,9 +130,17 @@ Singleton {
         path: Quickshell.env("HOME") + "/.local/state/macos/notification-apps.json"
         blockLoading: true
         atomicWrites: true
+        // the file is the truth: entries removed from it stay removed (before, the next
+        // notification wrote the old list back)
+        watchChanges: true
+        onFileChanged: reload()
+        property bool read: false
         onLoaded: {
             try {
-                root.senders = Object.assign(JSON.parse(text()), root.senders);
+                const saved = JSON.parse(text());
+                // (the first time keep senders that came in before the file was read)
+                root.senders = read ? saved : Object.assign(saved, root.senders);
+                read = true;
             } catch (e) {}
         }
     }
