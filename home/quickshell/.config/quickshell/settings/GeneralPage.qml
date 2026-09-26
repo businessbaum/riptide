@@ -71,6 +71,37 @@ Page {
         }
     }
 
+    // Our Hyprland plugin (plugins/riptide-wm): loaded? built for which Hyprland?
+    // It is rebuilt by itself at login after a Hyprland update (autostart.lua); the
+    // button is for when that failed.
+    property var plugin: ({ loaded: false, builtFor: "" })
+    property string pluginBuild: "" // "", "building", "ok", "failed"
+    Process {
+        id: pluginReader
+        running: true
+        command: ["sh", "-c", "hyprctl plugin list -j; echo; cat ~/.local/lib/hyprland-plugins/built-for 2>/dev/null"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const builtFor = text.trim().split("\n").pop();
+                let loaded = false;
+                try {
+                    loaded = JSON.parse(text.slice(0, text.lastIndexOf("]") + 1)).some(p => p.name === "riptide-wm");
+                } catch (e) {}
+                page.plugin = { loaded, builtFor: /^[0-9.]+$/.test(builtFor) ? builtFor : "" };
+            }
+        }
+    }
+    Process {
+        id: pluginBuilder
+        // build; load it if it is not loaded yet (a loaded one is replaced at the next login)
+        command: ["sh", "-c", "~/dotfiles/plugins/build.sh > ~/.local/state/macos/plugin-build.log 2>&1 || exit 1; "
+            + "hyprctl plugin list -j | grep -q '\"riptide-wm\"' || hyprctl plugin load ~/.local/lib/hyprland-plugins/riptide-wm.so"]
+        onExited: code => {
+            page.pluginBuild = code === 0 ? "ok" : "failed";
+            pluginReader.running = true;
+        }
+    }
+
     // ---------------------------------------------------------------- changing
 
     // One change at a time; its output and exit code come back together
@@ -345,6 +376,26 @@ Page {
                     id: copied
                     interval: 2000
                     onTriggered: copyButton.done = false
+                }
+            }
+        }
+        SettingRow {
+            title: "Hyprland-Erweiterung"
+            subtitle: page.pluginBuild === "building" ? "Wird gebaut …"
+                : page.pluginBuild === "failed" ? "Bauen fehlgeschlagen – Details in ~/.local/state/macos/plugin-build.log"
+                : page.pluginBuild === "ok" ? "Neu gebaut für Hyprland " + page.plugin.builtFor + (page.plugin.loaded ? " – wirkt ab der nächsten Anmeldung" : "")
+                : (page.plugin.loaded ? "Geladen" : "Nicht geladen – Titelleisten fehlen")
+                    + (page.plugin.builtFor ? ", gebaut für Hyprland " + page.plugin.builtFor : "")
+            DialogButton {
+                implicitWidth: 100
+                width: implicitWidth
+                text: "Neu bauen"
+                opacity: page.pluginBuild === "building" ? 0.5 : 1
+                onClicked: {
+                    if (page.pluginBuild === "building")
+                        return;
+                    page.pluginBuild = "building";
+                    pluginBuilder.running = true;
                 }
             }
         }

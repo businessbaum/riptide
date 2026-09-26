@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs
 
 // Available updates for the whole system (like "Softwareupdate" on a Mac).
@@ -30,33 +31,70 @@ Flickable {
             color: Config.text
         }
 
+        // An update is waiting for a restart or a new login
+        Rectangle {
+            Layout.fillWidth: true
+            visible: Catalog.reboot || Catalog.relogin
+            implicitHeight: waiting.implicitHeight + 24
+            radius: 10
+            color: Config.cardBg
+            border.color: Config.border
+            RowLayout {
+                id: waiting
+                x: 12
+                y: 12
+                width: parent.width - 24
+                spacing: 12
+                Text {
+                    Layout.fillWidth: true
+                    text: Catalog.reboot ? "<b>Neustart erforderlich</b><br>Einige Updates werden erst nach einem Neustart wirksam."
+                        : "<b>Neu anmelden erforderlich</b><br>Hyprland wurde aktualisiert. Nach der nächsten Anmeldung läuft die neue Version."
+                    textFormat: Text.StyledText
+                    wrapMode: Text.Wrap
+                    font.family: Config.fontSans
+                    font.pixelSize: 13
+                    color: Config.text
+                }
+                DialogButton {
+                    implicitWidth: 130
+                    width: implicitWidth
+                    text: Catalog.reboot ? "Neu starten …" : "Abmelden …"
+                    onClicked: Quickshell.execDetached(["qs", "ipc", "call", "session", "ask", Catalog.reboot ? "reboot" : "logout"])
+                }
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: 12
+            readonly property int total: Catalog.updates.length + Catalog.flatpakUpdates.length
             Text {
                 Layout.fillWidth: true
                 text: Catalog.checkingUpdates ? "Suche nach Updates …"
-                    : Catalog.updates.length === 0 ? "Dein System ist auf dem neuesten Stand."
-                    : `${Catalog.updates.length} Updates verfügbar. Vorher wird automatisch ein Snapshot angelegt.`
+                    : parent.total === 0 ? "Dein System ist auf dem neuesten Stand."
+                    : `${parent.total} Updates verfügbar.` + (Catalog.updates.length > 0 ? " Vorher wird automatisch ein Snapshot angelegt." : "")
                 wrapMode: Text.Wrap
                 font.family: Config.fontSans
                 font.pixelSize: 13
                 color: Config.textSecondary
             }
             DialogButton {
-                visible: Catalog.updates.length === 0 && !Catalog.checkingUpdates
+                visible: parent.total === 0 && !Catalog.checkingUpdates
                 implicitWidth: 120
                 width: implicitWidth
                 text: "Erneut prüfen"
-                onClicked: Catalog.checkUpdates()
+                onClicked: {
+                    Catalog.checkUpdates();
+                    Riptide.call("updates.check");
+                }
             }
             DialogButton {
-                visible: Catalog.updates.length > 0
+                visible: parent.total > 0
                 implicitWidth: 160
                 width: implicitWidth
                 primary: true
-                text: Catalog.busy?.action === "upgrade" ? "Wird aktualisiert …" : "Alle aktualisieren"
-                onClicked: if (Catalog.busy === null) Catalog.run("upgrade", [], "Das System")
+                text: Catalog.busy?.action === "upgrade" || Catalog.updatingFlatpaks ? "Wird aktualisiert …" : "Alle aktualisieren"
+                onClicked: if (Catalog.busy === null && !Catalog.updatingFlatpaks) Catalog.updateAll()
             }
         }
 
@@ -82,7 +120,7 @@ Flickable {
 
         Rectangle {
             Layout.fillWidth: true
-            visible: Catalog.updates.length > 0
+            visible: Catalog.updates.length + Catalog.flatpakUpdates.length > 0
             implicitHeight: list.implicitHeight
             radius: 10
             color: Config.cardBg
@@ -91,7 +129,12 @@ Flickable {
                 id: list
                 width: parent.width
                 Repeater {
-                    model: Catalog.updates
+                    // system packages, then Flatpak apps (name from their start entry)
+                    model: Catalog.updates.concat(Catalog.flatpakUpdates.map(f => ({
+                        pkg: Apps.entryById(f.app)?.name
+                            ?? (f.app.startsWith("org.freedesktop.Platform.GL.") ? "Grafiktreiber für Flatpak-Apps" : f.app),
+                        from: "", to: f.to ? "Flatpak " + f.to : "Flatpak"
+                    })))
                     Item {
                         required property var modelData
                         required property int index
@@ -116,7 +159,7 @@ Flickable {
                             anchors.right: parent.right
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
-                            text: `${modelData.from}  →  ${modelData.to}`
+                            text: modelData.from ? `${modelData.from}  →  ${modelData.to}` : modelData.to
                             font.family: Config.fontMono
                             font.pixelSize: 11
                             color: Config.textSecondary

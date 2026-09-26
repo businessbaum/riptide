@@ -19,6 +19,7 @@ It owns
                     (Access: camera, background, …) in our dialog, and autostart for
                     apps (Background), which then start in their sandbox
   health, crashes   warnings about the machine (health.py); apps that crashed (crashes.py)
+  updates           looks for updates in the background (updates.py)
 
 The shell, System Settings and the command line tools talk to it through one Unix
 socket, $XDG_RUNTIME_DIR/riptide/session.sock (only this user can open it; sandboxes
@@ -29,6 +30,8 @@ never see it), one JSON object per line:
   ← {"event": "permissions", "states": {app: {kind: state}}}      to everyone
   ← {"event": "streams", "streams": {node id: app}}               to the shell: whose sound
   ← {"event": "request", "app": "discord", "kind": "microphone"}  to the shell
+  ← {"event": "updates", "count": 3, "reboot": false, "relogin": false}  to the shell
+  ← {"event": "session-ask", "what": "reboot"}  to the shell: ask, then restart/log out
 
   ← {"event": "share", "pick": 3, "app": "discord", "windows": [...]}   to the shell
   ← {"event": "access", "pick": 4, "app": "discord", "title": …, "text": …, "grant": …, "deny": …}
@@ -37,6 +40,7 @@ never see it), one JSON object per line:
          apps.launch {app, args, run}, apps.sync,
          screen.pick {windows} (the picker), screen.picked {pick, selection} (the shell),
          access.answered {pick, granted} (the shell),
+         updates.check,
          status (who is connected, what is open – for troubleshooting)
 """
 
@@ -51,7 +55,7 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib
 
-from desktop_shell import crashes, health, permissions, sandbox
+from desktop_shell import crashes, health, permissions, sandbox, updates
 
 SOCKET = sandbox.SERVICE_SOCKET
 HOME = Path.home()
@@ -145,6 +149,8 @@ class Service:
         self.health.start()
         self.crashes = crashes.Crashes()  # "„X“ wurde unerwartet beendet" – Erneut öffnen
         self.crashes.start()
+        self.updates = updates.Updates(lambda event: self.broadcast(event, role="shell"))  # like Softwareupdate
+        self.updates.start()
         GLib.timeout_add_seconds(300, lambda: (sandbox.gc(), True)[1])
         GLib.idle_add(self.sync)
         self.listen()
@@ -200,6 +206,10 @@ class Service:
                     for pick, entry in sorted(self.accesses.items()):
                         client.send(entry["event"])
                     client.send({"event": "streams", "streams": self.stream_apps()})
+                    client.send(self.updates.event())
+            elif call == "updates.check":  # look now (the App Store's "Nach Updates suchen")
+                self.updates.check()
+                client.reply(msg_id, True)
             elif call == "permissions.set":
                 permissions.set_state(message["app"], message["kind"], message["state"])
                 client.reply(msg_id, True)  # the store's signal brings the new states to all

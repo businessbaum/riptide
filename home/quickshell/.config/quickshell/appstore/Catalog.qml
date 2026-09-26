@@ -77,10 +77,48 @@ Singleton {
         target: PackageAdmin
         function onFinished(action, ok) {
             root.refresh();
-            if (action === "upgrade")
+            if (action === "upgrade") {
                 root.checkUpdates();
+                Riptide.call("updates.check");
+                if (root.flatpakUpdates.length > 0)
+                    flatpakUpdate.running = true;
+            }
         }
     }
+
+    // What the session service found in the background (updates.py): Flatpak apps with
+    // updates, and whether a restart or a new login is waiting
+    property var flatpakUpdates: []
+    property bool reboot: false
+    property bool relogin: false
+    FileView {
+        path: Quickshell.env("HOME") + "/.local/state/macos/updates.json"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                const s = JSON.parse(text());
+                root.flatpakUpdates = s.flatpaks ?? [];
+                root.reboot = s.reboot === true;
+                root.relogin = s.relogin === true;
+            } catch (e) {}
+        }
+    }
+    // Flatpak apps update without the administrator password (this user's apps)
+    readonly property bool updatingFlatpaks: flatpakUpdate.running
+    function updateAll() {
+        if (updates.length > 0)
+            run("upgrade", [], "Das System"); // the Flatpaks follow (onFinished)
+        else if (flatpakUpdates.length > 0)
+            flatpakUpdate.running = true;
+    }
+    Process {
+        id: flatpakUpdate
+        command: ["flatpak", "update", "-y", "--noninteractive"]
+        onExited: Riptide.call("updates.check") // the service looks again: badge, notices
+    }
+    // (connected from the start: a call before the connection would get lost)
+    readonly property bool linked: Riptide.ready
 
     Process {
         id: buildCatalog
