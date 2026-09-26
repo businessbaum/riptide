@@ -12,7 +12,9 @@ local function exactly(path)
     return "^" .. path:gsub("[%.%-%+%*%?%[%]%^%$%(%)]", "\\%0") .. "$"
 end
 
-hl.config({ ecosystem = { enforce_permissions = true } })
+-- OFF for now (2026-09-27): the allow rules below did not take effect in Hyprland 0.56's
+-- Lua API (our own grim got black pictures) – on again once that is understood
+hl.config({ ecosystem = { enforce_permissions = false } })
 
 local allowed = {
     { "/usr/bin/quickshell", "screencopy" },                  -- the shell: previews, Launchpad's background
