@@ -104,6 +104,16 @@ PanelWindow {
             }
         }
 
+        // External drives: eject (like the Finder's eject button)
+        BarButton {
+            id: drivesButton
+            visible: Drives.list.length > 0
+            text: "\u{f01ea}" // eject
+            symbol: true
+            active: drivesMenu.visible
+            onClicked: drivesMenu.toggle()
+        }
+
         BarButton {
             visible: Session.keepAwake
             text: "\uf0f4" // cup: the computer is kept awake
@@ -155,6 +165,22 @@ PanelWindow {
         id: notificationCenter
         anchorItem: clockButton
         keepOpenFor: [bar]
+    }
+
+    // one line per drive: open it; then eject each, or all
+    MenuPopup {
+        id: drivesMenu
+        anchorItem: drivesButton
+        keepOpenFor: [bar]
+        items: {
+            const list = [];
+            for (const d of Drives.list)
+                list.push({ text: `${d.name}  ·  ${Drives.size(d.size)}`, action: () => Drives.open(d) });
+            list.push({ separator: true });
+            for (const d of Drives.list)
+                list.push({ text: `„${d.name}“ auswerfen`, action: () => Drives.eject(d) });
+            return list;
+        }
     }
 
     MenuPopup {

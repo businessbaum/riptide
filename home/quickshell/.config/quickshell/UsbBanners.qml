@@ -44,6 +44,8 @@ Scope {
         const interfaces = p.ID_USB_INTERFACES ?? "";
         if (/:09/.test(interfaces) || p.ID_USB_CLASS_FROM_DATABASE === "Hub")
             return; // a hub
+        if (/:08/.test(interfaces))
+            return; // storage: Drives.qml tells it once it is mounted, with its name and size
         Banners.show({
             key: "usb:" + (p.DEVPATH ?? ""),
             glyph: root.glyph(interfaces),

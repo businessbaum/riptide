@@ -21,6 +21,7 @@ It owns
   health, crashes   warnings about the machine (health.py); apps that crashed (crashes.py)
   updates           looks for updates in the background (updates.py)
   local network     per app, with nftables through riptide-helper (lan.py)
+  drives            external drives: mounted by themselves, ejected on request (drives.py)
 
 The shell, System Settings and the command line tools talk to it through one Unix
 socket, $XDG_RUNTIME_DIR/riptide/session.sock (only this user can open it; sandboxes
@@ -33,6 +34,7 @@ never see it), one JSON object per line:
   ← {"event": "request", "app": "discord", "kind": "microphone"}  to the shell
   ← {"event": "updates", "count": 3, "reboot": false, "relogin": false}  to the shell
   ← {"event": "session-ask", "what": "reboot"}  to the shell: ask, then restart/log out
+  ← {"event": "drives", "drives": [...], "added": id}  to the shell: external drives
 
   ← {"event": "share", "pick": 3, "app": "discord", "windows": [...]}   to the shell
   ← {"event": "access", "pick": 4, "app": "discord", "title": …, "text": …, "grant": …, "deny": …}
@@ -41,7 +43,7 @@ never see it), one JSON object per line:
          apps.launch {app, args, run}, apps.sync,
          screen.pick {windows} (the picker), screen.picked {pick, selection} (the shell),
          access.answered {pick, granted} (the shell),
-         updates.check,
+         updates.check, drives.eject {id},
          status (who is connected, what is open – for troubleshooting)
 """
 
@@ -56,7 +58,7 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib
 
-from desktop_shell import crashes, health, lan, permissions, sandbox, updates
+from desktop_shell import crashes, drives, health, lan, permissions, sandbox, updates
 
 SOCKET = sandbox.SERVICE_SOCKET
 HOME = Path.home()
@@ -154,6 +156,8 @@ class Service:
         self.updates = updates.Updates(lambda event: self.broadcast(event, role="shell"))  # like Softwareupdate
         self.updates.start()
         self.lan.start()
+        self.drives = drives.Drives(lambda event: self.broadcast(event, role="shell"))  # USB sticks, disks
+        self.drives.start()
         GLib.timeout_add_seconds(300, lambda: (sandbox.gc(), True)[1])
         GLib.idle_add(self.sync)
         self.listen()
@@ -210,6 +214,9 @@ class Service:
                         client.send(entry["event"])
                     client.send({"event": "streams", "streams": self.stream_apps()})
                     client.send(self.updates.event())
+                    client.send(self.drives.event())
+            elif call == "drives.eject":
+                self.drives.eject(message["id"], lambda error: client.reply(msg_id, {"error": error}))
             elif call == "updates.check":  # look now (the App Store's "Nach Updates suchen")
                 self.updates.check()
                 client.reply(msg_id, True)
