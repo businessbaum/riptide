@@ -10,6 +10,12 @@
 --
 -- Recording anything (also what the speakers play) needs the microphone permission.
 -- Taking a permission away cuts the app's running streams at once.
+--
+-- What other apps play stays hidden – except for apps allowed to record the screen
+-- (table "org.riptide.sandbox", entry "screen"), which on a Mac also covers system audio:
+-- they see other apps' playback, so a shared screen or window carries its sound
+-- (Discord). PipeWire only links two app streams when each app sees the other's, so a
+-- recording of such an app is visible to the apps it records.
 
 lutils = require ("linking-utils")
 cutils = require ("common-utils")
@@ -31,6 +37,21 @@ function lookup (entry)
     cache [entry] = (pps and pps:call ("lookup", "devices", entry)) or {}
   end
   return cache [entry]
+end
+
+-- The screen permission lives in our own table, not in "devices"
+screen_cache = nil
+
+function screen_allowed (app)
+  if screen_cache == nil then
+    screen_cache = (pps and pps:call ("lookup", "org.riptide.sandbox", "screen")) or {}
+  end
+  for _, v in pairs (screen_cache [app] or {}) do
+    if v == "yes" then
+      return true
+    end
+  end
+  return false
 end
 
 function state (app, entry)
@@ -78,10 +99,32 @@ pm:add_interest_match (device_rule ("camera"),
     Interest { type = "node", Constraint { "media.class", "#", "Video/Source*" } })
 pm:add_interest_match (function () return Perm.NONE end,
     Interest { type = "metadata", Constraint { "metadata.name", "=", "macos-permissions" } })
--- Other apps' streams stay invisible (what they play, their titles); their own are theirs
+-- The sandboxed app a node belongs to (nil: none, or not a sandboxed one)
+function owner_app (node)
+  local id = tonumber (node.properties ["client.id"])
+  local owner = id and clients_om:lookup {
+    Constraint { "bound-id", "=", id, type = "gobject" },
+  }
+  return owner and sandboxed_app (owner)
+end
+
+-- Other apps' streams stay invisible (what they play, their titles); their own are theirs.
+-- Screen recording (with system audio): see what others play; its recordings are seen
 pm:add_interest_match (function (_, client, node)
       if tonumber (node.properties ["client.id"]) == client ["bound-id"] then
         return Perm.ALL
+      end
+      local class = node.properties ["media.class"]
+      if class == "Stream/Output/Audio" then
+        local app = sandboxed_app (client)
+        if app ~= nil and screen_allowed (app) then
+          return Perm.RX
+        end
+      elseif class == "Stream/Input/Audio" then
+        local recorder = owner_app (node)
+        if recorder ~= nil and screen_allowed (recorder) then
+          return Perm.RX
+        end
       end
       return Perm.NONE
     end,
@@ -199,6 +242,11 @@ SimpleEventHook {
 -- A decision changed: new permissions for every sandboxed client, link what now may be
 if pps then
   pps:connect ("changed", function (_, table, entry, deleted, permissions)
+    if table == "org.riptide.sandbox" and entry == "screen" then
+      screen_cache = (not deleted and permissions) or {}
+      pm:update_permissions ()
+      return
+    end
     if table ~= "devices" or not DEVICE_KINDS [entry] then
       return
     end

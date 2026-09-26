@@ -53,8 +53,10 @@ KINDS = [
           "Ton über Lautsprecher und Kopfhörer abspielen", "prompt", "live", "\U000f04c3", "#ff375f"),
     _kind("camera", ("devices", "camera"), "Kamera", "Bilder der Kamera sehen",
           "auf die Kamera zugreifen", "portal", "live", "\U000f0100", "#30d158"),
-    _kind("screen", (TABLE, "screen"), "Bildschirmaufnahme", "Den Bildschirm oder Fenster sehen und teilen",
-          "deinen Bildschirm sehen", "prompt", "live", "\U000f0379", "#bf5af2"),
+    # (like on a Mac it covers system audio: what other apps play – macos/app-permissions.lua)
+    _kind("screen", (TABLE, "screen"), "Bildschirm- & Systemaudioaufnahme",
+          "Den Bildschirm oder Fenster sehen und teilen, mit dem Ton der Apps",
+          "deinen Bildschirm und den Ton deiner Apps aufnehmen", "prompt", "live", "\U000f0379", "#bf5af2"),
     _kind("network", (TABLE, "network"), "Internet", "Verbindungen ins Internet",
           "eine Verbindung ins Internet herstellen", "prompt", "restart", "\U000f01e7", "#0a84ff"),
     _kind("local-network", (TABLE, "local-network"), "Lokales Netzwerk", "Geräte im eigenen Netzwerk finden und erreichen",
