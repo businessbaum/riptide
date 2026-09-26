@@ -35,6 +35,8 @@ def pkg_version(name):
 
 def cpu():
     model = next((l.split(":", 1)[1].strip() for l in read("/proc/cpuinfo").splitlines() if l.startswith("model name")), "")
+    # "AMD Ryzen 7 7800X3D 8-Core Processor", "Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz" → the name
+    model = re.sub(r"\((R|TM)\)|\s+\d+-Core Processor$|\s+CPU @.*$|\s+Processor$", "", model).strip()
     threads = os.cpu_count() or 0
     cores = len({l for l in read("/proc/cpuinfo").splitlines() if l.startswith("core id")}) or threads
     return f"{model} ({cores} Kerne, {threads} Threads)" if model else ""
@@ -61,8 +63,14 @@ def gpus():
 
 
 def memory():
+    """What is built in, as a Mac says it: MemTotal lacks what firmware and graphics keep
+    for themselves, so the next usual size above it"""
     kb = next((int(l.split()[1]) for l in read("/proc/meminfo").splitlines() if l.startswith("MemTotal")), 0)
-    return f"{round(kb / 1024 / 1024)} GB" if kb else ""
+    if not kb:
+        return ""
+    gb = kb / 1024 / 1024
+    usual = [2, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024]
+    return f"{next((u for u in usual if u >= gb), round(gb))} GB"
 
 
 def displays():
@@ -70,8 +78,15 @@ def displays():
         mons = json.loads(run("hyprctl", "monitors", "-j") or "[]")
     except ValueError:
         return []
-    return [f"{m.get('make', '')} {m.get('model', '')}".strip() + f" – {m['width']}×{m['height']}, {round(m['refreshRate'])} Hz"
-            for m in mons]
+    counts = {}
+    for m in mons:
+        make, name = m.get("make", ""), m.get("model", "")
+        # (make is often the three-letter maker code, e.g. "BNQ" for "BenQ EX2710Q")
+        if not name or (re.fullmatch(r"[A-Z]{3}", make) is None and not name.startswith(make)):
+            name = f"{make} {name}".strip()
+        line = f"{name} – {m['width']}×{m['height']}, {round(m['refreshRate'])} Hz"
+        counts[line] = counts.get(line, 0) + 1
+    return [f"{n} × {line}" if n > 1 else line for line, n in counts.items()]
 
 
 def disks():
@@ -91,11 +106,20 @@ def model():
     return name or board
 
 
+def name():
+    """The name given in Allgemein → Info (pretty hostname), else the host name"""
+    pretty = re.search(r'^PRETTY_HOSTNAME="?([^"\n]*)"?$', read("/etc/machine-info"), re.M)
+    return (pretty.group(1) if pretty else "") or read("/proc/sys/kernel/hostname")
+
+
 def uptime():
     seconds = int(float(read("/proc/uptime").split()[0] or 0))
     days, rest = divmod(seconds, 86400)
     hours, rest = divmod(rest, 3600)
-    return (f"{days} T. " if days else "") + f"{hours} Std. {rest // 60} Min."
+    parts = [f"{days} {'Tag' if days == 1 else 'Tagen'}"] if days else []
+    if hours:
+        parts.append(f"{hours} Std.")
+    return " ".join(parts + [f"{rest // 60} Min."])
 
 
 def info():
@@ -106,7 +130,7 @@ def info():
         hypr = ""
     riptide = run("git", "-C", str(Path.home() / "dotfiles"), "log", "-1", "--format=%h vom %cd", "--date=format:%d.%m.%Y")
     return {
-        "name": read("/proc/sys/kernel/hostname"),
+        "name": name(),
         "system": os_release.get("PRETTY_NAME", "Linux") + " · riptide",
         "rows": [
             ["Computer", model()],

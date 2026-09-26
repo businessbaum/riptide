@@ -53,6 +53,16 @@ Singleton {
     readonly property int dockSize: settings.dock?.size ?? 64
     readonly property var dockPinned: settings.dock?.pinned ?? []
 
+    // Clock in the menu bar (Allgemein → Datum & Uhrzeit): weekday, date, 24 hours, seconds
+    readonly property var clock: settings.clock ?? ({})
+    readonly property bool clockSeconds: clock.seconds === true
+    readonly property string clockFormat: {
+        const h24 = clock.hours24 !== false;
+        const day = [clock.weekday !== false ? "ddd" : "", clock.date !== false ? "d. MMM" : ""].filter(s => s).join(" ");
+        const time = (h24 ? "HH:mm" : "h:mm") + (clockSeconds ? ":ss" : "") + (h24 ? "" : " AP");
+        return (day ? day + "  " : "") + time;
+    }
+
     // "rgba(40, 40, 46, 0.58)", "rgb(44, 44, 46)" or "#rrggbb" -> color
     function col(value, fallback) {
         if (!value)

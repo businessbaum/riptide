@@ -88,7 +88,7 @@ Page {
             onClicked: {
                 page.search = "";
                 page.adding = true;
-                searchField.forceActiveFocus();
+                searchField.edit();
             }
             DialogButton {
                 visible: page.adding
@@ -102,32 +102,11 @@ Page {
         SettingRow {
             visible: page.adding
             title: ""
-            Rectangle {
-                width: 260
-                height: 26
-                radius: 6
-                color: Config.tile
-                border.color: Config.border
-                TextInput {
-                    id: searchField
-                    anchors.fill: parent
-                    anchors.leftMargin: 8
-                    anchors.rightMargin: 8
-                    verticalAlignment: TextInput.AlignVCenter
-                    font.family: Config.fontSans
-                    font.pixelSize: 12
-                    color: Config.text
-                    clip: true
-                    onTextChanged: page.search = text
-                    Keys.onEscapePressed: page.adding = false
-                    Text {
-                        visible: searchField.text === ""
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "App suchen"
-                        font: searchField.font
-                        color: Config.textSecondary
-                    }
-                }
+            Field {
+                id: searchField
+                placeholder: "App suchen"
+                input.onTextChanged: page.search = text
+                onCancelled: page.adding = false
             }
         }
         Repeater {

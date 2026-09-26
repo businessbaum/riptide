@@ -38,7 +38,9 @@ Banner {
             return "file://" + n.appIcon;
         return "";
     }
-    readonly property var appEntry: n ? NotificationStore.entryOf(n) ?? Apps.entryById(n.app ?? "") : null
+    // (the system's own messages carry the System Settings icon, as on a Mac)
+    readonly property var appEntry: !n ? null : NotificationStore.entryOf(n) ?? Apps.entryById(n.app ?? "")
+        ?? (NotificationStore.systemApps.includes(n.appName ?? n.app) ? Apps.entryById("org.riptide.SystemSettings") : null)
 
     // "jetzt", "vor 5 Min.", "14:02"
     readonly property date arrived: banner ? new Date() : NotificationStore.timeOf(n)

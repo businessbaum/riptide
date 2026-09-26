@@ -19,6 +19,7 @@
 //   Osd.qml            volume display
 //   PolkitDialog.qml   password dialog for administrator rights
 //   ShareDialog.qml    what an app may see when sharing the screen
+//   AboutWindow.qml    "Über diesen Computer" (Apple menu)
 //   Riptide.qml        the connection to the session's system services (riptide-session)
 //   Privacy.qml        app permissions: asks, remembers (docs/os-plan.md)
 
@@ -72,4 +73,5 @@ ShellRoot {
     ConfirmDialog {}
     ShareDialog {}
     PolkitDialog {}
+    AboutWindow {}
 }

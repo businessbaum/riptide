@@ -57,7 +57,7 @@ PanelWindow {
 
     SystemClock {
         id: clock
-        precision: SystemClock.Minutes
+        precision: Config.clockSeconds ? SystemClock.Seconds : SystemClock.Minutes
     }
 
     Rectangle {
@@ -133,7 +133,7 @@ PanelWindow {
 
         BarButton {
             id: clockButton
-            text: clock.date.toLocaleString(Qt.locale("de_DE"), "ddd d. MMM  HH:mm")
+            text: clock.date.toLocaleString(Qt.locale(), Config.clockFormat)
             active: notificationCenter.visible
             onClicked: notificationCenter.toggle()
         }
@@ -162,7 +162,7 @@ PanelWindow {
         anchorItem: logo
         keepOpenFor: [bar]
         items: [
-            { text: "Über diesen Computer", action: () => Quickshell.execDetached([Quickshell.shellPath("scripts/about.sh")]) },
+            { text: "Über diesen Computer", action: () => About.show() },
             { separator: true },
             { text: "Systemeinstellungen …", action: () => Quickshell.execDetached(["uwsm", "app", "--", "org.riptide.SystemSettings.desktop"]) },
             { separator: true },
