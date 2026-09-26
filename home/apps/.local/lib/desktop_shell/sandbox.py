@@ -182,7 +182,8 @@ class Sandbox:
     def __init__(self, app, argv, profile, states):
         self.app = app                            # desktop id (files, profile, the user)
         self.id = permissions.store_key(app)      # id for portals, PipeWire, D-Bus
-        self.argv = argv + profile.get("args", [])
+        # extra start arguments right after the program: before a "--" that ends the options
+        self.argv = argv[:1] + profile.get("args", []) + argv[1:]
         self.profile = profile
         self.states = states  # {kind: "yes" | "no" | "ask"}
         self.allowed = {kind: state == "yes" for kind, state in states.items()}

@@ -38,6 +38,11 @@
         "~/.cache/spotify",
         "~/.config/spotify-launcher.conf"
       ]
+    },
+    "discord": {
+      "args": [
+        "--disable-accelerated-video-decode"
+      ]
     }
   }
 }
