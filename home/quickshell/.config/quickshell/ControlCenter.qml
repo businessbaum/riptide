@@ -117,7 +117,7 @@ MenuBarPopup {
                         anchors.verticalCenter: parent.verticalCenter
                         icon: "" // moon
                         title: "Nicht stören"
-                        status: NotificationStore.doNotDisturb ? "Ein" : "Aus"
+                        status: NotificationStore.dndReason
                         on: NotificationStore.doNotDisturb
                         onToggled: NotificationStore.setDoNotDisturb(!NotificationStore.doNotDisturb)
                     }

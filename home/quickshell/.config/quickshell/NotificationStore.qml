@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Services.Notifications
 
 // The notification server, the rules per app and the history the notification centre shows.
@@ -22,12 +23,52 @@ Singleton {
     id: root
 
     // "Nicht stören" (control centre, System Settings → Mitteilungen): only critical
-    // notifications show a banner, all still land in the centre
-    readonly property bool doNotDisturb: Config.settings.notifications?.do_not_disturb ?? false
+    // notifications show a banner, all still land in the centre. On by hand, on a
+    // schedule (notifications.dnd_schedule {enabled, from, to}, also across midnight),
+    // while the screen is shared and while an app is in full screen (games, films) – each
+    // automatic one can be switched off in the settings.
+    readonly property var dndSettings: Config.settings.notifications ?? {}
+    readonly property bool dndManual: dndSettings.do_not_disturb ?? false
+    property date now: new Date()
+    Timer {
+        interval: 30000
+        running: true
+        repeat: true
+        onTriggered: root.now = new Date()
+    }
+    function minutesOf(hhmm) {
+        const [h, m] = String(hhmm ?? "0:0").split(":").map(Number);
+        return (h || 0) * 60 + (m || 0);
+    }
+    readonly property bool dndScheduled: {
+        const plan = dndSettings.dnd_schedule;
+        if (!plan?.enabled)
+            return false;
+        const t = now.getHours() * 60 + now.getMinutes();
+        const from = minutesOf(plan.from ?? "22:00"), to = minutesOf(plan.to ?? "07:00");
+        return from <= to ? t >= from && t < to : t >= from || t < to;
+    }
+    readonly property bool dndSharing: (dndSettings.dnd_when_sharing ?? true) && MediaUse.sharingScreen
+    readonly property bool dndFullscreen: (dndSettings.dnd_when_fullscreen ?? true) && (Hyprland.focusedWorkspace?.hasFullscreen ?? false)
+    // switched off by hand while an automatic reason holds: off until that reason ends
+    property bool autoPaused: false
+    readonly property bool dndAutomatic: dndScheduled || dndSharing || dndFullscreen
+    onDndAutomaticChanged: if (!dndAutomatic) autoPaused = false
+    readonly property bool doNotDisturb: dndManual || (dndAutomatic && !autoPaused)
+    // why, for the control centre and the menu bar
+    readonly property string dndReason: dndManual ? "Ein"
+        : !doNotDisturb ? "Aus"
+        : dndSharing ? "Bildschirm wird geteilt"
+        : dndFullscreen ? "Vollbild"
+        : "Bis " + (dndSettings.dnd_schedule?.to ?? "07:00")
     function setDoNotDisturb(on) {
+        if (!on && dndAutomatic)
+            autoPaused = true;
+        if (on)
+            autoPaused = false;
         Config.updateSettings(s => {
             s.notifications = s.notifications ?? {};
-            s.notifications.do_not_disturb = on;
+            s.notifications.do_not_disturb = on && !dndAutomatic;
         });
     }
 
@@ -45,8 +86,11 @@ Singleton {
     property var senders: ({})
 
     // The desktop entry of the sending app, if it has one
+    // (sandboxed apps that notify through the portal – Discord: libnotify does so in a
+    // sandbox – arrive with their sandbox id, e.g. org.riptide.sandbox.discord)
     function entryOf(n) {
-        for (const id of [n.desktopEntry, n.appIcon]) {
+        for (const raw of [n.desktopEntry, n.appIcon]) {
+            const id = raw?.startsWith("org.riptide.sandbox.") ? raw.slice("org.riptide.sandbox.".length) : raw;
             if (id && !id.includes("/")) {
                 const e = Apps.entryById(id);
                 if (e)
@@ -72,6 +116,23 @@ Singleton {
         add(n);
         if (mode !== "quiet")
             Banners.notify(n, mode === "alert");
+        if (mode !== "quiet" && (!doNotDisturb || n.urgency === NotificationUrgency.Critical))
+            playSound(n, app);
+    }
+
+    // The notification sound (settings.json notifications.sound: a sound of the
+    // freedesktop theme, or "none"), per app to switch off (notifications.app_sound):
+    // apps like Discord play their own. A sound the app asks for comes first; one that
+    // asks for none (suppress-sound) gets none.
+    function soundOn(app) {
+        return (dndSettings.app_sound ?? {})[app] ?? true;
+    }
+    function playSound(n, app) {
+        const hints = n.hints ?? {};
+        if (hints["suppress-sound"] || !soundOn(app))
+            return;
+        const asked = hints["sound-name"];
+        NotificationSounds.play(asked && NotificationSounds.list.some(s => s.value === asked) ? asked : (dndSettings.sound ?? "message"));
     }
 
     function nameOf(n) {
