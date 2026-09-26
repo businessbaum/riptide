@@ -241,12 +241,14 @@ class Sandbox:
                  # for our apps, they are no real Flatpaks; flatpak-spawn is our own here)
                  *[f"--talk={name}" for name in PORTALS],
                  *[f"--broadcast={name}=@/org/freedesktop/portal/*" for name in PORTALS],
-                 # menu bar icon: exact names only (StatusNotifierItem-<pid>-<n>, pids inside
-                 # the sandbox are small), never a whole namespace: owning org.kde.* or
-                 # org.freedesktop.* would let an app pose as a system service
+                 # menu bar icon: exact names only (StatusNotifierItem-<pid>-<n>), never a whole
+                 # namespace: owning org.kde.* or org.freedesktop.* would let an app pose as a
+                 # system service. The app's main process registers it, and inside the sandbox
+                 # that is pid 2 (bwrap is 1), so pids 2–9 are plenty. (Every name costs two
+                 # checks on each new D-Bus connection: 1–39 made one ~4x slower.)
                  "--talk=org.kde.StatusNotifierWatcher", "--talk=org.freedesktop.StatusNotifierWatcher",
                  *[f"--own={ns}.StatusNotifierItem-{pid}-{n}" for ns in ("org.kde", "org.freedesktop")
-                   for pid in range(1, 40) for n in range(1, 4)],
+                   for pid in range(2, 10) for n in range(1, 4)],
                  # media controls (now playing, media keys)
                  "--own=org.mpris.MediaPlayer2.*",
                  # notifications: the notification server itself asks and decides

@@ -179,6 +179,32 @@ class SoundRequests:
     def __init__(self):
         self.buffer = ""
         self.seen = set()
+        # which app a sound stream belongs to: the shell cannot see a stream's client, and
+        # a sandboxed app's streams carry only names like "WEBRTC VoiceEngine" or "Chromium"
+        self.clients = {}  # client id → app (desktop id) of sandboxed and Flatpak clients
+        self.nodes = {}    # stream node id → client id
+        self.streams_changed = False
+
+    def streams(self):
+        """{stream node id: app (desktop id)} of sandboxed apps' streams."""
+        return {node: self.clients[client] for node, client in self.nodes.items() if client in self.clients}
+
+    def _track(self, obj):
+        before = self.streams()
+        oid, info = obj.get("id"), obj.get("info")
+        if info is None:  # removed
+            self.clients.pop(oid, None)
+            self.nodes.pop(oid, None)
+        elif obj.get("type") == "PipeWire:Interface:Client":
+            app = (info.get("props") or {}).get("pipewire.access.portal.app_id")
+            if app:
+                self.clients[oid] = desktop_id(app)
+        elif obj.get("type") == "PipeWire:Interface:Node":
+            props = info.get("props") or {}
+            if str(props.get("media.class", "")).startswith("Stream/") and props.get("client.id") is not None:
+                self.nodes[oid] = props["client.id"]
+        if self.streams() != before:
+            self.streams_changed = True
 
     def feed(self, line):
         self.buffer += line
@@ -193,6 +219,8 @@ class SoundRequests:
                 self.buffer = ""
         found = []
         for obj in objects if isinstance(objects, list) else []:
+            if isinstance(obj, dict):
+                self._track(obj)
             if obj.get("type") != "PipeWire:Interface:Metadata":
                 continue
             if (obj.get("props") or {}).get("metadata.name") != "macos-permissions":

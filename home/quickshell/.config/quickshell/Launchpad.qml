@@ -59,16 +59,20 @@ PanelWindow {
             f.apps = f.apps.filter(a => a !== id);
     }
     // A name for a new folder from what both apps are (their main category), else "Ordner"
-    function folderName(a, b) {
+    // (not "folderName": that is the id of the name field below, and an id hides a function)
+    function nameForFolder(a, b) {
         const names = [["AudioVideo", "Audio & Video"], ["Office", "Büro"], ["Graphics", "Grafik & Foto"],
                        ["Network", "Internet"], ["Game", "Spiele"], ["Development", "Entwicklung"],
                        ["Education", "Bildung"], ["Utility", "Werkzeuge"], ["System", "System"], ["Settings", "System"]];
-        const cats = e => (e?.categories ?? "").split(";");
+        const cats = e => {
+            const c = e?.categories ?? [];
+            return typeof c === "string" ? c.split(";") : Array.from(c); // a list in Quickshell
+        };
         const common = names.find(([key]) => cats(a).includes(key) && cats(b).includes(key));
         return common ? common[1] : "Ordner";
     }
     function makeFolder(targetId, id) {
-        const name = folderName(entryOf(targetId), entryOf(id));
+        const name = nameForFolder(entryOf(targetId), entryOf(id));
         changeFolders(list => {
             leaveFolders(list, id);
             leaveFolders(list, targetId);
@@ -180,26 +184,32 @@ PanelWindow {
     }
     function endDrag() {
         const item = dragItem, target = targetIndex >= 0 ? items[targetIndex] : null;
-        if (dragFromFolder && openFolder >= 0) {
-            const inside = folderPanel.contains(folderPanel.mapFromItem(root.contentItem, dragAt.x, dragAt.y));
-            if (!inside)
-                leaveFolder(item.id);
-        } else if (target && target.kind === "folder") {
-            joinFolder(target.index, item.id);
-        } else if (target && target.kind === "app") {
-            makeFolder(target.id, item.id);
+        try {
+            if (dragFromFolder && openFolder >= 0) {
+                const inside = folderPanel.contains(folderPanel.mapFromItem(root.contentItem, dragAt.x, dragAt.y));
+                if (!inside)
+                    leaveFolder(item.id);
+            } else if (target && target.kind === "folder") {
+                joinFolder(target.index, item.id);
+            } else if (target && target.kind === "app") {
+                makeFolder(target.id, item.id);
+            }
+        } finally {
+            // (always: an error must not leave the icon hanging under the pointer)
+            dragItem = null;
+            targetIndex = -1;
         }
-        dragItem = null;
-        targetIndex = -1;
     }
 
     // ---------------------------------------------------------------- right click
 
     property var menuItem: null
     function openMenu(item, at) {
+        // (closed first: an open menu does not move to a new anchor)
+        menu.close();
         menuItem = item;
         menu.anchorItem = at;
-        menu.open();
+        Qt.callLater(menu.open);
     }
     MenuPopup {
         id: menu
@@ -421,6 +431,20 @@ PanelWindow {
                     }
                 }
             }
+        }
+    }
+
+    // While the menu is open, a click anywhere closes it – and still reaches what is under
+    // it, so right-clicking another app opens that app's menu (the menu's focus grab
+    // counts all of Launchpad as its own, so it would not close by itself)
+    MouseArea {
+        anchors.fill: parent
+        z: 100
+        visible: menu.visible
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onPressed: mouse => {
+            menu.close();
+            mouse.accepted = false;
         }
     }
 

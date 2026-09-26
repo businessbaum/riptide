@@ -25,7 +25,8 @@ Item {
     }
     function appOf(node) {
         const p = node?.properties ?? {};
-        return p["application.process.binary"] || p["application.name"] || node?.name || "?";
+        const app = Privacy.appOfStream(node); // sandboxed apps: named by the service
+        return (app && Apps.name(app)) || p["application.process.binary"] || p["application.name"] || node?.name || "?";
     }
     function usersOf(test) {
         const names = [];

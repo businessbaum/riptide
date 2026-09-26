@@ -10,14 +10,14 @@ Item {
     property var launchpad
     property bool inFolder: false
     property bool target: false   // something is dragged onto it: it grows, like a folder forming
-    property bool lifted: false   // this is the tile being dragged
+    property bool lifted: false   // this is the tile being dragged: it moves with the pointer
 
     signal clicked
     signal menu(Item at)
 
     readonly property int iconSize: 88
 
-    opacity: lifted ? 0.25 : 1
+    opacity: lifted ? 0 : 1 // (the icon under the pointer is this one, not a copy)
 
     // folder plate
     Rectangle {

@@ -7,7 +7,7 @@
 
 Every file opens in its own window. Without a file an "Open" dialog appears.
 Shortcuts (⌘ is translated to ⌃ by Hyprland): ⌘O open, ⌘S save, ⌘⇧S save as,
-⌘Z undo, ⌘F find, ⌘+ / ⌘- / ⌘0 zoom, ⌘W close, space play/pause.
+⌘Z undo, ⌘C copy marked text, ⌘F find, ⌘+ / ⌘- / ⌘0 zoom, ⌘W close, space play/pause.
 """
 
 import os
@@ -364,7 +364,7 @@ class AudioView:
 # PDF
 # ======================================================================
 
-TOOLS = (("select", "Auswahl", "Rechteck ziehen: Text kopieren · Klick in ein Formularfeld: ausfüllen"),
+TOOLS = (("select", "Auswahl", "Über Text ziehen: markieren, ⌘C kopiert · Klick in ein Formularfeld: ausfüllen"),
          ("highlight", "Markieren", "Über Text ziehen, um ihn gelb zu markieren"),
          ("text", "Text", "Klicken, um Text einzufügen"),
          ("draw", "Zeichnen", "Mit der Maus zeichnen oder unterschreiben"),
@@ -480,6 +480,7 @@ class PdfView:
         self.doc = PdfDocument(gfile.get_path(), password)
         self.zoom = 1.0
         self.tool = "select"
+        self.selected = None  # marked text: (page, x0, y0, x1, y1) in display points
         self.search_hits, self.search_index = [], -1
         self.pages = []
 
@@ -570,10 +571,20 @@ class PdfView:
             self.window.add_action(action)
 
     def clear_selection(self):
+        self.selected = None
         for p in self.pages:
             if p.selection:
                 p.selection = []
                 p.layer.queue_draw()
+
+    def copy(self):
+        """⌘C: the marked text to the clipboard."""
+        if not self.selected:
+            return
+        text = self.doc.text_in(*self.selected)
+        if text:
+            Gdk.Display.get_default().get_clipboard().set(text)
+            self.window.toast("Text kopiert")
 
     def set_tool(self, name):
         self.clear_selection()
@@ -727,13 +738,10 @@ class PdfView:
             if click:
                 self.fill_field(page, x0, y0, widget_pos)
             else:
-                # the words stay marked (blue) and are copied at once
+                # the words stay marked (blue); ⌘C copies them
                 page.selection = self.doc.words_in(n, x0, y0, x1, y1)
+                self.selected = (n, x0, y0, x1, y1) if page.selection else None
                 page.layer.queue_draw()
-                text = self.doc.text_in(n, x0, y0, x1, y1)
-                if text:
-                    Gdk.Display.get_default().get_clipboard().set(text)
-                    self.window.toast("Text kopiert")
         elif tool == "highlight" and not click:
             if self.doc.highlight(n, x0, y0, x1, y1):
                 self.changed(n)
@@ -877,7 +885,8 @@ class Window(Adw.ApplicationWindow):
         for name, callback in (("save", self.save), ("save-as", self.save_as), ("undo", self.undo),
                                ("find", self.find), ("zoom-in", lambda: self.call("zoom_in")),
                                ("zoom-out", lambda: self.call("zoom_out")),
-                               ("zoom-reset", lambda: self.call("zoom_reset")), ("close", self.close)):
+                               ("zoom-reset", lambda: self.call("zoom_reset")), ("close", self.close),
+                               ("copy", lambda: self.call("copy"))):
             action = Gio.SimpleAction.new(name, None)
             action.connect("activate", lambda *_, c=callback: c())
             self.add_action(action)
@@ -1019,7 +1028,7 @@ class Preview(Adw.Application):
                              ("win.find", ["<Control>f"]), ("win.close", ["<Control>w"]),
                              ("win.zoom-in", ["<Control>plus", "<Control>equal", "<Control>KP_Add"]),
                              ("win.zoom-out", ["<Control>minus", "<Control>KP_Subtract"]),
-                             ("win.zoom-reset", ["<Control>0"])):
+                             ("win.zoom-reset", ["<Control>0"]), ("win.copy", ["<Control>c"])):
             self.set_accels_for_action(action, keys)
 
     def do_activate(self):

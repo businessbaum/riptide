@@ -11,6 +11,8 @@
 #   4. the root helper riptide-helper (the only root part of the desktop) with its polkit
 #      rules and the list of protected system packages; the old appstore-helper goes
 #   5. our portal backend (riptide.portal): the portal's questions in our dialog
+#   6. remote login (SSH) off – not used here (2026-09-26); a switch in
+#      System Settings follows
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -47,6 +49,13 @@ rm -f /usr/local/sbin/appstore-helper /usr/share/polkit-1/actions/org.riptide.ap
 step "Portal-Backend (riptide.portal)"
 install -D -o root -g root -m 644 system/files/usr/share/xdg-desktop-portal/portals/riptide.portal \
     /usr/share/xdg-desktop-portal/portals/riptide.portal
+
+step "Entfernte Anmeldung (SSH) aus"
+if systemctl is-enabled --quiet sshd.service 2>/dev/null || systemctl is-active --quiet sshd.service; then
+    systemctl disable --now sshd.service
+else
+    echo "  schon aus"
+fi
 
 echo
 echo "Fertig."

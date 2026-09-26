@@ -26,6 +26,7 @@ never see it), one JSON object per line:
   → {"id": 1, "call": "hello", "role": "shell"}          role: shell | settings | tool
   ← {"id": 1, "result": {"kinds": [...], "states": {...}}}
   ← {"event": "permissions", "states": {app: {kind: state}}}      to everyone
+  ← {"event": "streams", "streams": {node id: app}}               to the shell: whose sound
   ← {"event": "request", "app": "discord", "kind": "microphone"}  to the shell
 
   ← {"event": "share", "pick": 3, "app": "discord", "windows": [...]}   to the shell
@@ -121,6 +122,7 @@ class Service:
         self.waiters = []    # [(app, kind, callback, timeout source)] starts waiting for an answer
         self.sandboxes = {}  # pid of a sandbox → (app, instance)
         self.first_starts = {}  # app → [(client, msg id)] of starts joining its first start
+        self.sound = None  # permissions.SoundRequests: also which app each sound stream is
         self.timers = {}
         self.logs = {}       # dbus.log path → {"offset", "app", "dest"}
         self.screen_requests = []  # [(time, app)] apps that asked the portal to share the screen
@@ -192,6 +194,7 @@ class Service:
                         client.send(entry["event"])
                     for pick, entry in sorted(self.accesses.items()):
                         client.send(entry["event"])
+                    client.send({"event": "streams", "streams": self.stream_apps()})
             elif call == "permissions.set":
                 permissions.set_state(message["app"], message["kind"], message["state"])
                 client.reply(msg_id, True)  # the store's signal brings the new states to all
@@ -296,12 +299,17 @@ class Service:
         channel = GLib.IOChannel.unix_new(stdout)
         channel.set_close_on_unref(True)
 
+        self.sound = requests
+
         def on_output(source, condition):
             if condition & GLib.IOCondition.IN:
                 line = source.readline()
                 if line:
                     for app, kind in requests.feed(line):
                         self.request(app, kind)
+                    if requests.streams_changed:
+                        requests.streams_changed = False
+                        self.broadcast({"event": "streams", "streams": self.stream_apps()}, role="shell")
                     return True
             return False
 
@@ -312,6 +320,10 @@ class Service:
             GLib.timeout_add_seconds(3, lambda: self.watch_sound() and False)  # PipeWire restarted
 
         GLib.child_watch_add(GLib.PRIORITY_DEFAULT, pid, on_exit)
+
+    def stream_apps(self):
+        """{node id (as text, for JSON): app} – which app a sound stream belongs to."""
+        return {str(node): app for node, app in (self.sound.streams() if self.sound else {}).items()}
 
     # ------------------------------------------------------------ apps
 

@@ -21,6 +21,12 @@ Singleton {
     property var kindList: []  // the same in their order
     property var states: ({})  // app → { kind → state }
     property var waiting: ({}) // "app kind" → [done callbacks] while the question is open
+    // Which app a sound stream belongs to: PipeWire node id → app (desktop id), from the
+    // service – for sandboxed apps a stream carries only names like "WEBRTC VoiceEngine"
+    property var streams: ({})
+    function appOfStream(node) {
+        return node ? streams[String(node.id)] ?? "" : "";
+    }
 
     function state(app, kind) {
         return states[app]?.[kind] ?? "ask";
@@ -102,6 +108,8 @@ Singleton {
                 root.request(message.app, message.kind, null);
             else if (message.event === "access")
                 root.portalQuestion(message);
+            else if (message.event === "streams")
+                root.streams = message.streams;
         }
     }
 

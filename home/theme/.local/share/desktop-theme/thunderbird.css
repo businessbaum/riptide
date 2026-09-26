@@ -342,3 +342,116 @@ notification-message[value="remoteContent"] {
   --message-bar-background-color: color-mix(in srgb, var(--rt-accent) 14%, light-dark(var(--rt-view-light), var(--rt-view-dark))) !important;
   --message-bar-text-color: light-dark(var(--rt-text-light), var(--rt-text-dark)) !important;
 }
+
+/* ---------- compose window (messengercompose.xhtml), laid out like Outlook's ---------- */
+
+/* top: a quiet menu line, then the toolbar with "Senden" as the one big button */
+#compose-toolbox {
+  background-color: light-dark(var(--rt-window-light), var(--rt-window-dark)) !important;
+  border-block-end: 1px solid light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+  padding-inline: 8px !important;
+}
+#compose-toolbar-menubar2 {
+  font-size: 0.92em !important;
+  color: light-dark(var(--rt-text-secondary-light), var(--rt-text-secondary-dark)) !important;
+}
+#composeToolbar2 {
+  padding-block: 6px 8px !important;
+}
+#composeToolbar2 toolbarbutton {
+  border: none !important;
+  border-radius: 7px !important;
+  background-color: transparent !important;
+}
+#composeToolbar2 toolbarbutton:not([disabled]):hover {
+  background-color: light-dark(var(--rt-hover-light), var(--rt-hover-dark)) !important;
+}
+#button-send {
+  background-color: var(--rt-accent) !important;
+  color: #ffffff !important;
+  border-radius: 8px !important;
+  padding-inline: 12px 16px !important;
+  margin-inline-end: 10px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18) !important;
+}
+#button-send > .toolbarbutton-icon {
+  fill: color-mix(in srgb, #ffffff 25%, transparent) !important;
+  stroke: #ffffff !important;
+}
+#composeToolbar2 #button-send:not([disabled]):hover {
+  background-color: color-mix(in srgb, var(--rt-accent) 88%, black) !important;
+}
+#button-send[disabled] {
+  opacity: 0.45 !important;
+}
+
+/* From, To, Subject: quiet lines instead of boxes */
+#MsgHeadersToolbar {
+  background-color: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
+  padding: 10px 16px 8px !important;
+}
+#identityLabel,
+.address-label-container label,
+#subjectLabel {
+  color: light-dark(var(--rt-text-secondary-light), var(--rt-text-secondary-dark)) !important;
+}
+#msgIdentity,
+.address-container,
+#msgSubject {
+  border: none !important;
+  border-block-end: 1px solid light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.address-container[focused="true"],
+#msgSubject:focus {
+  border-block-end-color: var(--rt-accent) !important;
+  box-shadow: 0 1px 0 var(--rt-accent) !important;
+}
+#msgSubject {
+  font-size: 1.15rem !important;
+  font-weight: 600 !important;
+  padding-inline: 4px !important;
+}
+/* recipients as rounded chips; CC / BCC as quiet text buttons */
+.address-pill {
+  border-radius: 999px !important;
+  padding-inline: 10px !important;
+  background-color: color-mix(in srgb, var(--rt-accent) 16%, transparent) !important;
+}
+.address-pill[selected] {
+  background-color: var(--rt-accent) !important;
+  color: #ffffff !important;
+}
+.recipient-button {
+  border-radius: 999px !important;
+  padding-inline: 10px !important;
+  color: var(--rt-accent) !important;
+}
+.recipient-button:hover {
+  background-color: color-mix(in srgb, var(--rt-accent) 12%, transparent) !important;
+}
+
+/* formatting: a soft rounded bar above the text */
+#FormatToolbar {
+  background-color: light-dark(var(--rt-tile-light), var(--rt-tile-dark)) !important;
+  border-radius: 10px !important;
+  margin: 6px 12px !important;
+  padding: 3px 6px !important;
+}
+toolbarbutton.formatting-button {
+  border-radius: 6px !important;
+}
+
+/* the text itself on a plain background; attachments below a hairline */
+#composeContentBox {
+  background-color: light-dark(var(--rt-view-light), var(--rt-view-dark)) !important;
+  box-shadow: none !important;
+}
+#attachmentArea {
+  background-color: light-dark(var(--rt-window-light), var(--rt-window-dark)) !important;
+  border-block-start: 1px solid light-dark(var(--rt-border-light), var(--rt-border-dark)) !important;
+}

@@ -86,6 +86,14 @@ local ok, err = pcall(function()
 
         ["hyprbars:no_bar"] = true,
     })
+    for i, app in ipairs(require("modules.csd_apps").main_only) do
+        hl.window_rule({
+            name  = "own-titlebar-main-" .. i,
+            match = { class = app.class, initial_title = app.initial_title },
+
+            ["hyprbars:no_bar"] = true,
+        })
+    end
 end)
 
 if not ok then
