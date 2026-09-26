@@ -31,6 +31,7 @@ class PdfDocument:
             raise PermissionError("password required")
         self.undo_stack = []
         self.dirty = False
+        self._chars = {}  # page → its characters (text selection), until the next change
 
     # ---------- basics ----------
 
@@ -59,6 +60,7 @@ class PdfDocument:
     # ---------- undo ----------
 
     def _remember(self):
+        self._chars = {}
         self.undo_stack.append(self.doc.tobytes())
         del self.undo_stack[:-UNDO_STEPS]
         self.dirty = True
@@ -67,6 +69,7 @@ class PdfDocument:
         return bool(self.undo_stack)
 
     def undo(self):
+        self._chars = {}
         if self.undo_stack:
             self.doc = fitz.open("pdf", self.undo_stack.pop())
             self.dirty = True
@@ -134,6 +137,102 @@ class PdfDocument:
             return False
         self._remember()
         page.delete_annot(page.load_annot(hit))
+        return True
+
+    # ---------- text selection, like in a text editor ----------
+    # A selection runs from one character to another in reading order – across lines –
+    # not over a rectangle. Characters are indexes into chars(n).
+
+    def chars(self, n):
+        """The characters of page n in reading order: [(char, display rect, line)], where
+        line is (number, display rect of the whole line)."""
+        if n not in self._chars:
+            page, found, number = self.doc[n], [], 0
+            for block in page.get_text("rawdict").get("blocks", []):
+                for line in block.get("lines", []):
+                    line_rect = tuple(self._rect_to_display(page, line["bbox"]))
+                    for span in line.get("spans", []):
+                        for ch in span.get("chars", []):
+                            found.append((ch["c"], tuple(self._rect_to_display(page, ch["bbox"])), (number, line_rect)))
+                    number += 1
+            self._chars[n] = found
+        return self._chars[n]
+
+    def char_at(self, n, x, y):
+        """The character nearest to (x, y): on the line at that height (else the nearest
+        line), the one under x (else the nearest). None if the page has no text."""
+        chars = self.chars(n)
+        if not chars:
+            return None
+        def line_distance(item):
+            _, (_, (lx0, ly0, lx1, ly1)) = item[0], item[1][2]
+            return 0 if ly0 <= y <= ly1 else min(abs(y - ly0), abs(y - ly1))
+        best_line = min(enumerate(chars), key=line_distance)[1][2][0]
+        on_line = [(i, c) for i, c in enumerate(chars) if c[2][0] == best_line]
+        for i, (_, (cx0, _, cx1, _), _) in on_line:
+            if cx0 <= x <= cx1:
+                return i
+        return min(on_line, key=lambda ic: min(abs(x - ic[1][1][0]), abs(x - ic[1][1][2])))[0]
+
+    def selection_rects(self, n, a, b):
+        """The marked area of the characters a…b: one rectangle per line."""
+        lines = {}
+        for ch, (x0, y0, x1, y1), (number, (_, ly0, _, ly1)) in self.chars(n)[min(a, b):max(a, b) + 1]:
+            r = lines.get(number)
+            lines[number] = (min(r[0], x0), ly0, max(r[2], x1), ly1) if r else (x0, ly0, x1, ly1)
+        # lines of a paragraph overlap a little: cut each at the one above, so no strip
+        # is marked twice (it would look darker)
+        rects = sorted(lines.values(), key=lambda r: r[1])
+        for i in range(1, len(rects)):
+            x0, y0, x1, y1 = rects[i]
+            above = rects[i - 1]
+            if y0 < above[3] < y1 and min(x1, above[2]) > max(x0, above[0]):
+                rects[i] = (x0, above[3], x1, y1)
+        return rects
+
+    def selection_text(self, n, a, b):
+        """The text of the characters a…b, a line break between lines."""
+        out, last = [], None
+        for ch, _, (number, _) in self.chars(n)[min(a, b):max(a, b) + 1]:
+            if last is not None and number != last:
+                out.append("\n")
+            out.append(ch)
+            last = number
+        return "".join(out).strip()
+
+    def word_range(self, n, i):
+        """The word around character i: (first, last)."""
+        chars = self.chars(n)
+        line = chars[i][2][0]
+        a = b = i
+        while a > 0 and chars[a - 1][2][0] == line and not chars[a - 1][0].isspace():
+            a -= 1
+        while b < len(chars) - 1 and chars[b + 1][2][0] == line and not chars[b + 1][0].isspace():
+            b += 1
+        return a, b
+
+    def line_range(self, n, i):
+        """The line around character i: (first, last)."""
+        chars = self.chars(n)
+        line = chars[i][2][0]
+        a = b = i
+        while a > 0 and chars[a - 1][2][0] == line:
+            a -= 1
+        while b < len(chars) - 1 and chars[b + 1][2][0] == line:
+            b += 1
+        return a, b
+
+    def highlight_range(self, n, a, b):
+        """Mark the characters a…b yellow (one highlight over the lines)."""
+        rects = self.selection_rects(n, a, b)
+        if not rects:
+            return False
+        page = self.doc[n]
+        quads = [self._rect_to_pdf(page, *r).quad for r in rects]
+        self._remember()
+        annot = page.add_highlight_annot(quads)
+        annot.set_colors(stroke=HIGHLIGHT)
+        annot.update()
         return True
 
     def words_in(self, n, x0, y0, x1, y1):

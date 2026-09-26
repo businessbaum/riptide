@@ -367,8 +367,8 @@ class AudioView:
 # PDF
 # ======================================================================
 
-TOOLS = (("select", "Auswahl", "Über Text ziehen: markieren, ⌘C kopiert · Klick in ein Formularfeld: ausfüllen"),
-         ("highlight", "Markieren", "Über Text ziehen, um ihn gelb zu markieren"),
+TOOLS = (("select", "Auswahl", "Text markieren wie im Editor (Doppelklick: Wort, Dreifachklick: Zeile), ⌘C kopiert · Klick in ein Formularfeld: ausfüllen"),
+         ("highlight", "Markieren", "Über den Text ziehen, um ihn gelb zu markieren"),
          ("text", "Text", "Klicken, um Text einzufügen"),
          ("draw", "Zeichnen", "Mit der Maus zeichnen oder unterschreiben"),
          ("rect", "Rechteck", "Rechteck ziehen"),
@@ -396,6 +396,12 @@ class PdfPage:
         drag.connect("drag-update", self.on_drag_update)
         drag.connect("drag-end", self.on_drag_end)
         self.layer.add_controller(drag)
+        # double click: the word, triple click: the line (like in a text editor)
+        clicks = Gtk.GestureClick()
+        clicks.connect("pressed", self.on_pressed)
+        self.layer.add_controller(clicks)
+        self.anchor = None       # character where a text selection started
+        self.multi_click = False # the press was a double/triple click: keep what it marked
 
     def resize(self):
         w, h = self.view.doc.page_size(self.n)
@@ -422,21 +428,45 @@ class PdfPage:
     def to_points(self, x, y):
         return x / self.view.zoom, y / self.view.zoom
 
+    def text_tool(self):
+        return self.view.tool in ("select", "highlight")
+
+    def on_pressed(self, _gesture, n_press, x, y):
+        if n_press < 2 or not self.text_tool():
+            return
+        i = self.view.doc.char_at(self.n, *self.to_points(x, y))
+        if i is None:
+            return
+        a, b = (self.view.doc.word_range if n_press == 2 else self.view.doc.line_range)(self.n, i)
+        self.multi_click = True
+        self.view.select_text(self, a, b)
+        if self.view.tool == "highlight":
+            self.view.highlight_selection()
+
     def on_drag_begin(self, _gesture, x, y):
         self.drag = [self.to_points(x, y)]
-        self.view.clear_selection()
+        if not self.multi_click:
+            self.view.clear_selection()
+            self.anchor = self.view.doc.char_at(self.n, *self.drag[0]) if self.text_tool() else None
         self.layer.queue_draw()
 
     def on_drag_update(self, gesture, dx, dy):
         ok, x, y = gesture.get_start_point()
         self.drag.append(self.to_points(x + dx, y + dy))
+        if self.anchor is not None and (abs(dx) >= 3 or abs(dy) >= 3):
+            # the marking follows the pointer through the text, character by character
+            end = self.view.doc.char_at(self.n, *self.drag[-1])
+            if end is not None:
+                self.view.select_text(self, self.anchor, end)
         self.layer.queue_draw()
 
     def on_drag_end(self, gesture, dx, dy):
         points, self.drag = self.drag, None
         self.layer.queue_draw()
         ok, x, y = gesture.get_start_point()
-        if not points:
+        multi, self.multi_click = self.multi_click, False
+        self.anchor = None
+        if not points or multi:
             return
         start, end = points[0], points[-1]
         click = abs(dx) < 3 and abs(dy) < 3
@@ -452,7 +482,10 @@ class PdfPage:
                 cr.fill()
         # selected text, like in a text editor
         if self.selection:
-            cr.set_source_rgba(0.04, 0.52, 1.0, 0.35)
+            if self.view.tool == "highlight":
+                cr.set_source_rgba(1.0, 0.85, 0.2, 0.45)
+            else:
+                cr.set_source_rgba(0.04, 0.52, 1.0, 0.35)
             for x0, y0, x1, y1 in self.selection:
                 cr.rectangle(x0 * z, y0 * z, (x1 - x0) * z, (y1 - y0) * z)
                 cr.fill()
@@ -466,9 +499,9 @@ class PdfPage:
             for x, y in self.drag[1:]:
                 cr.line_to(x * z, y * z)
             cr.stroke()
-        elif tool in ("select", "highlight", "rect") and len(self.drag) > 1:
+        elif tool == "rect" and len(self.drag) > 1:
             (x0, y0), (x1, y1) = self.drag[0], self.drag[-1]
-            colour = {"highlight": (1.0, 0.85, 0.2), "rect": (0.9, 0.2, 0.2)}.get(tool, (0.04, 0.52, 1.0))
+            colour = (0.9, 0.2, 0.2)
             cr.set_source_rgba(*colour, 0.25)
             cr.rectangle(min(x0, x1) * z, min(y0, y1) * z, abs(x1 - x0) * z, abs(y1 - y0) * z)
             cr.fill_preserve()
@@ -483,7 +516,7 @@ class PdfView:
         self.doc = PdfDocument(gfile.get_path(), password)
         self.zoom = 1.0
         self.tool = "select"
-        self.selected = None  # marked text: (page, x0, y0, x1, y1) in display points
+        self.selected = None  # marked text: (page, first character, last character)
         self.search_hits, self.search_index = [], -1
         self.pages = []
 
@@ -580,11 +613,30 @@ class PdfView:
                 p.selection = []
                 p.layer.queue_draw()
 
+    def select_text(self, page, a, b):
+        """Mark the characters a…b of a page (blue, or yellow with the marker)."""
+        for p in self.pages:
+            if p is not page and p.selection:
+                p.selection = []
+                p.layer.queue_draw()
+        page.selection = self.doc.selection_rects(page.n, a, b)
+        self.selected = (page.n, a, b)
+        page.layer.queue_draw()
+
+    def highlight_selection(self):
+        """The marker: the marked text becomes a yellow highlight in the document."""
+        if self.selected and self.doc.highlight_range(*self.selected):
+            n = self.selected[0]
+            self.clear_selection()
+            self.changed(n)
+        else:
+            self.window.toast("Hier ist kein Text zum Markieren")
+
     def copy(self):
         """⌘C: the marked text to the clipboard."""
         if not self.selected:
             return
-        text = self.doc.text_in(*self.selected)
+        text = self.doc.selection_text(*self.selected)
         if text:
             Gdk.Display.get_default().get_clipboard().set(text)
             self.window.toast("Text kopiert")
@@ -592,7 +644,7 @@ class PdfView:
     def set_tool(self, name):
         self.clear_selection()
         self.tool = name or "select"
-        cursor = {"text": "text", "draw": "crosshair", "rect": "crosshair",
+        cursor = {"select": "text", "text": "text", "draw": "crosshair", "rect": "crosshair",
                   "highlight": "text", "erase": "pointer"}.get(self.tool, "default")
         for p in self.pages:
             p.layer.set_cursor_from_name(cursor)
@@ -740,16 +792,9 @@ class PdfView:
         if tool == "select":
             if click:
                 self.fill_field(page, x0, y0, widget_pos)
-            else:
-                # the words stay marked (blue); ⌘C copies them
-                page.selection = self.doc.words_in(n, x0, y0, x1, y1)
-                self.selected = (n, x0, y0, x1, y1) if page.selection else None
-                page.layer.queue_draw()
+            # (a drag marked text on the way: select_text; ⌘C copies it)
         elif tool == "highlight" and not click:
-            if self.doc.highlight(n, x0, y0, x1, y1):
-                self.changed(n)
-            else:
-                self.window.toast("Hier ist kein Text zum Markieren")
+            self.highlight_selection()
         elif tool == "text" and click:
             self.ask_text(page, x0, y0, widget_pos)
         elif tool == "draw" and not click:
