@@ -80,7 +80,9 @@ end
 hl.bind("SUPER + space", hl.dsp.exec_cmd("qs ipc call spotlight toggle"))
 hl.bind("SUPER + V",     hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 
--- Start the shell with the session. It reloads itself when its files change.
+-- Start the shell with the session (riptide-shell.service: systemd starts it again should
+-- it crash; the session target starts it too – this is for when it is not enabled).
+-- It reloads itself when its files change.
 hl.on("hyprland.start", function()
-    hl.exec_cmd("uwsm app -- qs")
+    hl.exec_cmd("systemctl --user start riptide-shell.service")
 end)

@@ -1,0 +1,19 @@
+# The shell (Quickshell: menu bar, dock, notifications, dialogs) as a service of the
+# session: when it crashes, systemd starts it again within a second – without it there
+# would be no menu bar and no dock until the next login. It reloads itself when its files
+# change; a restart is only for crashes.
+# KillMode=process: what the shell started itself (a settings window) outlives a restart.
+[Unit]
+Description=riptide shell (Quickshell)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/qs
+Restart=on-failure
+RestartSec=1
+KillMode=process
+Slice=session.slice
+
+[Install]
+WantedBy=graphical-session.target

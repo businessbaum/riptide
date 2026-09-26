@@ -18,6 +18,7 @@ It owns
   portal backend    org.freedesktop.impl.portal.desktop.riptide: the portal's questions
                     (Access: camera, background, …) in our dialog, and autostart for
                     apps (Background), which then start in their sandbox
+  health, crashes   warnings about the machine (health.py); apps that crashed (crashes.py)
 
 The shell, System Settings and the command line tools talk to it through one Unix
 socket, $XDG_RUNTIME_DIR/riptide/session.sock (only this user can open it; sandboxes
@@ -50,7 +51,7 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib
 
-from desktop_shell import health, permissions, sandbox
+from desktop_shell import crashes, health, permissions, sandbox
 
 SOCKET = sandbox.SERVICE_SOCKET
 HOME = Path.home()
@@ -142,6 +143,8 @@ class Service:
         self.portal = PortalBackend(self)
         self.health = health.Health()  # disk full, disk trouble, file system errors, failed services
         self.health.start()
+        self.crashes = crashes.Crashes()  # "„X“ wurde unerwartet beendet" – Erneut öffnen
+        self.crashes.start()
         GLib.timeout_add_seconds(300, lambda: (sandbox.gc(), True)[1])
         GLib.idle_add(self.sync)
         self.listen()
