@@ -7,9 +7,10 @@
 -- clicked the app in the dock – zoomed again if it was. Dialogs next to a main window are
 -- left alone.
 --
--- Stored per app (window class) in ~/.local/state/macos/window-frames.tsv, one line per
--- app: class, x, y (from the screen's top left corner), width, height, snap ("-" = none),
--- and for a snapped window its old x, y, width, height. It survives restarts.
+-- Stored per app (window class; some windows of an app on their own: "class#kind") in
+-- ~/.local/state/macos/window-frames.tsv, one line per app: class, x, y (from the screen's
+-- top left corner), width, height, snap ("-" = none), and for a snapped window its old
+-- x, y, width, height. It survives restarts.
 -- (Older lines have only class and x, y, w, h on the whole desktop; they are converted.)
 
 local snapping = require("modules.snapping")
@@ -33,11 +34,31 @@ local function monitor_at(x, y)
     end
 end
 
--- Other open windows of the same app (not counting `w` itself)
+-- Windows of an app that are remembered on their own – not left alone like a dialog next
+-- to its main window. Told apart by their title when they open; `default` is their first
+-- size (share of the screen, centred), before they were ever resized.
+local KINDS = {
+    { class = "^org%.mozilla%.[Tt]hunderbird$", title = "^Verfassen", name = "compose", default = { w = 0.55, h = 0.8 } },
+    { class = "^org%.mozilla%.[Tt]hunderbird$", title = "^Write", name = "compose", default = { w = 0.55, h = 0.8 } },
+}
+
+local function kind_of(w)
+    for _, k in ipairs(KINDS) do
+        if (w.class or ""):match(k.class) and (w.initial_title or ""):match(k.title) then return k end
+    end
+end
+
+-- What a frame is stored under: the app, or app#kind (Thunderbird's compose window)
+local function key(w)
+    local k = kind_of(w)
+    return k and (w.class .. "#" .. k.name) or w.class
+end
+
+-- Other open windows of the same app and kind (not counting `w` itself)
 local function others(w)
-    local n = 0
+    local n, mine = 0, key(w)
     for _, o in ipairs(hl.get_windows()) do
-        if o.address ~= w.address and o.class == w.class and o.mapped then n = n + 1 end
+        if o.address ~= w.address and o.mapped and o.class == w.class and key(o) == mine then n = n + 1 end
     end
     return n
 end
@@ -116,15 +137,22 @@ hl.on("window.close", function(w)
         r.kind = kind
         r.old = { x = old.x - m.x, y = old.y - m.y, w = old.w, h = old.h }
     end
-    frames[w.class] = r
+    frames[key(w)] = r
     save()
 end)
 
 hl.on("window.open", function(w)
     if not remembers(w) or others(w) > 0 then return end
-    local r = frames[w.class]
+    local r = frames[key(w)]
     local m = hl.get_monitor_at_cursor()
-    if not r or not m then return end
+    if not m then return end
+    local k = kind_of(w)
+    if not r and k and k.default then
+        -- never resized yet: its first size, in the middle of the screen
+        local width, height = math.floor(m.width * k.default.w), math.floor(m.height * k.default.h)
+        r = { x = math.floor((m.width - width) / 2), y = math.floor((m.height - height) / 2), w = width, h = height }
+    end
+    if not r then return end
     if r.kind then
         -- first its normal size (what the green button brings back), then zoomed/snapped
         local old = r.old and { x = m.x + r.old.x, y = m.y + r.old.y, w = r.old.w, h = r.old.h }

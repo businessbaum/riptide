@@ -11,6 +11,20 @@ Item {
     property bool inFolder: false
     property bool target: false   // something is dragged onto it: it grows, like a folder forming
     property bool lifted: false   // this is the tile being dragged: it moves with the pointer
+    property bool showName: true
+    property real offsetX: 0      // moved aside while another tile is dragged past
+    property real offsetY: 0
+
+    transform: Translate {
+        x: root.offsetX
+        y: root.offsetY
+        Behavior on x {
+            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+        }
+        Behavior on y {
+            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+        }
+    }
 
     signal clicked
     signal menu(Item at)
@@ -64,6 +78,7 @@ Item {
     }
 
     Text {
+        visible: root.showName
         anchors.horizontalCenter: parent.horizontalCenter
         y: root.iconSize + 16
         width: parent.width - 16
@@ -90,7 +105,7 @@ Item {
             dragging = false;
         }
         onPositionChanged: e => {
-            if (!pressed || !(e.buttons & Qt.LeftButton) || root.item?.kind !== "app")
+            if (!pressed || !(e.buttons & Qt.LeftButton) || !root.item)
                 return;
             const p = mapToItem(root.launchpad.contentItem, e.x, e.y);
             if (!dragging && Math.hypot(e.x - pressAt.x, e.y - pressAt.y) > 10) {

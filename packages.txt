@@ -78,6 +78,8 @@ xdg-user-dirs
 gtk4
 libadwaita
 python-gobject
+# drawing in Python GTK apps (Vorschau: selection, markup, search hits)
+python-cairo
 kvantum
 qt5ct
 qt6ct

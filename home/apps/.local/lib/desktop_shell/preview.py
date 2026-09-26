@@ -20,6 +20,9 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gst", "1.0")
+# drawing on pages (selection, markup, search hits) needs pycairo (package python-cairo);
+# without it GTK silently draws nothing
+gi.require_foreign("cairo")
 from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, GObject, Gst, Gtk  # noqa: E402
 
 from .pdf_document import PdfDocument  # noqa: E402
