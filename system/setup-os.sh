@@ -16,6 +16,9 @@
 #   7. printing and scanning: CUPS (started on demand) and Avahi – printers and scanners
 #      in the home network are found by themselves (driverless IPP/AirPrint, eSCL), and
 #      names like drucker.local resolve (nss-mdns before the other lookups)
+#   8. security: the firewall lets mDNS in (finding printers and devices) and no longer SSH
+#      (remote login is off); snapshots of the system are readable for the user (their
+#      date in System Settings; later Time Machine)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -69,6 +72,21 @@ else
     sed -i 's/^\(hosts:.*\)mymachines /\1mymachines mdns_minimal [NOTFOUND=return] /' /etc/nsswitch.conf
     grep -q "mdns_minimal" /etc/nsswitch.conf || sed -i 's/^hosts: /hosts: mdns_minimal [NOTFOUND=return] /' /etc/nsswitch.conf
     grep "^hosts" /etc/nsswitch.conf
+fi
+
+step "Sicherheit (Firewall, Snapshots)"
+if systemctl is-active --quiet firewalld.service; then
+    zone=$(firewall-cmd --get-default-zone)
+    for flag in "" --permanent; do
+        firewall-cmd $flag --zone="$zone" --add-service=mdns >/dev/null
+        systemctl is-enabled --quiet sshd.service 2>/dev/null || firewall-cmd $flag --zone="$zone" --remove-service=ssh >/dev/null
+    done
+    echo "  Firewall ($zone): $(firewall-cmd --zone="$zone" --list-services)"
+fi
+user=${SUDO_USER:-}
+if [[ -n "$user" ]] && snapper -c root get-config >/dev/null 2>&1; then
+    snapper -c root set-config "ALLOW_USERS=$user" SYNC_ACL=yes
+    echo "  Snapshots für $user lesbar"
 fi
 
 echo

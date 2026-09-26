@@ -20,6 +20,7 @@ It owns
                     apps (Background), which then start in their sandbox
   health, crashes   warnings about the machine (health.py); apps that crashed (crashes.py)
   updates           looks for updates in the background (updates.py)
+  local network     per app, with nftables through riptide-helper (lan.py)
 
 The shell, System Settings and the command line tools talk to it through one Unix
 socket, $XDG_RUNTIME_DIR/riptide/session.sock (only this user can open it; sandboxes
@@ -55,7 +56,7 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib
 
-from desktop_shell import crashes, health, permissions, sandbox, updates
+from desktop_shell import crashes, health, lan, permissions, sandbox, updates
 
 SOCKET = sandbox.SERVICE_SOCKET
 HOME = Path.home()
@@ -125,7 +126,8 @@ class Service:
         self.states = {}
         self.asked = set()   # (app, kind) the shell asks about right now
         self.waiters = []    # [(app, kind, callback, timeout source)] starts waiting for an answer
-        self.sandboxes = {}  # pid of a sandbox → (app, instance)
+        self.sandboxes = {}  # pid of a sandbox → (app, instance, unit)
+        self.lan = lan.LocalNetwork(self)  # "Lokales Netzwerk" per app
         self.first_starts = {}  # app → [(client, msg id)] of starts joining its first start
         self.sound = None  # permissions.SoundRequests: also which app each sound stream is
         self.timers = {}
@@ -151,6 +153,7 @@ class Service:
         self.crashes.start()
         self.updates = updates.Updates(lambda event: self.broadcast(event, role="shell"))  # like Softwareupdate
         self.updates.start()
+        self.lan.start()
         GLib.timeout_add_seconds(300, lambda: (sandbox.gc(), True)[1])
         GLib.idle_add(self.sync)
         self.listen()
@@ -260,6 +263,8 @@ class Service:
             self.finish_wait(waiter, self.state(waiter[0], waiter[1]))
         if changed:
             self.broadcast({"event": "permissions", "states": states})
+            if hasattr(self, "lan"):
+                self.lan.states_changed()
 
     def watch_store(self):
         # (any sender: matching the store's well-known name does not deliver; a fake signal
@@ -353,8 +358,10 @@ class Service:
             try:
                 states["network"] = network
                 box = sandbox.Sandbox(app, argv, profile, states)
+                if network == "yes":  # the local network needs its own permission (lan.py)
+                    box.guard = lambda unit: self.lan.guard(app, unit)
                 process = box.start(box.argv)
-                self.sandboxes[process.pid] = (app, box.instance)
+                self.sandboxes[process.pid] = (app, box.instance, box.unit)
                 GLib.child_watch_add(GLib.PRIORITY_DEFAULT, process.pid, self.on_sandbox_ended)
                 for helper in box.children:
                     GLib.child_watch_add(GLib.PRIORITY_DEFAULT, helper, lambda pid, _s: GLib.spawn_close_pid(pid))
@@ -388,9 +395,10 @@ class Service:
 
     def on_sandbox_ended(self, pid, _status):
         GLib.spawn_close_pid(pid)
-        app, instance = self.sandboxes.pop(pid, (None, None))
+        app, instance, unit = self.sandboxes.pop(pid, (None, None, None))
         if app:
             sandbox.cleanup(app, instance)
+            self.lan.ended(f"{unit}.scope")
 
     # ------------------------------------------------------------ D-Bus of sandboxed apps
 

@@ -42,8 +42,17 @@ def _kind(key, where, label, description, question, how, applies, glyph, colour)
             "enforced": key not in NOT_ENFORCED_YET}
 
 
-# local network: needs the app's own network namespace (docs/os-plan.md, order of work)
-NOT_ENFORCED_YET = {"local-network"}
+# local network: enforced by riptide-helper's nftables rules (lan.py) – offered once the
+# installed helper knows them (system/setup-os.sh)
+def _lan_enforced():
+    try:
+        with open("/usr/local/sbin/riptide-helper") as f:
+            return "riptide_lan" in f.read()
+    except OSError:
+        return False
+
+
+NOT_ENFORCED_YET = set() if _lan_enforced() else {"local-network"}
 
 
 KINDS = [
@@ -60,7 +69,7 @@ KINDS = [
     _kind("network", (TABLE, "network"), "Internet", "Verbindungen ins Internet",
           "eine Verbindung ins Internet herstellen", "prompt", "restart", "\U000f01e7", "#0a84ff"),
     _kind("local-network", (TABLE, "local-network"), "Lokales Netzwerk", "Geräte im eigenen Netzwerk finden und erreichen",
-          "Geräte in deinem lokalen Netzwerk finden und sich mit ihnen verbinden", "prompt", "restart", "\U000f0317", "#0a84ff"),
+          "Geräte in deinem lokalen Netzwerk finden und sich mit ihnen verbinden", "prompt", "live", "\U000f0317", "#0a84ff"),
     _kind("desktop", (TABLE, "files-desktop"), "Schreibtisch", "Dateien im Ordner Schreibtisch",
           "auf Dateien im Ordner „Schreibtisch“ zugreifen", "switch", "restart", "\U000f01c4", "#0a84ff"),
     _kind("documents", (TABLE, "files-documents"), "Dokumente", "Dateien im Ordner Dokumente",

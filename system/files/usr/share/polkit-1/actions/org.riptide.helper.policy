@@ -2,7 +2,8 @@
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <!-- The root helper /usr/local/sbin/riptide-helper: one action per area (first argument).
-     Each asks for the password; it is kept for a few minutes, so several steps ask once. -->
+     They ask for the password (kept for a few minutes, so several steps ask once) – but
+     "network", which only restricts the user's own apps. -->
 <policyconfig>
   <action id="org.riptide.helper.packages">
     <description>Install, remove or update apps</description>
@@ -16,5 +17,46 @@
     </defaults>
     <annotate key="org.freedesktop.policykit.exec.path">/usr/local/sbin/riptide-helper</annotate>
     <annotate key="org.freedesktop.policykit.exec.argv1">packages</annotate>
+  </action>
+  <!-- Keeping an own sandboxed app away from the local network (or letting it back):
+       restricts only apps of the user who asks, so no password. -->
+  <action id="org.riptide.helper.network">
+    <description>Let an app reach the local network or not</description>
+    <description xml:lang="de">Einer App das lokale Netzwerk erlauben oder verbieten</description>
+    <message>An app's access to the local network is to be changed.</message>
+    <message xml:lang="de">Der Zugriff einer App auf das lokale Netzwerk soll geändert werden.</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/sbin/riptide-helper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">network</annotate>
+  </action>
+  <action id="org.riptide.helper.firewall">
+    <description>Change the firewall</description>
+    <description xml:lang="de">Die Firewall ändern</description>
+    <message>The firewall is to be changed.</message>
+    <message xml:lang="de">Die Firewall soll geändert werden.</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/sbin/riptide-helper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">firewall</annotate>
+  </action>
+  <action id="org.riptide.helper.remote-login">
+    <description>Turn remote login (SSH) on or off</description>
+    <description xml:lang="de">Entfernte Anmeldung (SSH) ein- oder ausschalten</description>
+    <message>Remote login (SSH) is to be turned on or off.</message>
+    <message xml:lang="de">Die entfernte Anmeldung (SSH) soll ein- oder ausgeschaltet werden.</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/sbin/riptide-helper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">remote-login</annotate>
   </action>
 </policyconfig>

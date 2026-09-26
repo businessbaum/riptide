@@ -193,6 +193,7 @@ class Sandbox:
         self.container = CONTAINERS / app / "home"
         self.instance_dir = RUNTIME / ".flatpak" / self.instance
         self.unit = f"app-sandbox-{re.sub(r'[^A-Za-z0-9_.]', '_', app)}-{self.instance}"
+        self.guard = None  # called with the scope's name right before the app runs
         self.children = []
         self.data = []  # fds bwrap reads (--ro-bind-data), closed once it started
         self.hold = []  # fds that keep the helpers alive while the app runs
@@ -418,6 +419,12 @@ class Sandbox:
             (self.instance_dir / "bwrapinfo.json").write_bytes(bwrap_info)
             (self.instance_dir / "pid").write_text(str(app.pid))
             self.join_scope()
+            # (the scope exists, the app has not started: e.g. its local network rules, lan.py)
+            if self.guard:
+                try:
+                    self.guard(f"{self.unit}.scope")
+                except Exception as e:  # a failed guard must not keep the app from starting
+                    print(f"app-sandbox: guard: {type(e).__name__}: {e}", file=sys.stderr)
             os.write(block_w, b"x")
             os.close(block_w)
             return app

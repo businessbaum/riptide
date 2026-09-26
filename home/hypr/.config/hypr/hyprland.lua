@@ -19,6 +19,7 @@
 --   modules/titlebars.lua      title bars with the three traffic-light buttons (plugin riptide-wm)
 --   modules/csd_apps.lua       apps that draw their own title bar (Finder & co.)
 --   modules/shell.lua          bridge to Quickshell (menu bar, dock, Spotlight, notifications)
+--   modules/permissions.lua    screen recording and plugins ask first (our own tools allowed)
 --   modules/autostart.lua      background services started with the session
 --
 -- Environment variables (NVIDIA, cursor) are in ~/.config/uwsm/env, so that
@@ -114,4 +115,5 @@ require("modules.switcher")
 require("modules.window_memory")
 require("modules.titlebars")
 require("modules.shell")
+require("modules.permissions")
 require("modules.autostart")

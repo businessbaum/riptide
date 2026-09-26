@@ -333,7 +333,7 @@ MenuBarPopup {
         // Sound
         Rectangle {
             width: parent.width
-            height: 64
+            height: 66
             radius: Config.radiusTile
             color: Config.tile
             border.color: Config.border
@@ -345,12 +345,42 @@ MenuBarPopup {
                 width: parent.width - 24
                 spacing: 8
 
-                Text {
-                    text: "Ton"
-                    font.family: Config.fontSans
-                    font.pixelSize: 12
-                    font.weight: Font.DemiBold
-                    color: Config.text
+                Item {
+                    width: parent.width
+                    height: soundTitle.implicitHeight
+                    Text {
+                        id: soundTitle
+                        text: "Ton"
+                        font.family: Config.fontSans
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                        color: Config.text
+                    }
+                    // the microphone for all apps (Microphone.qml)
+                    Rectangle {
+                        visible: Microphone.available
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: micLabel.implicitWidth + 22
+                        height: 20
+                        radius: 10
+                        color: Microphone.muted ? "#ff453a" : micMouse.containsMouse ? Config.hover : "transparent"
+                        border.color: Microphone.muted ? "transparent" : Config.border
+                        Text {
+                            id: micLabel
+                            anchors.centerIn: parent
+                            text: (Microphone.muted ? "\u{f036d}" : "\u{f036c}") + "  " + (Microphone.muted ? "Mikrofon aus" : "Mikrofon")
+                            font.family: Config.fontSans
+                            font.pixelSize: 11
+                            color: Microphone.muted ? "white" : Config.textSecondary
+                        }
+                        MouseArea {
+                            id: micMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: Microphone.toggle()
+                        }
+                    }
                 }
                 Slider {
                     width: parent.width
