@@ -20,6 +20,7 @@
 //   PolkitDialog.qml   password dialog for administrator rights
 //   ShareDialog.qml    what an app may see when sharing the screen
 //   AboutWindow.qml    "Über diesen Computer" (Apple menu)
+//   ForceQuitWindow    "Sofort beenden" (⌥⌘⎋); HyprDialogs.qml: Hyprland's questions in our look
 //   Riptide.qml        the connection to the session's system services (riptide-session)
 //   Privacy.qml        app permissions: asks, remembers (docs/os-plan.md)
 
@@ -29,7 +30,7 @@ import Quickshell
 ShellRoot {
     // Services that must run from the start (singletons start on first use otherwise).
     // This is the main shell: it asks the questions apps have (Riptide role "shell").
-    readonly property var services: [Privacy]
+    readonly property var services: [Privacy, HyprDialogs]
     Component.onCompleted: Riptide.role = "shell"
 
     // No "Config reloaded" toast on every save; a failed reload becomes a notification
@@ -74,4 +75,5 @@ ShellRoot {
     ShareDialog {}
     PolkitDialog {}
     AboutWindow {}
+    ForceQuitWindow {}
 }

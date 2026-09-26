@@ -166,6 +166,8 @@ PanelWindow {
             { separator: true },
             { text: "Systemeinstellungen …", action: () => Quickshell.execDetached(["uwsm", "app", "--", "org.riptide.SystemSettings.desktop"]) },
             { separator: true },
+            { text: "Sofort beenden …", action: () => ForceQuit.show() },
+            { separator: true },
             { text: "Neustart …", action: () => Confirm.ask("Möchtest du den Computer jetzt neu starten?", "", "Neustart", () => Session.end("reboot")) },
             { text: "Ausschalten …", action: () => Confirm.ask("Möchtest du den Computer jetzt ausschalten?", "", "Ausschalten", () => Session.end("poweroff")) },
             { separator: true },

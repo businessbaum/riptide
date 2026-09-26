@@ -12,6 +12,8 @@ import Quickshell.Io
 //       cancel     label of the other button (default "Abbrechen")
 //       app        desktop id: shows the app's icon above the question
 //       cancelled  called for the other button and for Esc
+//       key        names the question: Confirm.withdraw(key) takes it back unanswered
+//                  (Hyprland's "reagiert nicht" once the app responds again)
 // From a script (tests): qs ipc call confirm cancel – there is deliberately no way to
 // confirm from outside; granting something always takes a click.
 Singleton {
@@ -28,6 +30,10 @@ Singleton {
 
     function request(question) {
         queue = queue.concat([question]);
+    }
+
+    function withdraw(key) {
+        queue = queue.filter(q => q.key !== key);
     }
 
     function answer(ok) {

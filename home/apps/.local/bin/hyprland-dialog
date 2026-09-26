@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Hyprland's own questions – an app does not respond, an app wants to capture the screen –
+# in the look and language of the system. Hyprland runs "hyprland-dialog" (hyprland-guiutils)
+# from PATH and finds this one first (~/.local/bin). The question goes to the shell
+# (HyprDialogs.qml); the chosen button comes back through a file and is printed for
+# Hyprland, which reads it from stdout. When the question settles by itself (the app
+# responds again), Hyprland kills this process: the shell notices and takes it back.
+# Without the shell, or for any other dialog, the original shows.
+original=/usr/bin/hyprland-dialog
+args=("$@")
+title="" text="" buttons=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --title) title="${2-}"; shift 2 ;;
+        --text) text="${2-}"; shift 2 ;;
+        --buttons) buttons="${2-}"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/riptide"
+answer="$dir/dialog-$$"
+mkdir -p "$dir"
+rm -f "$answer"
+handled=$(qs ipc call hyprdialog ask "$$" "$title" "$text" "$buttons" 2>/dev/null)
+[ "$handled" = "yes" ] || exec "$original" "${args[@]}"
+
+trap 'rm -f "$answer"' EXIT
+while [ ! -s "$answer" ]; do sleep 0.2; done
+cat "$answer"
