@@ -1,0 +1,11 @@
+# Time Machine: look every hour whether a backup is due (riptide-backup.service decides).
+[Unit]
+Description=Time Machine: hourly check (riptide)
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

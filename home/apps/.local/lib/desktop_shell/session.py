@@ -156,7 +156,7 @@ class Service:
         self.updates = updates.Updates(lambda event: self.broadcast(event, role="shell"))  # like Softwareupdate
         self.updates.start()
         self.lan.start()
-        self.drives = drives.Drives(lambda event: self.broadcast(event, role="shell"))  # USB sticks, disks
+        self.drives = drives.Drives(self.on_drives)  # USB sticks, disks
         self.drives.start()
         GLib.timeout_add_seconds(300, lambda: (sandbox.gc(), True)[1])
         GLib.idle_add(self.sync)
@@ -249,6 +249,17 @@ class Service:
         except Exception as e:  # never let one call take the service down
             log(traceback.format_exc())
             client.reply(msg_id, error=f"{type(e).__name__}: {e}")
+
+    def on_drives(self, event):
+        self.broadcast(event, role="shell")
+        # Time Machine's disk plugged in: back up if due (riptide-backup.service decides)
+        added = next((d for d in event["drives"] if d["id"] == event.get("added")), None)
+        try:
+            volume = json.loads((HOME / ".config/macos/settings.json").read_text()).get("timemachine", {}).get("volume") or {}
+        except (OSError, ValueError):
+            volume = {}
+        if added and volume.get("uuid") and added.get("uuid") == volume["uuid"]:
+            subprocess.Popen(["systemctl", "--user", "start", "--no-block", "riptide-backup.service"])
 
     def broadcast(self, message, role=None):
         for client in list(self.clients):

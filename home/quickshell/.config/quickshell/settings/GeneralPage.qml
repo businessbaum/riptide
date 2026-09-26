@@ -222,6 +222,13 @@ Page {
             link: true
             onClicked: page.window.page = "storage"
         }
+        SettingRow {
+            glyph: "\u{f02da}"
+            glyphColour: "#30d158"
+            title: "Time Machine"
+            link: true
+            onClicked: page.window.page = "timemachine"
+        }
     }
     Group {
         visible: page.selected === ""

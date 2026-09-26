@@ -1,0 +1,12 @@
+# Time Machine: back up to the backup disk when due (riptide-timemachine backup --if-due).
+# Started by its timer every hour and by riptide-session when the disk is plugged in.
+# Gentle: lowest CPU and disk priority, so nothing feels slower while it runs.
+[Unit]
+Description=Time Machine backup (riptide)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/riptide-timemachine backup --if-due
+Nice=19
+IOSchedulingClass=idle
+CPUSchedulingPolicy=idle
