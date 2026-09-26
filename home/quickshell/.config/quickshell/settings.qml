@@ -39,7 +39,8 @@ FloatingWindow {
         { key: "displays", title: "Bildschirme", icon: "", colour: "#0a84ff" },
         null,
         { key: "mouse", title: "Maus", icon: "", colour: "#8e8e93" },
-        { key: "keyboard", title: "Tastatur", icon: "", colour: "#8e8e93" }
+        { key: "keyboard", title: "Tastatur", icon: "", colour: "#8e8e93" },
+        { key: "printers", title: "Drucker & Scanner", icon: "\uf02f", colour: "#8e8e93" }
     ]
 
     // Open a page from outside:  qs ipc -p ~/.config/quickshell/settings.qml call settings page sound
@@ -160,7 +161,7 @@ FloatingWindow {
                     defaults: "settings/DefaultAppsPage.qml",
                     appearance: "settings/AppearancePage.qml", desktop: "settings/DesktopPage.qml",
                     displays: "settings/DisplaysPage.qml", mouse: "settings/MousePage.qml",
-                    keyboard: "settings/KeyboardPage.qml"
+                    keyboard: "settings/KeyboardPage.qml", printers: "settings/PrintersPage.qml"
                 };
                 return Quickshell.shellPath(files[window.page]);
             }

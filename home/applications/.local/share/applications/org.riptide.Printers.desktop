@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Drucker
+GenericName=Druckerwarteliste
+Comment=Druckaufträge ansehen, anhalten und abbrechen
+Keywords=Drucker;Drucken;Warteliste;Printer;Print;Queue;Tinte;Toner;
+Icon=org.riptide.Printers
+Exec=/home/user/.config/quickshell/scripts/printers-app.sh
+StartupWMClass=org.riptide.Printers
+Categories=Settings;HardwareSettings;

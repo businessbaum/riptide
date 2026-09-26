@@ -13,6 +13,9 @@
 #   5. our portal backend (riptide.portal): the portal's questions in our dialog
 #   6. remote login (SSH) off – not used here (2026-09-26); a switch in
 #      System Settings follows
+#   7. printing and scanning: CUPS (started on demand) and Avahi – printers and scanners
+#      in the home network are found by themselves (driverless IPP/AirPrint, eSCL), and
+#      names like drucker.local resolve (nss-mdns before the other lookups)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -55,6 +58,17 @@ if systemctl is-enabled --quiet sshd.service 2>/dev/null || systemctl is-active 
     systemctl disable --now sshd.service
 else
     echo "  schon aus"
+fi
+
+step "Drucken und Scannen (CUPS, Avahi, Namen im Heimnetz)"
+systemctl enable --now avahi-daemon.service cups.socket
+if grep -q "mdns_minimal" /etc/nsswitch.conf; then
+    echo "  Namensauflösung im Heimnetz schon eingerichtet"
+else
+    cp /etc/nsswitch.conf /etc/nsswitch.conf.riptide-backup
+    sed -i 's/^\(hosts:.*\)mymachines /\1mymachines mdns_minimal [NOTFOUND=return] /' /etc/nsswitch.conf
+    grep -q "mdns_minimal" /etc/nsswitch.conf || sed -i 's/^hosts: /hosts: mdns_minimal [NOTFOUND=return] /' /etc/nsswitch.conf
+    grep "^hosts" /etc/nsswitch.conf
 fi
 
 echo
