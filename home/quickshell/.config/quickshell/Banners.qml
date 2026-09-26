@@ -24,6 +24,9 @@ import Quickshell.Services.Notifications
 Singleton {
     id: root
 
+    // an answer is being typed into a banner: its window takes the keyboard meanwhile
+    property bool typing: false
+
     // Order on screen, newest first: { key, kind: "status" | "notification" }
     readonly property ListModel order: ListModel {}
     // key → everything about that banner

@@ -14,16 +14,31 @@ Banner {
     property bool banner: false
 
     readonly property var live: banner ? n : n?.live ?? null
+    // The app's own buttons ("Als gelesen markieren" …; the default action is the click
+    // on the card) and, for apps that take one, an answer typed right here
+    readonly property var buttons: (live?.actions ?? []).filter(a => a.identifier !== "default" && a.text).slice(0, 3)
+    readonly property bool canReply: live?.hasInlineReply ?? false
+    property bool replying: false
+    // In the centre: the front card of a stack of this app's notifications (how many lie
+    // behind it). A click opens the stack, × clears it.
+    property int stack: 0
+    signal openStack
+    onReplyingChanged: if (banner) Banners.typing = replying
+    busy: replying
+    Component.onDestruction: if (banner && replying) Banners.typing = false
     readonly property bool critical: n?.urgency === NotificationUrgency.Critical
-    readonly property string iconSource: {
+    // The picture: what the notification brings (a photo, an avatar), else the icon of the
+    // app that sent it (its start entry, like in the dock), else the icon it names
+    readonly property string picture: {
         if (!n)
             return "";
         if (n.image)
             return n.image;
-        if (n.appIcon)
-            return n.appIcon.startsWith("/") ? "file://" + n.appIcon : Quickshell.iconPath(n.appIcon, "dialog-information");
-        return Quickshell.iconPath("dialog-information");
+        if (n.appIcon?.startsWith("/"))
+            return "file://" + n.appIcon;
+        return "";
     }
+    readonly property var appEntry: n ? NotificationStore.entryOf(n) ?? Apps.entryById(n.app ?? "") : null
 
     // "jetzt", "vor 5 Min.", "14:02"
     readonly property date arrived: banner ? new Date() : NotificationStore.timeOf(n)
@@ -46,6 +61,8 @@ Banner {
     // Click: the notification's default action, otherwise just close the banner.
     // The banner hides; the notification stays in the centre.
     onClicked: {
+        if (stack > 0)
+            return openStack();
         const action = live?.actions?.find(a => a.identifier === "default") ?? null;
         if (action)
             action.invoke();
@@ -55,6 +72,8 @@ Banner {
     }
     // ×: gone for good (also from the centre)
     onCloseClicked: {
+        if (stack > 0)
+            return NotificationStore.removeGroup(NotificationStore.groupOf(n));
         if (banner)
             n?.dismiss();
         else
@@ -77,10 +96,21 @@ Banner {
         width: parent.width - 24
         spacing: 10
 
-        IconImage {
-            implicitSize: 36
-            source: card.iconSource
-            asynchronous: true
+        Item {
+            width: 36
+            height: 36
+            IconImage {
+                visible: card.picture !== ""
+                implicitSize: 36
+                source: card.picture
+                asynchronous: true
+            }
+            AppIcon {
+                visible: card.picture === ""
+                size: 36
+                entry: card.appEntry
+                appId: card.n?.appIcon || card.n?.app || "dialog-information"
+            }
         }
 
         Column {
@@ -101,7 +131,7 @@ Banner {
                 }
                 Text {
                     anchors.right: parent.right
-                    text: card.age
+                    text: card.stack > 0 ? `${card.stack} weitere · ${card.age}` : card.age
                     font.family: Config.fontSans
                     font.pixelSize: 11
                     color: Config.textSecondary
@@ -119,6 +149,7 @@ Banner {
                 color: Config.text
             }
             Text {
+                id: bodyText
                 width: parent.width
                 visible: text !== ""
                 text: card.n?.body ?? ""
@@ -130,6 +161,90 @@ Banner {
                 font.pixelSize: 13
                 color: Config.text
                 opacity: 0.85
+            }
+
+            // buttons of the notification, and "Antworten"
+            Row {
+                visible: (card.buttons.length > 0 || card.canReply) && !card.replying
+                topPadding: 6
+                spacing: 6
+                Repeater {
+                    model: card.buttons
+                    delegate: pill
+                }
+                Loader {
+                    active: card.canReply
+                    sourceComponent: pill
+                    property var modelData: ({ text: "Antworten", reply: true })
+                }
+            }
+            // the answer: Enter sends, Esc gives up
+            Rectangle {
+                visible: card.replying
+                width: parent.width
+                height: 30
+                radius: 8
+                color: Config.tile
+                border.color: Config.accent
+                TextInput {
+                    id: reply
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    verticalAlignment: TextInput.AlignVCenter
+                    font.family: Config.fontSans
+                    font.pixelSize: 13
+                    color: Config.text
+                    clip: true
+                    onAccepted: {
+                        if (text.trim() !== "")
+                            card.live?.sendInlineReply(text);
+                        card.replying = false;
+                        card.leave();
+                    }
+                    Keys.onEscapePressed: card.replying = false
+                    Text {
+                        visible: reply.text === ""
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: card.live?.inlineReplyPlaceholder || "Antworten …"
+                        font: reply.font
+                        color: Config.textSecondary
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: pill
+        Rectangle {
+            required property var modelData
+            width: label.implicitWidth + 20
+            height: 26
+            radius: 13
+            color: pillMouse.containsMouse ? Config.hover : Config.tile
+            border.color: Config.border
+            Text {
+                id: label
+                anchors.centerIn: parent
+                text: parent.modelData.text
+                font.family: Config.fontSans
+                font.pixelSize: 12
+                color: Config.text
+            }
+            MouseArea {
+                id: pillMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: {
+                    if (parent.modelData.reply) {
+                        card.replying = true;
+                        reply.forceActiveFocus();
+                        return;
+                    }
+                    parent.modelData.invoke();
+                    card.leave();
+                }
             }
         }
     }

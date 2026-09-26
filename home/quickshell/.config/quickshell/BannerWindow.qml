@@ -13,6 +13,8 @@ Scope {
         screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? null
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "notifications"
+        // (the keyboard only while an answer is typed into a banner)
+        WlrLayershell.keyboardFocus: Banners.typing ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
         anchors.top: true
         anchors.right: true
         margins.top: 8

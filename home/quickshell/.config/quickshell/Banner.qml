@@ -11,7 +11,9 @@ Glass {
     property bool closable: true // × in the top left corner while hovering
     property bool animated: true // slide in, fade out (off inside lists)
     property real stamp: 0       // a new value shows it again and restarts the timer
-    readonly property bool hovered: mouse.containsMouse || closeMouse.containsMouse
+    property bool busy: false    // something is typed into it: it stays
+    // (a HoverHandler sees the pointer also over buttons inside, a MouseArea would not)
+    readonly property bool hovered: hover.hovered || closeMouse.containsMouse
     default property alias items: slot.data
 
     signal clicked
@@ -36,7 +38,7 @@ Glass {
     Timer {
         id: hideTimer
         interval: Math.max(1, root.timeout)
-        running: root.timeout > 0 && root.entered && !root.leaving && !root.hovered
+        running: root.timeout > 0 && root.entered && !root.leaving && !root.hovered && !root.busy
         onTriggered: root.leave()
     }
 
@@ -57,16 +59,20 @@ Glass {
         }
     }
 
-    Item {
-        id: slot
-        anchors.fill: parent
+    HoverHandler {
+        id: hover
     }
 
+    // below the content: buttons inside (NotificationCard: actions, reply) get their own clicks
     MouseArea {
         id: mouse
         anchors.fill: parent
-        hoverEnabled: true
         onClicked: root.clicked()
+    }
+
+    Item {
+        id: slot
+        anchors.fill: parent
     }
 
     // × in the top left corner while hovering, like on a Mac

@@ -113,7 +113,7 @@ Singleton {
 
     function deliver(n, app) {
         const mode = modeOf(app);
-        add(n);
+        add(n, app);
         if (mode !== "quiet")
             Banners.notify(n, mode === "alert");
         if (mode !== "quiet" && (!doNotDisturb || n.urgency === NotificationUrgency.Critical))
@@ -151,9 +151,9 @@ Singleton {
         return entry?.time ? new Date(entry.time) : new Date();
     }
 
-    function add(n) {
+    function add(n, app) {
         const entry = {
-            key: `${Date.now()}-${counter++}`, id: n.id,
+            key: `${Date.now()}-${counter++}`, id: n.id, app: app ?? "",
             appName: n.appName, summary: n.summary, body: n.body,
             appIcon: n.appIcon, image: n.image.startsWith("/") || n.image.startsWith("file:") ? n.image : "",
             urgency: n.urgency, time: Date.now(), live: n
@@ -172,6 +172,17 @@ Singleton {
         save();
     }
 
+    // the app a history entry came from (for stacks in the centre)
+    function groupOf(entry) {
+        return entry.app || entry.appName || "?";
+    }
+    function removeGroup(group) {
+        for (const e of history)
+            if (groupOf(e) === group)
+                e.live?.dismiss();
+        history = history.filter(h => groupOf(h) !== group);
+        save();
+    }
     function clearAll() {
         for (const e of history)
             e.live?.dismiss();
@@ -181,7 +192,7 @@ Singleton {
 
     function save() {
         storage.setText(JSON.stringify(history.map(h => ({
-            key: h.key, id: h.id, appName: h.appName, summary: h.summary, body: h.body,
+            key: h.key, id: h.id, app: h.app, appName: h.appName, summary: h.summary, body: h.body,
             appIcon: h.appIcon, image: h.image, urgency: h.urgency, time: h.time
         }))));
     }
