@@ -220,7 +220,7 @@ PanelWindow {
     property int pendingDrop: -1
     Timer {
         id: makeRoom
-        interval: 350
+        interval: 200
         onTriggered: if (root.arranging) root.dropIndex = root.pendingDrop
     }
 
@@ -472,7 +472,8 @@ PanelWindow {
                 item: modelData
                 launchpad: root
                 target: root.targetIndex === index
-                lifted: root.dragItem !== null && root.dragItem === modelData
+                // (by key: modelData of an array model is a copy, never the dragged object itself)
+                lifted: root.dragItem !== null && root.keyOf(root.dragItem) === root.keyOf(modelData)
                 // making room for the dragged tile
                 readonly property int shownAt: root.visualIndex(index)
                 offsetX: ((shownAt % grid.columns) - (index % grid.columns)) * grid.cellWidth
