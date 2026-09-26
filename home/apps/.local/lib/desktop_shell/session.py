@@ -50,7 +50,7 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib
 
-from desktop_shell import permissions, sandbox
+from desktop_shell import health, permissions, sandbox
 
 SOCKET = sandbox.SERVICE_SOCKET
 HOME = Path.home()
@@ -140,6 +140,8 @@ class Service:
         self.watch_apps()
         self.watch_proxy_logs()
         self.portal = PortalBackend(self)
+        self.health = health.Health()  # disk full, disk trouble, file system errors, failed services
+        self.health.start()
         GLib.timeout_add_seconds(300, lambda: (sandbox.gc(), True)[1])
         GLib.idle_add(self.sync)
         self.listen()
