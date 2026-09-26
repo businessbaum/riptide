@@ -47,15 +47,15 @@ Page {
         change.running = true;
     }
 
-    // Apps that can be added: shown in the launcher, not added yet, matching the search
+    // Apps that can be added: shown in the launcher, not added yet, matching the search (all:
+    // the page scrolls)
     readonly property var candidates: {
         const q = search.trim().toLowerCase();
         const added = new Set(opened.map(o => o.id));
         return DesktopEntries.applications.values
             .filter(e => !e.noDisplay && !added.has(Apps.plainId(e.id)))
             .filter(e => q === "" || e.name.toLowerCase().includes(q))
-            .sort((a, b) => a.name.localeCompare(b.name, "de"))
-            .slice(0, 8);
+            .sort((a, b) => a.name.localeCompare(b.name, "de"));
     }
 
     Group {
