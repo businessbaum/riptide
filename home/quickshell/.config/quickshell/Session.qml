@@ -3,12 +3,18 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 
 // Session state and ending the session like on a Mac:
 //   keepAwake   "Computer wachhalten" (idle inhibitor in MenuBar.qml: no lock, screens stay on)
+//   ask(kind)   the question of the Apple menu, with "Beim nächsten Anmelden alle Fenster
+//               wieder öffnen" (Energie → Anmelden remembers the choice)
 //   end(kind)   "logout" | "reboot" | "poweroff": every window is asked to close first (apps
 //               with unsaved changes can ask to save). Apps still open after 10 s are listed,
 //               with the choice to cancel or to go on anyway.
+//   sleep()     "Ruhezustand": hypridle locks the screen first
+// The apps open at the end come back at the next login (once per session, after the
+// login items).
 Singleton {
     id: root
 
@@ -18,10 +24,46 @@ Singleton {
     property int waited: 0            // half seconds
     readonly property var verb: ({ logout: "abmelden", reboot: "neu starten", poweroff: "ausschalten" })
 
+    readonly property var question: ({
+        logout: ["Möchtest du dich wirklich abmelden?", "Alle Programme werden beendet.", "Abmelden"],
+        reboot: ["Möchtest du den Computer jetzt neu starten?", "", "Neustart"],
+        poweroff: ["Möchtest du den Computer jetzt ausschalten?", "", "Ausschalten"]
+    })
+    function ask(kind, text) {
+        const [title, detail, button] = question[kind];
+        Confirm.request({
+            title, button,
+            text: text ?? detail,
+            option: { text: "Beim nächsten Anmelden alle Fenster wieder öffnen", checked: Config.settings.session?.reopen !== false },
+            action: reopen => {
+                Config.updateSettings(s => {
+                    s.session = s.session ?? {};
+                    s.session.reopen = reopen;
+                });
+                end(kind);
+            }
+        });
+    }
+
+    function sleep() {
+        Quickshell.execDetached(["systemctl", "suspend"]);
+    }
+
+    readonly property string reopenFile: Quickshell.env("HOME") + "/.local/state/macos/reopen.json"
+    function rememberApps() {
+        const ids = [...new Set(Apps.windows.map(w => Apps.keyForAppId(w.appId)))]
+            .filter(k => Apps.entryById(k)).map(k => Apps.plainId(k));
+        Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" > \"$2\"", "sh", JSON.stringify(ids), reopenFile]);
+    }
+
     function end(kind) {
         if (ending !== "")
             return;
         ending = kind;
+        if (Config.settings.session?.reopen !== false)
+            rememberApps();
+        else
+            Quickshell.execDetached(["rm", "-f", reopenFile]);
         waited = 0;
         if (Apps.windows.length === 0)
             return finish();
@@ -65,6 +107,35 @@ Singleton {
                     () => root.finish());
             } else if (root.waited > 20 && !Confirm.open) {
                 root.cancel(); // "Abbrechen" in the dialog
+            }
+        }
+    }
+
+    // A new session: the apps of the last one open again – once (not when the shell
+    // restarts), and only apps that are not open yet (login items open themselves)
+    Process {
+        running: true
+        command: ["sh", "-c", "m=\"$XDG_RUNTIME_DIR/riptide/reopened-$HYPRLAND_INSTANCE_SIGNATURE\"; [ -e \"$m\" ] && exit 0; "
+            + "mkdir -p \"${m%/*}\" && touch \"$m\"; f=\"$1\"; [ -f \"$f\" ] || exit 0; "
+            + "[ $(( $(date +%s) - $(stat -c %Y \"$f\") )) -lt 604800 ] && cat \"$f\"; rm -f \"$f\"", "sh", root.reopenFile]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    reopen.ids = JSON.parse(text);
+                    reopen.start();
+                } catch (e) {}
+            }
+        }
+    }
+    Timer {
+        id: reopen
+        property var ids: []
+        interval: 4000
+        onTriggered: {
+            for (const id of ids) {
+                const entry = Apps.entryById(id);
+                if (entry && Apps.windowsOf(entry.id).length === 0 && !Apps.isStarting(entry.id))
+                    Apps.launch(entry);
             }
         }
     }

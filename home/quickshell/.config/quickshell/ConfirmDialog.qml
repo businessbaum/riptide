@@ -67,6 +67,41 @@ PanelWindow {
                 font.pixelSize: 12
                 color: Config.textSecondary
             }
+            // a choice that comes with the answer ("Fenster wieder öffnen")
+            Row {
+                visible: Confirm.current?.option !== undefined
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 8
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 16
+                    height: 16
+                    radius: 4
+                    color: Confirm.optionChecked ? Config.accent : Config.tile
+                    border.color: Confirm.optionChecked ? Config.accent : Config.border
+                    Text {
+                        anchors.centerIn: parent
+                        visible: Confirm.optionChecked
+                        text: "\uf00c"
+                        font.family: Config.fontSymbols
+                        font.pixelSize: 10
+                        color: "white"
+                    }
+                }
+                Text {
+                    width: Math.min(implicitWidth, content.width - 24)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Confirm.current?.option?.text ?? ""
+                    wrapMode: Text.Wrap
+                    font.family: Config.fontSans
+                    font.pixelSize: 12
+                    color: Config.text
+                }
+                TapHandler {
+                    onTapped: Confirm.optionChecked = !Confirm.optionChecked
+                }
+            }
+
             Row {
                 width: parent.width
                 spacing: 8

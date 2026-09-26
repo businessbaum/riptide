@@ -37,6 +37,7 @@ FloatingWindow {
         { key: "appearance", title: "Erscheinungsbild", icon: "", colour: "#1c1c1e" },
         { key: "desktop", title: "Schreibtisch & Dock", icon: "", colour: "#1c1c1e" },
         { key: "displays", title: "Bildschirme", icon: "", colour: "#0a84ff" },
+        { key: "energy", title: "Energie", icon: "\u{f06a5}", colour: "#30d158" },
         null,
         { key: "mouse", title: "Maus", icon: "", colour: "#8e8e93" },
         { key: "keyboard", title: "Tastatur", icon: "", colour: "#8e8e93" },
@@ -160,7 +161,7 @@ FloatingWindow {
                     apps: "settings/AppsPage.qml", storage: "settings/StoragePage.qml",
                     defaults: "settings/DefaultAppsPage.qml",
                     appearance: "settings/AppearancePage.qml", desktop: "settings/DesktopPage.qml",
-                    displays: "settings/DisplaysPage.qml", mouse: "settings/MousePage.qml",
+                    displays: "settings/DisplaysPage.qml", energy: "settings/EnergyPage.qml", mouse: "settings/MousePage.qml",
                     keyboard: "settings/KeyboardPage.qml", printers: "settings/PrintersPage.qml"
                 };
                 return Quickshell.shellPath(files[window.page]);

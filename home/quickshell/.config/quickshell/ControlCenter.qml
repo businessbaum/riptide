@@ -5,10 +5,11 @@ import Quickshell.Hyprland
 import Quickshell.Networking
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 
 // Control centre (icon next to the clock), laid out like macOS:
 //   network, Bluetooth | appearance, do not disturb
-//   screens (brightness, Night Shift), sound slider, now playing
+//   keep awake, energy mode, screens (brightness, Night Shift), sound slider, now playing
 MenuBarPopup {
     id: root
 
@@ -125,23 +126,92 @@ MenuBarPopup {
             }
         }
 
-        // Keep awake
-        Rectangle {
+        // Keep awake | energy mode (power-profiles-daemon; a click unfolds its three modes)
+        Item {
+            id: energyBox
+            property bool unfolded: false
+            readonly property var modes: [
+                { profile: PowerProfile.PowerSaver, name: "Energiesparen", glyph: "\u{f032a}" },   // leaf
+                { profile: PowerProfile.Balanced, name: "Automatisch", glyph: "\u{f029a}" },      // gauge
+                { profile: PowerProfile.Performance, name: "Hohe Leistung", glyph: "\u{f0241}" }  // fire
+            ]
+            readonly property var current: modes.find(m => m.profile === PowerProfiles.profile) ?? modes[1]
             width: parent.width
-            height: 51
-            radius: Config.radiusTile
-            color: Config.tile
-            border.color: Config.border
+            height: 51 + (unfolded ? modesRow.height + 10 : 0)
 
-            ControlTile {
-                x: 10
-                width: parent.width - 20
-                anchors.verticalCenter: parent.verticalCenter
-                icon: "\uf0f4" // cup
-                title: "Computer wachhalten"
-                status: Session.keepAwake ? "Keine Sperre, Bildschirme bleiben an" : "Aus"
-                on: Session.keepAwake
-                onToggled: Session.keepAwake = !Session.keepAwake
+            Row {
+                width: parent.width
+                spacing: 10
+
+                Rectangle {
+                    width: (parent.width - 10) / 2
+                    height: 51
+                    radius: Config.radiusTile
+                    color: Config.tile
+                    border.color: Config.border
+                    ControlTile {
+                        x: 10
+                        width: parent.width - 20
+                        anchors.verticalCenter: parent.verticalCenter
+                        icon: "\uf0f4" // cup
+                        title: "Wachhalten"
+                        status: Session.keepAwake ? "Keine Sperre" : "Aus"
+                        on: Session.keepAwake
+                        onToggled: Session.keepAwake = !Session.keepAwake
+                    }
+                }
+                Rectangle {
+                    width: (parent.width - 10) / 2
+                    height: 51
+                    radius: Config.radiusTile
+                    color: Config.tile
+                    border.color: Config.border
+                    ControlTile {
+                        x: 10
+                        width: parent.width - 20
+                        anchors.verticalCenter: parent.verticalCenter
+                        icon: energyBox.current.glyph
+                        title: "Energiemodus"
+                        status: energyBox.current.name
+                        on: PowerProfiles.profile !== PowerProfile.Balanced
+                        onToggled: energyBox.unfolded = !energyBox.unfolded
+                    }
+                }
+            }
+            Row {
+                id: modesRow
+                visible: energyBox.unfolded
+                y: 61
+                width: parent.width
+                spacing: 6
+                Repeater {
+                    model: energyBox.modes
+                    Rectangle {
+                        required property var modelData
+                        width: (parent.width - 12) / 3
+                        height: 32
+                        radius: 9
+                        color: PowerProfiles.profile === modelData.profile ? Config.accent
+                            : modeMouse.containsMouse ? Config.hover : Config.tile
+                        border.color: Config.border
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.name
+                            font.family: Config.fontSans
+                            font.pixelSize: 11
+                            color: PowerProfiles.profile === modelData.profile ? "white" : Config.text
+                        }
+                        MouseArea {
+                            id: modeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                PowerProfiles.profile = modelData.profile;
+                                energyBox.unfolded = false;
+                            }
+                        }
+                    }
+                }
             }
         }
 

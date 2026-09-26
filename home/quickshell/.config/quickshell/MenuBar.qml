@@ -168,11 +168,12 @@ PanelWindow {
             { separator: true },
             { text: "Sofort beenden …", action: () => ForceQuit.show() },
             { separator: true },
-            { text: "Neustart …", action: () => Confirm.ask("Möchtest du den Computer jetzt neu starten?", "", "Neustart", () => Session.end("reboot")) },
-            { text: "Ausschalten …", action: () => Confirm.ask("Möchtest du den Computer jetzt ausschalten?", "", "Ausschalten", () => Session.end("poweroff")) },
+            { text: "Ruhezustand", action: () => Session.sleep() },
+            { text: "Neustart …", action: () => Session.ask("reboot") },
+            { text: "Ausschalten …", action: () => Session.ask("poweroff") },
             { separator: true },
             { text: "Bildschirm sperren", action: () => Quickshell.execDetached(["sh", "-c", "pidof hyprlock || hyprlock"]) },
-            { text: "Abmelden …", action: () => Confirm.ask("Möchtest du dich wirklich abmelden?", "Alle Programme werden beendet.", "Abmelden", () => Session.end("logout")) }
+            { text: "Abmelden …", action: () => Session.ask("logout") }
         ]
     }
 }

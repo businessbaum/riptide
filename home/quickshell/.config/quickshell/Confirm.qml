@@ -13,6 +13,7 @@ import Quickshell.Io
 //       app        desktop id: shows the app's icon above the question
 //       cancelled  called for the other button and for Esc
 //       key        names the question: Confirm.withdraw(key) takes it back unanswered
+//       option     { text, checked }: a checkbox under the question; action(checked) gets it
 //                  (Hyprland's "reagiert nicht" once the app responds again)
 // From a script (tests): qs ipc call confirm cancel – there is deliberately no way to
 // confirm from outside; granting something always takes a click.
@@ -23,6 +24,8 @@ Singleton {
     property var queue: []
     readonly property var current: queue.length > 0 ? queue[0] : null
     readonly property bool open: current !== null
+    property bool optionChecked: false
+    onCurrentChanged: optionChecked = current?.option?.checked ?? false
 
     function ask(title, text, button, action) {
         request({ title, text, button, action });
@@ -40,7 +43,7 @@ Singleton {
         const question = current;
         queue = queue.slice(1);
         if (ok)
-            question?.action?.();
+            question?.action?.(optionChecked);
         else
             question?.cancelled?.();
     }

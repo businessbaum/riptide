@@ -30,11 +30,9 @@ Singleton {
 
     function askSession(what) {
         if (what === "reboot")
-            Confirm.ask("Möchtest du den Computer jetzt neu starten?", "Damit werden die Updates wirksam.",
-                "Neustart", () => Session.end("reboot"));
+            Session.ask("reboot", "Damit werden die Updates wirksam.");
         else if (what === "logout")
-            Confirm.ask("Möchtest du dich jetzt abmelden?", "Alle Programme werden beendet. "
-                + "Nach der Anmeldung läuft die neue Version von Hyprland.", "Abmelden", () => Session.end("logout"));
+            Session.ask("logout", "Alle Programme werden beendet. Nach der Anmeldung läuft die neue Version von Hyprland.");
     }
 
     // The App Store's "Neu starten …": the shell ends the session (the App Store would
