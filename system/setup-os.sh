@@ -29,6 +29,11 @@ step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
 step "Pakete aus den offiziellen Repos (packages.txt)"
 grep -Ev '^[[:space:]]*(#|$)' packages.txt | pacman -S --needed -
+# gpu-screen-recorder goes: its KMS helper (cap_sys_admin, runnable by anyone) recorded the
+# screen past Hyprland's question; wf-recorder records through screencopy instead
+if pacman -Q gpu-screen-recorder >/dev/null 2>&1; then
+    pacman -Rns --noconfirm gpu-screen-recorder
+fi
 
 step "Dienste"
 systemctl enable --now smartd.service

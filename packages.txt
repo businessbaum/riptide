@@ -122,7 +122,11 @@ power-profiles-daemon
 fwupd
 hyprsunset
 hyprpicker
-gpu-screen-recorder
+# screen recording ⌘⇧5 through screencopy (Hyprland asks first) – not gpu-screen-recorder:
+# its KMS helper has cap_sys_admin and let any program record the screen unasked
+wf-recorder
+# emoji names in German (Emoji & Symbole, ⌃⌘Space)
+python-emoji
 sushi
 ffmpegthumbnailer
 gvfs-mtp

@@ -20,7 +20,7 @@ local allowed = {
     { "/usr/bin/grim", "screencopy" },                        -- screenshots (⌘⇧3, ⌘⇧4)
     { "/usr/lib/xdg-desktop-portal-hyprland", "screencopy" }, -- sharing: asks per app itself
     { "/usr/bin/hyprpicker", "screencopy" },                  -- colour picker
-    { "/usr/bin/gpu-screen-recorder", "screencopy" },         -- screen recording (⌘⇧5)
+    { "/usr/bin/wf-recorder", "screencopy" },                 -- screen recording (⌘⇧5)
     { home .. "/.local/lib/hyprland-plugins/riptide-wm.so", "plugin" }, -- our plugin
 }
 local function rules()
