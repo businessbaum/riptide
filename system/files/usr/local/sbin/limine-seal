@@ -2,7 +2,7 @@
 # Install Limine to the ESP with the current limine.conf checksum enrolled,
 # then sign it with the sbctl keys.
 #
-# Run after every change to /boot/limine.conf and after Limine updates
+# Run after every change to limine.conf and after Limine updates
 # (the pacman hook limine-deploy.hook does the latter). With Secure Boot on
 # and a checksum enrolled, Limine refuses to boot with a modified config, and
 # the firmware refuses an unsigned Limine.
@@ -14,7 +14,7 @@ set -euo pipefail
 
 readonly SRC=/usr/share/limine/BOOTX64.EFI
 readonly EFI=/boot/EFI/limine/BOOTX64.EFI
-readonly CONF=/boot/limine.conf
+readonly CONF="$(/usr/local/sbin/limine-conf)" # (next to Limine: EFI/limine/limine.conf)
 
 ((EUID == 0)) || { echo "limine-seal: must be run as root" >&2; exit 1; }
 [[ -f "$CONF" ]] || { echo "limine-seal: $CONF not found" >&2; exit 1; }

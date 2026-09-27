@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Print the path of the limine.conf that Limine actually uses. Limine looks next to its EFI
+# program first (EFI/limine/BOOTX64.EFI → EFI/limine/limine.conf), then in boot/limine/,
+# boot/, limine/ and the root of the boot partition (mounted at /boot) – the order of
+# /usr/share/doc/limine/CONFIG.md, "Location of the config file".
+# Used by limine-seal, system/setup-os.sh and the secure-boot stages.
+set -euo pipefail
+esp="${LIMINE_ESP:-/boot}" # (another folder for tests)
+candidates=(EFI/limine/limine.conf)
+[[ -f "$esp/EFI/limine/BOOTX64.EFI" ]] || candidates=(EFI/BOOT/limine.conf)
+candidates+=(boot/limine/limine.conf boot/limine.conf limine/limine.conf limine.conf)
+for c in "${candidates[@]}"; do
+    if [[ -f "$esp/$c" ]]; then
+        echo "$esp/$c"
+        exit 0
+    fi
+done
+echo "limine-conf: keine limine.conf in $esp gefunden" >&2
+exit 1

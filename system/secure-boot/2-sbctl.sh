@@ -24,6 +24,7 @@ else
 fi
 
 step "limine-seal und pacman-Hook installieren"
+put 755 /usr/local/sbin/limine-conf
 put 755 /usr/local/sbin/limine-seal
 put 644 /etc/pacman.d/hooks/limine-deploy.hook
 

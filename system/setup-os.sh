@@ -133,8 +133,10 @@ systemctl enable greetd.service
 echo "  ab dem nächsten Start"
 
 step "Start ohne Wartezeit und Notfallmodus (Limine)"
-conf=/boot/limine.conf
-if [[ -f /etc/kernel/cmdline ]] && command -v sbctl >/dev/null && [[ -x /usr/local/sbin/limine-seal ]]; then
+mode=""
+if ! conf="$(system/files/usr/local/sbin/limine-conf)"; then
+    echo "  übersprungen"
+elif [[ -f /etc/kernel/cmdline ]] && command -v sbctl >/dev/null && [[ -x /usr/local/sbin/limine-seal ]]; then
     # Secure Boot set up (unified kernel images, docs/secure-boot.md): the Notfallmodus is
     # the LTS kernel as its own signed image, up to the text login only (multi-user.target:
     # no greetd, no graphics). Its command line follows /etc/kernel/cmdline.
@@ -156,23 +158,25 @@ else
     mode=linux
 fi
 
-backup="$conf.bak-$(date +%Y%m%d-%H%M%S)"
-cp "$conf" "$backup"
-python3 system/limine-edit.py "$backup" "$conf.new" "$mode"
-mv "$conf.new" "$conf"
-if cmp -s "$conf" "$backup"; then
-    rm -f "$backup"
-    echo "  limine.conf unverändert"
-else
-    if [[ "$mode" == uki ]] && ! /usr/local/sbin/limine-seal; then
-        # never leave a changed, unsealed config: Limine would refuse to start
-        cp "$backup" "$conf"
-        /usr/local/sbin/limine-seal
-        echo "  Fehler beim Versiegeln – alte limine.conf wiederhergestellt" >&2
-        exit 1
+if [[ -n "$mode" ]]; then
+    backup="$conf.bak-$(date +%Y%m%d-%H%M%S)"
+    cp "$conf" "$backup"
+    python3 system/limine-edit.py "$backup" "$conf.new" "$mode"
+    mv "$conf.new" "$conf"
+    if cmp -s "$conf" "$backup"; then
+        rm -f "$backup"
+        echo "  limine.conf unverändert"
+    else
+        if [[ "$mode" == uki ]] && ! /usr/local/sbin/limine-seal; then
+            # never leave a changed, unsealed config: Limine would refuse to start
+            cp "$backup" "$conf"
+            /usr/local/sbin/limine-seal
+            echo "  Fehler beim Versiegeln – alte limine.conf wiederhergestellt" >&2
+            exit 1
+        fi
+        echo "  neue limine.conf (Sicherung: $backup):"
+        sed 's/^/    /' "$conf"
     fi
-    echo "  neue limine.conf (Sicherung: $backup):"
-    sed 's/^/    /' "$conf"
 fi
 
 echo

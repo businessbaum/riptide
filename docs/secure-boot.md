@@ -8,12 +8,15 @@ verifies) -> sd-encrypt unlocks LUKS via TPM2 (PCR 7).
   `/etc/mkinitcpio.d/*.preset` and `/etc/kernel/cmdline`, signed by sbctl's
   mkinitcpio post hook.
 - Limine: `/usr/local/sbin/limine-seal` copies the packaged binary, enrolls the
-  b2sum of `/boot/limine.conf`, signs it. Run by `limine-deploy.hook` on
+  b2sum of limine.conf, signs it. Run by `limine-deploy.hook` on
   Limine updates.
 - With Secure Boot on and a checksum enrolled, Limine panics on a modified
   config and requires hashes for all non-chainloaded files; the editor is off.
 
-## After editing /boot/limine.conf
+## After editing limine.conf
+
+Limine reads the limine.conf next to its EFI program: `/boot/EFI/limine/limine.conf`
+(`limine-conf` prints the path it uses, following Limine's search order).
 
 ```bash
 sudo limine-seal
