@@ -26,8 +26,36 @@ local function titlebar(w)
     return csd_apps.matches(w) and 0 or TITLEBAR_HEIGHT
 end
 
--- Size and position before snapping, so it can come back
+-- Size and position before snapping, so it can come back – kept in a file as well: a
+-- config reload (e.g. a change in System Settings) starts Lua afresh, and zoomed windows
+-- must not forget that they are zoomed (they would reopen with a margin, see below)
 local before = {}
+local STATE = (os.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/riptide/snapped.tsv"
+
+local function save_before()
+    local f = io.open(STATE, "w")
+    if not f then
+        os.execute("mkdir -p '" .. STATE:match("(.*)/") .. "'")
+        f = io.open(STATE, "w")
+        if not f then return end
+    end
+    for address, b in pairs(before) do
+        f:write(string.format("%s\t%s\t%d\t%d\t%d\t%d\n", address, b.kind or "-", b.x, b.y, b.w, b.h))
+    end
+    f:close()
+end
+
+local function load_before()
+    local f = io.open(STATE, "r")
+    if not f then return end
+    for line in f:lines() do
+        local address, kind, x, y, w, h = line:match("^(%S+)\t(%S+)\t(-?%d+)\t(-?%d+)\t(%d+)\t(%d+)$")
+        if address and hl.get_window("address:" .. address) then -- windows still open only
+            before[address] = { kind = kind ~= "-" and kind or nil, x = tonumber(x), y = tonumber(y), w = tonumber(w), h = tonumber(h) }
+        end
+    end
+    f:close()
+end
 
 
 -----------------
@@ -97,6 +125,7 @@ local function snap(w, kind, old)
         before[w.address] = old or { x = w.at.x, y = w.at.y, w = w.size.x, h = w.size.y }
     end
     before[w.address].kind = kind
+    save_before()
     local m = w.monitor or hl.get_monitor_at_cursor()
     place(w, target(kind, usable_area(m), titlebar(w)))
 end
@@ -104,7 +133,31 @@ end
 local function unsnap(w)
     local old = before[w.address]
     before[w.address] = nil
+    save_before()
     return old
+end
+
+-- The frame of a zoomed window on its screen
+local function full_frame(w)
+    local m = w.monitor or hl.get_monitor_at_cursor()
+    return m and target("full", usable_area(m), titlebar(w))
+end
+
+-- Does the window fill its screen like a zoomed one (to a pixel or two: Electron apps
+-- sit one pixel off)?
+local function fills_screen(w)
+    local r = full_frame(w)
+    return r ~= nil and math.abs(w.at.x - r.x) <= 2 and math.abs(w.at.y - r.y) <= 2
+        and math.abs(w.size.x - r.w) <= 2 and math.abs(w.size.y - r.h) <= 2
+end
+
+-- The size the green button brings back for a window that was never smaller: a good
+-- size in the middle of its screen
+local function default_frame(w)
+    local m = w.monitor or hl.get_monitor_at_cursor()
+    local a, bar = usable_area(m), titlebar(w)
+    local width, height = math.floor(a.w * 0.7), math.floor((a.h - bar) * 0.75)
+    return { x = a.x + math.floor((a.w - width) / 2), y = a.y + bar + math.floor((a.h - bar - height) / 2), w = width, h = height }
 end
 
 -- A window may not go under the menu bar
@@ -181,6 +234,8 @@ function macos.zoom(reason)
     local old = unsnap(w)
     if old then
         place(w, old)
+    elseif fills_screen(w) then
+        place(w, default_frame(w)) -- filled the screen already (by itself): a smaller size
     else
         snap(w, "full")
     end
@@ -261,6 +316,14 @@ local function fit_on_screen(address)
     local w = hl.get_window("address:" .. address)
     if not w or not w.floating or w.fullscreen ~= 0 then return end
     if before[address] then return end -- reopened zoomed or snapped: placed exactly
+    if fills_screen(w) then
+        -- opened filling the screen (by itself, or remembered so): that is zoomed, not
+        -- too big – no margin; the green button brings a smaller size
+        before[address] = default_frame(w)
+        before[address].kind = "full"
+        save_before()
+        return
+    end
     local m = w.monitor or hl.get_monitor_at_cursor()
     if not m then return end
     local a, bar = usable_area(m), titlebar(w)
@@ -286,14 +349,20 @@ end)
 hl.on("window.close", function(w)
     if not w then return end
     local address = w.address
-    hl.timer(function() before[address] = nil end, { timeout = 50, type = "oneshot" })
+    hl.timer(function()
+        before[address] = nil
+        save_before()
+    end, { timeout = 50, type = "oneshot" })
 end)
+
+load_before()
 
 -- For window_memory.lua
 return {
     -- how the window is snapped ("full" = zoomed, "left" …) and the size it had before
     snapped = function(w)
         local b = before[w.address]
+        if not b and fills_screen(w) then return "full", default_frame(w) end
         return b and b.kind, b
     end,
     -- snap a reopened window again; `old` is the size the green button brings back

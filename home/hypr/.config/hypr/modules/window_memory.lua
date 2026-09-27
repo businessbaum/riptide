@@ -3,14 +3,15 @@
 -- When the LAST window of an app closes, its frame is stored: position on its screen,
 -- size, and whether it was zoomed or snapped to an edge (then also the size the green
 -- button brings back). The next time the app opens a window while it has no other window
--- open, that window gets the frame back – on the screen the pointer is on, where you
--- clicked the app in the dock – zoomed again if it was, in full screen again if it was
--- closed in full screen. Dialogs next to a main window are left alone.
+-- open, that window gets the frame back – on the screen it was closed on (if that screen
+-- is still there; else on the one the pointer is on, where you clicked the app in the
+-- dock) – zoomed again if it was, in full screen again if it was closed in full screen.
+-- Dialogs next to a main window are left alone.
 --
 -- Stored per app (window class; some windows of an app on their own: "class#kind") in
 -- ~/.local/state/macos/window-frames.tsv, one line per app: class, x, y (from the screen's
--- top left corner), width, height, snap ("-" = none), and for a snapped window its old
--- x, y, width, height. It survives restarts.
+-- top left corner), width, height, snap ("-" = none), for a snapped window its old
+-- x, y, width, height, and last "@" and the screen's name. It survives restarts.
 -- (Older lines have only class and x, y, w, h on the whole desktop; they are converted.)
 
 local snapping = require("modules.snapping")
@@ -24,6 +25,14 @@ local frames = {}
 -----------------
 ---- HELPERS ----
 -----------------
+
+-- A connected screen by its name (nil if not connected)
+local function monitor_named(name)
+    if not name then return nil end
+    for _, m in ipairs(hl.get_monitors()) do
+        if m.name == name then return m end
+    end
+end
 
 -- The screen a point lies on (nil if on none)
 local function monitor_at(x, y)
@@ -85,11 +94,13 @@ local function load()
     for line in f:lines() do
         local fields = {}
         for field in line:gmatch("[^\t]+") do fields[#fields + 1] = field end
+        local mon = #fields > 1 and fields[#fields]:match("^@(.+)$")
+        if mon then fields[#fields] = nil end
         local class = fields[1]
         local n = {}
         for i = 2, #fields do n[i] = tonumber(fields[i]) end
         if class and n[2] and n[3] and n[4] and n[5] then
-            local r = { x = n[2], y = n[3], w = n[4], h = n[5] }
+            local r = { x = n[2], y = n[3], w = n[4], h = n[5], mon = mon }
             if #fields == 5 then
                 -- old line: on the whole desktop → from its screen's corner
                 local m = monitor_at(r.x + r.w / 2, r.y + r.h / 2)
@@ -117,6 +128,7 @@ local function save()
         if r.old then
             line = line .. string.format("\t%d\t%d\t%d\t%d", r.old.x, r.old.y, r.old.w, r.old.h)
         end
+        if r.mon then line = line .. "\t@" .. r.mon end
         f:write(line .. "\n")
     end
     f:close()
@@ -139,13 +151,13 @@ hl.on("window.close", function(w)
         -- one from before (what leaving full screen goes back to)
         local before = frames[key(w)]
         local old = before and (before.kind and before.old or before)
-        local r = { x = 0, y = 0, w = m.width, h = m.height, kind = "fullscreen" }
+        local r = { x = 0, y = 0, w = m.width, h = m.height, kind = "fullscreen", mon = m.name }
         if old and old.w then r.old = { x = old.x, y = old.y, w = old.w, h = old.h } end
         frames[key(w)] = r
         save()
         return
     end
-    local r = { x = w.at.x - m.x, y = w.at.y - m.y, w = w.size.x, h = w.size.y }
+    local r = { x = w.at.x - m.x, y = w.at.y - m.y, w = w.size.x, h = w.size.y, mon = m.name }
     local kind, old = snapping.snapped(w)
     if kind then
         r.kind = kind
@@ -158,7 +170,7 @@ end)
 hl.on("window.open", function(w)
     if not remembers(w) or others(w) > 0 then return end
     local r = frames[key(w)]
-    local m = hl.get_monitor_at_cursor()
+    local m = (r and monitor_named(r.mon)) or hl.get_monitor_at_cursor()
     if not m then return end
     local k = kind_of(w)
     if not r and k and k.default then
@@ -167,6 +179,12 @@ hl.on("window.open", function(w)
         r = { x = math.floor((m.width - width) / 2), y = math.floor((m.height - height) / 2), w = width, h = height }
     end
     if not r then return end
+    if w.monitor and w.monitor.name ~= m.name then
+        -- opened on another screen (where the app was clicked): over to its own, and the
+        -- focus goes along
+        hl.dispatch(hl.dsp.window.move({ window = w, monitor = m.name }))
+        w = hl.get_window("address:" .. w.address) or w
+    end
     if r.kind then
         -- first its normal size (what the green button brings back), then zoomed/snapped
         local old = r.old and { x = m.x + r.old.x, y = m.y + r.old.y, w = r.old.w, h = r.old.h }
