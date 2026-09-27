@@ -53,6 +53,7 @@ Singleton {
     function rememberApps() {
         const ids = [...new Set(Apps.windows.map(w => Apps.keyForAppId(w.appId)))]
             .filter(k => Apps.entryById(k)).map(k => Apps.plainId(k));
+        console.info("reopen: remembering", ids.join(", "));
         Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" > \"$2\"", "sh", JSON.stringify(ids), reopenFile]);
     }
 
@@ -122,20 +123,38 @@ Singleton {
             onStreamFinished: {
                 try {
                     reopen.ids = JSON.parse(text);
+                    console.info("reopen: after login", reopen.ids.join(", "));
                     reopen.start();
                 } catch (e) {}
             }
         }
     }
+    // (tried every 2 s for up to 30 s: right after login the list of apps may not be read yet)
     Timer {
         id: reopen
         property var ids: []
-        interval: 4000
+        property int attempts: 0
+        interval: 2000
+        repeat: true
         onTriggered: {
+            attempts++;
+            const left = [];
             for (const id of ids) {
                 const entry = Apps.entryById(id);
-                if (entry && Apps.windowsOf(entry.id).length === 0 && !Apps.isStarting(entry.id))
+                if (!entry) {
+                    left.push(id);
+                    continue;
+                }
+                if (Apps.windowsOf(entry.id).length === 0 && !Apps.isStarting(entry.id)) {
+                    console.info("reopen: opening", id);
                     Apps.launch(entry);
+                }
+            }
+            ids = left;
+            if (ids.length === 0 || attempts >= 15) {
+                if (ids.length > 0)
+                    console.warn("reopen: not found:", ids.join(", "));
+                stop();
             }
         }
     }

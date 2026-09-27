@@ -169,7 +169,7 @@ hl.bind("SUPER + ALT + Escape", hl.dsp.exec_cmd("qs ipc call forcequit open"))  
 hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("uwsm app -- io.missioncenter.MissionCenter.desktop")) -- ⌃⇧⎋: task manager (like Windows)
 hl.bind("SUPER + L",            hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))     -- lock screen
 hl.bind("SUPER + CTRL + Q",     hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))     -- ⌃⌘Q: lock screen (Mac)
-hl.bind("SUPER + SHIFT + Q",    hl.dsp.exec_cmd(scripts .. "logout.sh"))           -- ⇧⌘Q: log out …
+hl.bind("SUPER + SHIFT + Q",    hl.dsp.exec_cmd("qs ipc call session logout"))     -- ⇧⌘Q: log out … (asks, like the Apple menu)
 
 -- Move windows with ⌘ + mouse (left) or resize them (right)
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(),   { mouse = true })

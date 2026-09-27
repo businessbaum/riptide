@@ -42,5 +42,9 @@ Singleton {
         function ask(what: string): void {
             root.askSession(what);
         }
+        // ⇧⌘Q (keys.lua): the question of the Apple menu, with "Fenster wieder öffnen"
+        function logout(): void {
+            Session.ask("logout");
+        }
     }
 }
