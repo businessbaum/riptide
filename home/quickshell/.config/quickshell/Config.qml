@@ -27,7 +27,8 @@ Singleton {
     readonly property int radiusPanel: theme.radius?.panel ?? 18
     readonly property int radiusTile: theme.radius?.tile ?? 14
     readonly property int radiusControl: theme.radius?.control ?? 8
-    readonly property color accent: col(theme.accent, "#0a84ff")
+    // (Erscheinungsbild → Akzentfarbe wins over the theme's)
+    readonly property color accent: col(settings.appearance?.accent ?? theme.accent, "#0a84ff")
 
     // Blur behind menu bar, dock and menus (Hyprland; off by default, see looks.lua).
     // Without blur the glass surfaces are made more opaque, so they stay calm.
@@ -106,7 +107,8 @@ Singleton {
     // Also for the pointer (theme and size): the generator applies it everywhere.
     property string appliedMode: ""
     function applyTheme(force) {
-        const key = [mode, settings.mouse?.cursor_theme ?? "", settings.mouse?.cursor_size ?? ""].join("|");
+        const key = [mode, settings.mouse?.cursor_theme ?? "", settings.mouse?.cursor_size ?? "",
+            settings.appearance?.accent ?? ""].join("|");
         if (!force && key === appliedMode)
             return;
         appliedMode = key;

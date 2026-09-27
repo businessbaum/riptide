@@ -340,6 +340,10 @@ def main():
         write(CONFIG / "settings.json", json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
     mode = settings.get("appearance", {}).get("mode", "dark")
     theme = load("theme.json")
+    # the accent colour chosen in System Settings → Erscheinungsbild wins over the theme's
+    accent = settings.get("appearance", {}).get("accent")
+    if isinstance(accent, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", accent):
+        theme["accent"] = accent
     tokens = theme["modes"].get(mode) or theme["modes"]["dark"]
 
     kitty(tokens)

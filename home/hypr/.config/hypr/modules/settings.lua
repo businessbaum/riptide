@@ -123,7 +123,9 @@ fill_defaults(settings, DEFAULTS)
 local theme = read("theme.json") or { modes = { dark = {}, light = {} } }
 local active = {}
 for k, v in pairs(theme.modes[settings.appearance.mode] or theme.modes.dark or {}) do active[k] = v end
-active.font, active.radius, active.accent = theme.font, theme.radius, theme.accent
+active.font, active.radius = theme.font, theme.radius
+-- the accent colour chosen in System Settings wins over the theme's
+active.accent = (settings.appearance or {}).accent or theme.accent
 active.traffic_lights = theme.traffic_lights or {}
 settings.theme = active
 

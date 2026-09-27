@@ -32,7 +32,7 @@ import Quickshell
 ShellRoot {
     // Services that must run from the start (singletons start on first use otherwise).
     // This is the main shell: it asks the questions apps have (Riptide role "shell").
-    readonly property var services: [Privacy, HyprDialogs, Updates, NightShift, Brightness, Session, Microphone, Drives, Tools]
+    readonly property var services: [Privacy, HyprDialogs, Updates, NightShift, Brightness, Session, Microphone, Drives, Tools, AutoAppearance]
     Component.onCompleted: Riptide.role = "shell"
 
     // No "Config reloaded" toast on every save; a failed reload becomes a notification

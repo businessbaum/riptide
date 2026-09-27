@@ -7,6 +7,14 @@ import qs
 Page {
     id: page
     title: "Erscheinungsbild"
+
+    readonly property var hours: Array.from({ length: 24 }, (_, h) => ({ value: h, text: (h < 10 ? "0" : "") + h + ":00" }))
+    // like macOS (its colours in dark mode)
+    readonly property var accents: [
+        { value: "#0a84ff", name: "Blau" }, { value: "#bf5af2", name: "Lila" }, { value: "#ff375f", name: "Rosa" },
+        { value: "#ff453a", name: "Rot" }, { value: "#ff9f0a", name: "Orange" }, { value: "#ffd60a", name: "Gelb" },
+        { value: "#32d74b", name: "Grün" }, { value: "#8e8e93", name: "Graphit" }
+    ]
     property var window
 
     // Pictures in ~/Bilder/Hintergründe and the system's backgrounds
@@ -27,9 +35,81 @@ Page {
             subtitle: "Gilt für Menüleiste, Dock, Fenster und alle Programme"
             Choice {
                 window: page.window
-                options: [{ value: "light", text: "Hell" }, { value: "dark", text: "Dunkel" }]
-                current: Config.mode
-                onPicked: v => Store.set("appearance", "mode", v)
+                options: [{ value: "light", text: "Hell" }, { value: "dark", text: "Dunkel" }, { value: "auto", text: "Automatisch" }]
+                current: Config.settings.appearance?.auto === true ? "auto" : Config.mode
+                // (automatic: the shell switches the mode itself, AutoAppearance.qml)
+                onPicked: v => Config.updateSettings(s => {
+                    s.appearance = s.appearance ?? {};
+                    s.appearance.auto = v === "auto";
+                    if (v !== "auto")
+                        s.appearance.mode = v;
+                })
+            }
+        }
+        SettingRow {
+            visible: Config.settings.appearance?.auto === true
+            title: "Hell ab"
+            subtitle: "Danach dunkel ab der zweiten Uhrzeit"
+            Row {
+                spacing: 8
+                Choice {
+                    window: page.window
+                    options: page.hours
+                    current: Config.settings.appearance?.light_from ?? 7
+                    onPicked: v => Store.set("appearance", "light_from", v)
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "dunkel ab"
+                    font.family: Config.fontSans
+                    font.pixelSize: 12
+                    color: Config.textSecondary
+                }
+                Choice {
+                    window: page.window
+                    options: page.hours
+                    current: Config.settings.appearance?.dark_from ?? 19
+                    onPicked: v => Store.set("appearance", "dark_from", v)
+                }
+            }
+        }
+        SettingRow {
+            title: "Akzentfarbe"
+            subtitle: page.accents.find(a => a.value === (Config.settings.appearance?.accent ?? "#0a84ff"))?.name ?? ""
+            Row {
+                spacing: 8
+                Repeater {
+                    model: page.accents
+                    Rectangle {
+                        required property var modelData
+                        readonly property bool chosen: (Config.settings.appearance?.accent ?? "#0a84ff") === modelData.value
+                        width: 20
+                        height: 20
+                        radius: 10
+                        color: modelData.value
+                        border.width: chosen ? 2 : 1
+                        border.color: chosen ? Config.text : "#33000000"
+                        Rectangle {
+                            visible: parent.chosen
+                            anchors.centerIn: parent
+                            width: 6
+                            height: 6
+                            radius: 3
+                            color: "white"
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            // blue is the theme's own: no override
+                            onClicked: Config.updateSettings(s => {
+                                s.appearance = s.appearance ?? {};
+                                if (modelData.value === "#0a84ff")
+                                    delete s.appearance.accent;
+                                else
+                                    s.appearance.accent = modelData.value;
+                            })
+                        }
+                    }
+                }
             }
         }
         SettingRow {
