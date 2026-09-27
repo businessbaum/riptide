@@ -539,9 +539,16 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
                           PWINDOW->position(Desktop::View::IGeometric::GEOMETRIC_CURRENT).y + PWINDOW->m_floatingOffset.y - pMonitor->m_position.y + 1,
                           PWINDOW->size(Desktop::View::IGeometric::GEOMETRIC_CURRENT).x - 2, PWINDOW->size(Desktop::View::IGeometric::GEOMETRIC_CURRENT).y - 2};
 
-        if (windowBox.w < 1 || windowBox.h < 1)
+        if (windowBox.w < 1 || windowBox.h < 1) {
+            g_pHyprOpenGL->scissor(nullptr);
             return;
+        }
 
+        // our fix: stencil writes on. Hyprland's renderTextureWithBlurInternal (layers with
+        // blur and ignore_alpha: our menu bar, menus, dialogs) leaves glStencilMask(0x00)
+        // behind. Then this clear and the window mask below wrote nothing, stale stencil
+        // values hid the bar – the wallpaper (and on NVIDIA blocks) showed through it
+        glStencilMask(0xFF);
         glClearStencil(0);
         glClear(GL_STENCIL_BUFFER_BIT);
 
@@ -637,7 +644,13 @@ void CHyprBar::onConfigReloaded() {
 }
 
 void CHyprBar::damageEntire() {
-    g_pHyprRenderer->damageBox(assignedBoxGlobal());
+    // the whole area drawn, like CBarPassElement::boundingBox: the bar reaches
+    // ROUNDING * 3 below its box (behind the window's rounded top corners)
+    auto       box    = assignedBoxGlobal();
+    const auto WINDOW = m_pWindow.lock();
+    if (WINDOW)
+        box.h += (WINDOW->rounding() + WINDOW->getRealBorderSize()) * 3;
+    g_pHyprRenderer->damageBox(box);
 }
 
 Vector2D CHyprBar::cursorRelativeToBar() {
