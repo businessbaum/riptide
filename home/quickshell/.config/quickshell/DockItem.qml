@@ -158,8 +158,10 @@ Item {
             const list = [];
             if (root.entry)
                 list.push({ text: "Neues Fenster", action: () => { root.launching = !root.running; Apps.launchNew(root.entry); } });
+            for (const a of Apps.actionsOf(root.entry))
+                list.push({ text: a.name, action: () => Apps.launchAction(root.entry, a.id) });
             if (root.entry)
-                list.push({ text: root.pinned ? "Aus dem Dock entfernen" : "Im Dock behalten", action: () => root.togglePinned() });
+                list.push({ separator: true }, { text: root.pinned ? "Aus dem Dock entfernen" : "Im Dock behalten", action: () => root.togglePinned() });
             if (root.running) {
                 list.push({ separator: true });
                 list.push({ text: "Beenden", action: () => Apps.quit(root.windows[0].appId) });

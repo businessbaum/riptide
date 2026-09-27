@@ -635,19 +635,42 @@ def sync():
                 continue
             wanted[app] = source
 
+    # Entries that are only a part of another app (e.g. the settings of Tor Browser's
+    # launcher): hidden from Launchpad and Spotlight, run in that app's sandbox, and offered
+    # as an action in its menu instead – one app, like on a Mac
+    parts = find_parts(wanted, profiles)  # part → (main app, name)
+    actions = {}  # main app → [(action id, name, command)]
+    for part, (main, name) in sorted(parts.items()):
+        listed = actions.setdefault(main, [])
+        listed.append((f"Part{len(listed)}", name, read_entry(wanted[part])["Exec"]))
+
     OVERRIDES.mkdir(parents=True, exist_ok=True)
     DBUS_OVERRIDES.mkdir(parents=True, exist_ok=True)
     for app, source in wanted.items():
+        box = parts[app][0] if app in parts else app
         lines, dbus = [], False
         for line in source.read_text(encoding="utf-8").splitlines():
             if line.startswith("Exec="):
-                line = f"Exec={me} --run {app} {line[5:]}"
+                line = f"Exec={me} --run {box} {line[5:]}"
             elif line.startswith("DBusActivatable="):
                 dbus = line.strip() == "DBusActivatable=true"
                 continue  # launchers must use Exec (sandboxed), not D-Bus
+            elif line.startswith(("NoDisplay=", "Actions=")) and (app in parts or app in actions):
+                if line.startswith("Actions=") and app in actions:
+                    line = line.rstrip(";") + ";" + ";".join(a[0] for a in actions[app]) + ";"
+                elif line.startswith("NoDisplay="):
+                    continue
             lines.append(line)
             if line.strip() == "[Desktop Entry]":
                 lines += [f"{MARK}=true", f"X-Sandbox-Source={source}"]
+                if app in parts:
+                    lines.append("NoDisplay=true")
+        if app in actions:
+            if not any(l.startswith("Actions=") for l in lines):
+                i = lines.index("[Desktop Entry]") + 1
+                lines.insert(i, "Actions=" + ";".join(a[0] for a in actions[app]) + ";")
+            for action_id, name, command in actions[app]:
+                lines += ["", f"[Desktop Action {action_id}]", f"Name={name}", f"Exec={me} --run {app} {command}"]
         text = (f"# Made by app-sandbox --sync: starts {app} in its sandbox. Do not edit.\n"
                 + "\n".join(lines) + "\n")
         write_if_changed(OVERRIDES / source.name, text)
@@ -658,7 +681,7 @@ def sync():
             if exec_line:
                 write_if_changed(DBUS_OVERRIDES / service.name,
                                  f"# Made by app-sandbox --sync ({MARK}): starts {app} in its sandbox.\n"
-                                 f"[D-BUS Service]\nName={app}\nExec={me} --run {app} {exec_line}\n")
+                                 f"[D-BUS Service]\nName={app}\nExec={me} --run {box} {exec_line}\n")
 
     # remove overrides of apps that are gone or are system apps now
     for path in OVERRIDES.glob("*.desktop"):
@@ -668,6 +691,65 @@ def sync():
         if path.stem not in wanted and MARK in path.read_text(encoding="utf-8").split("\n", 1)[0]:
             path.unlink()
     subprocess.run(["update-desktop-database", str(OVERRIDES)], capture_output=True)
+
+
+def find_parts(wanted, profiles):
+    """Which start entries are only a part of another app, found by themselves: entries of
+    the same package that run the same program are one app (Tor Browser and "Tor Browser
+    Launcher Settings" both run torbrowser-launcher). The one with the plainest command is
+    the app, the others become its parts. Tools of one package with programs of their own
+    (avahi's bssh and bvnc) stay apps of their own. Safe for the sandbox: a part is the same
+    program, so it gets no more than the app already has. sandbox.json can still say
+    otherwise: "part_of" {entry: {app?, name?}} (a German name, or a part not found), and
+    "separate" [entries] that must stay apps of their own."""
+    owners = {}
+    try:
+        out = subprocess.run(["pacman", "-Qo", *map(str, wanted.values())],
+                             capture_output=True, text=True, timeout=30,
+                             env={**os.environ, "LC_ALL": "C"}).stdout
+        for line in out.splitlines():
+            path, found, rest = line.partition(" is owned by ")
+            if found:
+                owners[Path(path).stem] = rest.split()[0]
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+    def program(entry):
+        try:
+            words = [w for w in shlex.split(entry.get("Exec", "")) if not w.startswith("%")]
+        except ValueError:
+            return None, 0
+        while words and (words[0] == "env" or "=" in words[0]):
+            words = words[1:]  # env FOO=1 program …
+        return (os.path.basename(words[0]), len(words)) if words else (None, 0)
+
+    separate = set(profiles.get("separate", []))
+    groups = {}
+    for app, source in wanted.items():
+        name, size = program(read_entry(source))
+        if name and app in owners and app not in separate:
+            groups.setdefault((owners[app], name), []).append((size, len(app), app))
+    parts = {}
+    for members in groups.values():
+        if len(members) > 1:
+            main = min(members)[2]
+            for _size, _length, app in members:
+                if app != main:
+                    parts[app] = main
+    for app, spec in profiles.get("part_of", {}).items():
+        if app in wanted and spec.get("app", parts.get(app)) in wanted:
+            parts[app] = spec.get("app", parts.get(app))
+
+    named = {}
+    for app, main in parts.items():
+        if main in parts:
+            continue  # a part of a part: leave both alone
+        entry = read_entry(wanted[app])
+        name = (profiles.get("part_of", {}).get(app, {}).get("name")
+                or entry.get("Name[de]") or entry.get("Name") or app)
+        if entry.get("Exec"):
+            named[app] = (main, name)
+    return named
 
 
 def own_entry(path):

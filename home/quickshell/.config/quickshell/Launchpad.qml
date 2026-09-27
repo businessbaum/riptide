@@ -321,10 +321,10 @@ PanelWindow {
                     { text: "Ordner auflösen", action: () => root.dissolveFolder(it.index) }
                 ];
             const pinned = Apps.isPinned(it.entry);
-            const list = [
-                { text: "Öffnen", action: () => root.launch(it.entry) },
-                { text: pinned ? "Aus dem Dock entfernen" : "Im Dock behalten", action: () => Apps.setPinned(it.entry, !pinned) }
-            ];
+            const list = [{ text: "Öffnen", action: () => root.launch(it.entry) }];
+            for (const a of Apps.actionsOf(it.entry))
+                list.push({ text: a.name, action: () => { root.hide(); Apps.launchAction(it.entry, a.id); } });
+            list.push({ separator: true }, { text: pinned ? "Aus dem Dock entfernen" : "Im Dock behalten", action: () => Apps.setPinned(it.entry, !pinned) });
             if (root.folders.some(f => f.apps.includes(it.id)))
                 list.push({ text: "Aus dem Ordner entfernen", action: () => root.leaveFolder(it.id) });
             list.push({ separator: true });

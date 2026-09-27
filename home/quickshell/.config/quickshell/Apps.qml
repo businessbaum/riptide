@@ -152,6 +152,15 @@ Singleton {
         Quickshell.execDetached(["uwsm", "app", "--", plainId(entry.id) + ".desktop"]);
     }
 
+    // The app's own entries for its menu (desktop actions): "Neues privates Fenster" and
+    // the like, and parts of an app merged into it (sandbox.json "part_of")
+    function actionsOf(entry) {
+        return (entry?.actions ?? []).filter(a => a.name).map(a => ({ id: a.id, name: a.name }));
+    }
+    function launchAction(entry, actionId) {
+        Quickshell.execDetached(["uwsm", "app", "--", plainId(entry.id) + ".desktop:" + actionId]);
+    }
+
     function isStarting(key) {
         return Date.now() - (starting[plainId(key)] ?? 0) < 15000 && windowsOf(key).length === 0;
     }
