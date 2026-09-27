@@ -7,7 +7,7 @@ import Quickshell.Services.SystemTray
 import Quickshell.Wayland
 
 // The menu bar at the top of every screen:
-//   left:  Apple menu, name of the active app
+//   left:  Apple menu, the active app's menu (its name)
 //   right: microphone/camera/screen in use, apps in the background (tray), sound menu,
 //   control centre,
 //          date and time (opens the notification centre)
@@ -16,6 +16,11 @@ PanelWindow {
 
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property string activeAppId: Hyprland.activeToplevel?.wayland?.appId ?? ""
+    // the active app: its key (start entry id), start entry and name ("Finder" on the
+    // empty desktop)
+    readonly property string activeKey: activeAppId !== "" ? Apps.keyForAppId(activeAppId) : ""
+    readonly property var activeEntry: activeKey !== "" ? Apps.entryById(activeKey) : null
+    readonly property string appName: activeKey !== "" ? Apps.name(activeKey) : "Finder"
 
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "menubar"
@@ -37,6 +42,9 @@ PanelWindow {
         target: "menubar-" + (bar.screen?.name ?? "")
         function appleMenu(): void {
             appleMenu.toggle();
+        }
+        function appMenu(): void {
+            appMenu.toggle();
         }
         function controlCenter(): void {
             controlCenter.toggle();
@@ -79,8 +87,11 @@ PanelWindow {
         }
 
         BarButton {
-            text: bar.activeAppId !== "" ? Apps.name(Apps.keyForAppId(bar.activeAppId)) : "Finder"
+            id: appButton
+            text: bar.appName
             bold: true
+            active: appMenu.visible
+            onClicked: appMenu.toggle()
         }
     }
 
@@ -184,6 +195,51 @@ PanelWindow {
                 list.push({ text: `„${d.name}“ formatieren …`, action: () => Quickshell.execDetached(["gnome-disks", "--block-device", d.device]) });
             return list;
         }
+    }
+
+    // The menu of the active app, like on a Mac: about it, its own actions (sandbox.json
+    // part_of, desktop actions), hide, quit – and quit at once
+    MenuPopup {
+        id: appMenu
+        anchorItem: appButton
+        backdropScreen: bar.screen
+        items: {
+            const id = bar.activeAppId, e = bar.activeEntry, name = bar.appName;
+            const showAll = { text: "Alle einblenden", action: () => Hyprland.dispatch("macos.show_all()") };
+            if (id === "") {
+                const finder = Apps.entryById("org.gnome.Nautilus");
+                return finder ? [{ text: "Neues Finder-Fenster", hint: "⌥⌘ Leertaste", action: () => Apps.launchNew(finder) },
+                                 { separator: true }, showAll]
+                              : [showAll];
+            }
+            const list = [];
+            if (e) {
+                list.push({ text: `Über „${name}“`, action: () => AppInfo.show(e) }, { separator: true });
+                list.push({ text: "Neues Fenster", action: () => Apps.launchNew(e) });
+                for (const a of Apps.actionsOf(e))
+                    list.push({ text: a.name, action: () => Apps.launchAction(e, a.id) });
+            }
+            list.push({ text: "Alle Fenster zeigen", hint: "⌃↓", action: () => Quickshell.execDetached(["qs", "ipc", "call", "mission", "app"]) });
+            list.push({ separator: true },
+                { text: `„${name}“ ausblenden`, hint: "⌘H", action: () => Hyprland.dispatch(`macos.hide_app('${Apps.safe(id)}')`) },
+                { text: "Andere ausblenden", hint: "⌥⌘H", action: () => Hyprland.dispatch(`macos.hide_others('${Apps.safe(id)}')`) },
+                showAll);
+            if (e) {
+                const pinned = Apps.isPinned(e);
+                list.push({ separator: true }, { text: pinned ? "Aus dem Dock entfernen" : "Im Dock behalten", action: () => Apps.setPinned(e, !pinned) });
+            }
+            list.push({ separator: true },
+                { text: `„${name}“ beenden`, hint: "⌘Q", action: () => Apps.quit(id) },
+                { text: `„${name}“ sofort beenden …`, action: () => bar.forceQuit(id, name) });
+            return list;
+        }
+    }
+    // all of the app at once, after asking (like the Force Quit window: ForceQuit.qml)
+    function forceQuit(id, name) {
+        const key = Apps.keyForAppId(id);
+        const classes = [...new Set(Apps.windows.filter(w => Apps.keyForAppId(w.appId) === key).map(w => w.appId))];
+        Confirm.ask(`„${name}“ sofort beenden?`, "Nicht gesicherte Änderungen gehen dabei verloren.", "Sofort beenden",
+            () => ForceQuit.quit(classes.length > 0 ? classes : [id]));
     }
 
     MenuPopup {

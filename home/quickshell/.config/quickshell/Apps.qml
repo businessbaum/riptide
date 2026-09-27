@@ -153,9 +153,11 @@ Singleton {
     }
 
     // The app's own entries for its menu (desktop actions): "Neues privates Fenster" and
-    // the like, and parts of an app merged into it (sandbox.json "part_of")
+    // the like, and parts of an app merged into it (sandbox.json "part_of"). Not its
+    // "Neues Fenster": the menus have that already
     function actionsOf(entry) {
-        return (entry?.actions ?? []).filter(a => a.name).map(a => ({ id: a.id, name: a.name }));
+        return (entry?.actions ?? []).filter(a => a.name && a.id !== "new-window" && a.name.toLowerCase() !== "neues fenster")
+            .map(a => ({ id: a.id, name: a.name }));
     }
     function launchAction(entry, actionId) {
         Quickshell.execDetached(["uwsm", "app", "--", plainId(entry.id) + ".desktop:" + actionId]);

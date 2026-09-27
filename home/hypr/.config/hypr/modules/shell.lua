@@ -73,21 +73,63 @@ local function minimized(w)
     return w.workspace and w.workspace.name == "special:minimized"
 end
 
+-- Hidden apps (⌘H, app menu "ausblenden", "Andere ausblenden") step aside onto their own
+-- hidden desktop "hidden" – not "minimized": "Alle einblenden" brings back hidden apps
+-- only, minimized windows stay in the dock, like on a Mac. A dock click, ⌘Tab or
+-- Mission Control brings a hidden app back as well.
+local function hidden(w)
+    return w.workspace and w.workspace.name == "special:hidden"
+end
+local function stowed(w)
+    return minimized(w) or hidden(w)
+end
+local hidden_from = {} -- window address → desktop it was hidden from
+
+local function hide(w)
+    if not w.mapped or not w.workspace or w.workspace.name:match("^special:") then return end
+    hidden_from[w.address] = w.workspace.id
+    hl.dispatch(hl.dsp.window.move({ window = w, workspace = "special:hidden", follow = false }))
+end
+
+function macos.hide_app(class)
+    for _, w in ipairs(app_windows(class)) do hide(w) end
+    return hl.dsp.no_op()
+end
+
+function macos.hide_others(class)
+    for _, w in ipairs(hl.get_windows()) do
+        if w.class ~= class then hide(w) end
+    end
+    return hl.dsp.no_op()
+end
+
+function macos.show_all()
+    local active = hl.get_active_workspace()
+    for _, w in ipairs(hl.get_windows()) do
+        if w.mapped and hidden(w) then
+            local ws = hidden_from[w.address] or (active and active.id) or 1
+            hl.dispatch(hl.dsp.window.move({ window = w, workspace = ws, follow = false }))
+            hidden_from[w.address] = nil
+        end
+    end
+    return hl.dsp.no_op()
+end
+
 -- Dock click on a running app, like on Windows: the app in front goes down into the
 -- dock (its windows on this desktop are minimized); an app behind or minimized comes to
 -- the front – from the minimized desktop with all its windows, the last used on top
 function macos.toggle_app(class)
     local windows = app_windows(class)
     local active = hl.get_active_window()
-    if active and active.class == class and not minimized(active) then
+    if active and active.class == class and not stowed(active) then
         for _, w in ipairs(windows) do
-            if not minimized(w) and w.workspace and active.workspace and w.workspace.id == active.workspace.id then
+            if not stowed(w) and w.workspace and active.workspace and w.workspace.id == active.workspace.id then
                 hl.dispatch(hl.dsp.window.move({ window = w, workspace = "special:minimized", follow = false }))
             end
         end
-    elseif windows[1] and minimized(windows[1]) then
+    elseif windows[1] and stowed(windows[1]) then
         for i = #windows, 1, -1 do
-            if minimized(windows[i]) then bring_to_front(windows[i]) end
+            if stowed(windows[i]) then bring_to_front(windows[i]) end
         end
     elseif windows[1] then
         bring_to_front(windows[1])

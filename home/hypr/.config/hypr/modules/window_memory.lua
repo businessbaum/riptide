@@ -77,8 +77,10 @@ local function is_fullscreen(w)
     return w and (w.fullscreen == true or (tonumber(w.fullscreen) or 0) ~= 0)
 end
 
+-- (not the small windows of our shell – "Über …", "Sofort beenden": they share one class
+-- and centre themselves)
 local function remembers(w)
-    return w and w.class and w.class ~= "" and (w.floating or is_fullscreen(w))
+    return w and w.class and w.class ~= "" and w.class ~= "org.quickshell" and (w.floating or is_fullscreen(w))
 end
 
 

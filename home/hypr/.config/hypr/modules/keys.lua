@@ -76,15 +76,14 @@ local function quit_app()
     end
 end
 
--- Hide all windows of an app (⌘H = "Hide")
+-- Hide all windows of an app (⌘H = "Hide"), or all other apps (⌥⌘H) – shell.lua
 local function hide_app()
     local w = active_window()
-    if not w then return end
-    for _, other in ipairs(hl.get_windows()) do
-        if other.class == w.class then
-            hl.dispatch(hl.dsp.window.move({ window = other, workspace = "special:minimized", follow = false }))
-        end
-    end
+    if w then macos.hide_app(w.class) end
+end
+local function hide_others()
+    local w = active_window()
+    if w then macos.hide_others(w.class) end
 end
 
 
@@ -158,6 +157,7 @@ hl.bind("SUPER + Return",       hl.dsp.exec_cmd(terminal))   -- (not a Mac short
 
 hl.bind("SUPER + Q", quit_app)                               -- ⌘Q: quit app
 hl.bind("SUPER + H", hide_app)                               -- ⌘H: hide app
+hl.bind("SUPER + ALT + H", hide_others)                      -- ⌥⌘H: hide the other apps
 hl.bind("SUPER + M", hl.dsp.window.move({ workspace = "special:minimized", follow = false })) -- ⌘M: minimize
 hl.bind("SUPER + SHIFT + M", hl.dsp.workspace.toggle_special("minimized")) -- show all minimized windows
 

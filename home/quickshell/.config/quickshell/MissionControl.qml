@@ -74,7 +74,7 @@ Scope {
                     return [];
                 return Apps.windows.filter(w => {
                     const o = w.toplevel.lastIpcObject ?? {};
-                    const minimized = (o.workspace?.name ?? "") === "special:minimized";
+                    const minimized = ["special:minimized", "special:hidden"].includes(o.workspace?.name ?? "");
                     if (root.mode === "app")
                         return Apps.keyForAppId(w.appId) === root.appKey
                             && (minimized ? panel.focusedScreen : o.monitor === panel.monitorId);
@@ -273,7 +273,7 @@ Scope {
                     readonly property real gy: panel.area.y + row * (panel.layout.cellH + 28 + panel.layout.gap)
                         + (panel.area.height - panel.layout.rows * (panel.layout.cellH + 28) - (panel.layout.rows - 1) * panel.layout.gap) / 2
                         + (panel.layout.cellH - gh) / 2
-                    readonly property bool minimized: (o.workspace?.name ?? "") === "special:minimized"
+                    readonly property bool minimized: ["special:minimized", "special:hidden"].includes(o.workspace?.name ?? "")
                     readonly property bool hot: mouse.containsMouse || panel.chosen === index
 
                     x: root.arranged || minimized ? gx : x0

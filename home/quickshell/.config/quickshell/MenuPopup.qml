@@ -3,7 +3,8 @@ import Quickshell
 import Quickshell.Hyprland
 
 // A macOS-style menu: translucent panel, rows highlight in the accent colour.
-//   items: [{ text, enabled?, action }, { separator: true }, …]
+//   items: [{ text, hint?, enabled?, action }, { separator: true }, …]
+//   (hint: the keyboard shortcut, grey on the right: "⌘Q")
 // Opens at `anchorItem`; clicking anywhere else closes it.
 PopupWindow {
     id: root
@@ -96,7 +97,7 @@ PopupWindow {
                     readonly property bool enabled: !separator && modelData.enabled !== false
 
                     width: list.width
-                    implicitWidth: label.implicitWidth + 24
+                    implicitWidth: label.implicitWidth + 24 + (hintLabel.text !== "" ? hintLabel.implicitWidth + 28 : 0)
                     height: separator ? 11 : 24
 
                     Rectangle {
@@ -125,6 +126,17 @@ PopupWindow {
                         font.pixelSize: 13
                         color: !row.enabled ? Config.textSecondary
                              : mouse.containsMouse ? "white" : Config.text
+                    }
+                    Text {
+                        id: hintLabel
+                        visible: !row.separator && text !== ""
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: parent.right
+                        anchors.rightMargin: 12
+                        text: row.modelData.hint ?? ""
+                        font.family: Config.fontSans
+                        font.pixelSize: 13
+                        color: mouse.containsMouse && row.enabled ? "white" : Config.textSecondary
                     }
 
                     MouseArea {

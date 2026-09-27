@@ -11,6 +11,7 @@ const GROUPS = [
         ["⌥ Tab", "Zwischen Fenstern wechseln (⇧ rückwärts)"],
         ["⌘Q", "App beenden"],
         ["⌘H", "App ausblenden"],
+        ["⌥⌘H", "Andere Apps ausblenden"],
         ["⌘M", "Fenster minimieren"],
         ["⌘⇧M", "Alle minimierten Fenster zeigen"],
         ["⌃⌘F", "Vollbild"],
