@@ -24,4 +24,9 @@ Hyprland --config /usr/local/share/riptide/greeter/hyprland.lua >"$state/hyprlan
 
 # logged in: greetd starts the session now
 [ -e "$state/launched" ] && exit 0
+
+# the text login: the console back to text first – a Hyprland that crashed on its way out
+# can leave it in graphics mode, and the login would be invisible (KDSETMODE, KD_TEXT)
+python3 -c 'import fcntl; fcntl.ioctl(0, 0x4B3A, 0)' 2>/dev/null
+printf '\033c'
 exec agreety --cmd "/bin/bash --login"
