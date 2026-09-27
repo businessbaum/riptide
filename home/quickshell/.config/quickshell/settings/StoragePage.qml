@@ -172,6 +172,7 @@ Page {
                 text: "Leeren"
                 onClicked: Confirm.ask("Papierkorb endgültig leeren?", "Die Dateien lassen sich danach nicht wiederherstellen.", "Leeren", () => {
                     Quickshell.execDetached(["gio", "trash", "--empty"]);
+                    SystemSounds.ui("trash-empty");
                     measureLater.restart();
                 })
             }

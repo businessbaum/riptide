@@ -215,7 +215,8 @@ hl.bind("SUPER + CTRL + SHIFT + 4", hl.dsp.exec_cmd(scripts .. "screenshot.sh ar
 -- Volume keys change the global volume (every output, also Bluetooth) and show the
 -- volume display (Quickshell OSD, stage 3), like on a Mac
 local function volume(command)
-    return hl.dsp.exec_cmd(command)
+    -- (then the click of "Rückmeldung bei Änderung der Lautstärke", if on – SystemSounds.qml)
+    return hl.dsp.exec_cmd(command .. " && qs ipc call sounds volume")
 end
 hl.bind("XF86AudioRaiseVolume", volume("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
 hl.bind("XF86AudioLowerVolume", volume("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      { locked = true, repeating = true })

@@ -78,4 +78,29 @@ Page {
             }
         }
     }
+
+    Group {
+        title: "Toneffekte"
+        SettingRow {
+            first: true
+            title: "Toneffekte der Oberfläche"
+            subtitle: "Zum Beispiel beim Bildschirmfoto und beim Leeren des Papierkorbs"
+            Toggle {
+                checked: Config.settings.sound?.ui_sounds !== false
+                onToggled: on => Store.set("sound", "ui_sounds", on)
+            }
+        }
+        SettingRow {
+            title: "Rückmeldung bei Änderung der Lautstärke"
+            subtitle: "Ein kurzer Ton, wenn du die Lautstärketasten drückst"
+            Toggle {
+                checked: Config.settings.sound?.volume_feedback === true
+                onToggled: on => {
+                    Store.set("sound", "volume_feedback", on);
+                    if (on)
+                        SystemSounds.play("audio-volume-change");
+                }
+            }
+        }
+    }
 }
