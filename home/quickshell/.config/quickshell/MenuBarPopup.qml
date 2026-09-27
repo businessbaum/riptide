@@ -12,6 +12,9 @@ PopupWindow {
     property Item anchorItem
     property var keepOpenFor: [] // windows whose clicks keep it open (the menu bar)
     default property alias content: surface.data
+    // the screen of the menu bar it hangs from: frosted glass (the bar sits at the
+    // screen's top left, so the item's place in it is its place on the screen)
+    property var backdropScreen: null
 
     anchor.item: anchorItem
     anchor.edges: Edges.Bottom | Edges.Right
@@ -23,15 +26,32 @@ PopupWindow {
     implicitWidth: 330
 
     function open() {
-        visible = true;
-        grab.active = true;
+        if (backdropScreen && Config.frostedMenus && anchorItem) {
+            // the screen behind first, then show (else the panel would be in the picture)
+            const p = anchorItem.mapToItem(null, anchorItem.width, anchorItem.height);
+            surface.backdropPos = Qt.point(p.x - implicitWidth, p.y + 4);
+            surface.capture();
+            showLater.restart();
+        } else {
+            visible = true;
+            grab.active = true;
+        }
+    }
+    Timer {
+        id: showLater
+        interval: 40
+        onTriggered: {
+            root.visible = true;
+            grab.active = true;
+        }
     }
     function close() {
+        showLater.stop();
         grab.active = false;
         visible = false;
     }
     function toggle() {
-        visible ? close() : open();
+        visible || showLater.running ? close() : open();
     }
 
     HyprlandFocusGrab {
@@ -43,5 +63,6 @@ PopupWindow {
     Glass {
         id: surface
         anchors.fill: parent
+        backdropScreen: root.backdropScreen
     }
 }

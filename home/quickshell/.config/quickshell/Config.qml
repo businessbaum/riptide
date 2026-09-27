@@ -38,6 +38,9 @@ Singleton {
         return blur && !highContrast ? c : Qt.rgba(c.r, c.g, c.b, Math.max(c.a, a));
     }
 
+    // Menus and panels of the menu bar show the screen behind blurred (Glass.qml)
+    readonly property bool frostedMenus: settings.appearance?.frosted_menus !== false
+
     // Bedienungshilfen: fades instead of motion, stronger edges (Hyprland reads them too)
     readonly property bool reduceMotion: settings.accessibility?.reduce_motion === true
     readonly property bool highContrast: settings.accessibility?.contrast === true

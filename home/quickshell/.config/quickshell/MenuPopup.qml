@@ -27,16 +27,38 @@ PopupWindow {
     implicitWidth: Math.max(230, list.implicitWidth + 12)
     implicitHeight: list.implicitHeight + 12
 
+    // the screen of the menu bar it opens from: frosted glass (see MenuBarPopup)
+    property var backdropScreen: null
     function open() {
-        visible = true;
-        grab.active = true;
+        if (backdropScreen && Config.frostedMenus && anchorItem) {
+            const ax = (anchorEdges & Edges.Right) ? anchorItem.width : (anchorEdges & Edges.Left) ? 0 : anchorItem.width / 2;
+            const ay = (anchorEdges & Edges.Bottom) ? anchorItem.height : (anchorEdges & Edges.Top) ? 0 : anchorItem.height / 2;
+            const p = anchorItem.mapToItem(null, ax, ay);
+            const x = (openTowards & Edges.Left) ? p.x - implicitWidth : (openTowards & Edges.Right) ? p.x : p.x - implicitWidth / 2;
+            const y = (openTowards & Edges.Top) ? p.y - implicitHeight - offset : p.y + offset;
+            menuGlass.backdropPos = Qt.point(x, y);
+            menuGlass.capture();
+            showLater.restart();
+        } else {
+            visible = true;
+            grab.active = true;
+        }
+    }
+    Timer {
+        id: showLater
+        interval: 40
+        onTriggered: {
+            root.visible = true;
+            grab.active = true;
+        }
     }
     function close() {
+        showLater.stop();
         grab.active = false;
         visible = false;
     }
     function toggle() {
-        visible ? close() : open();
+        visible || showLater.running ? close() : open();
     }
 
     HyprlandFocusGrab {
@@ -46,9 +68,11 @@ PopupWindow {
     }
 
     Glass {
+        id: menuGlass
         anchors.fill: parent
         radius: 10
         border.width: 1
+        backdropScreen: root.backdropScreen
 
         Column {
             id: list

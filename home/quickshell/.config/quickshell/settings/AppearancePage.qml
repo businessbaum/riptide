@@ -113,8 +113,16 @@ Page {
             }
         }
         SettingRow {
-            title: "Glaseffekt (Unschärfe)"
-            subtitle: "Menüleiste, Dock und Menüs zeigen den Hintergrund verschwommen. Derzeit mit NVIDIA fehlerhaft (Pixelblöcke) – nach Updates wieder ausprobieren."
+            title: "Menüs und Panels mit Unschärfe"
+            subtitle: "Kontrollzentrum, Mitteilungen und die Menüs der Menüleiste zeigen den Hintergrund verschwommen – gut lesbar auch über hellen Fenstern"
+            Toggle {
+                checked: Config.frostedMenus
+                onToggled: on => Store.set("appearance", "frosted_menus", on)
+            }
+        }
+        SettingRow {
+            title: "Glaseffekt von Hyprland (Menüleiste, Dock)"
+            subtitle: "Derzeit mit NVIDIA fehlerhaft (Pixelblöcke) – nach Updates wieder ausprobieren."
             Toggle {
                 checked: Config.blur
                 onToggled: on => Store.set("appearance", "blur", on, true)

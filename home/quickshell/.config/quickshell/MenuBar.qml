@@ -153,18 +153,21 @@ PanelWindow {
         id: soundMixer
         anchorItem: soundButton
         keepOpenFor: [bar]
+        backdropScreen: bar.screen
     }
 
     ControlCenter {
         id: controlCenter
         anchorItem: controlButton
         keepOpenFor: [bar]
+        backdropScreen: bar.screen
     }
 
     NotificationCenter {
         id: notificationCenter
         anchorItem: clockButton
         keepOpenFor: [bar]
+        backdropScreen: bar.screen
     }
 
     // one line per drive: open it; then eject each, or all
@@ -172,6 +175,7 @@ PanelWindow {
         id: drivesMenu
         anchorItem: drivesButton
         keepOpenFor: [bar]
+        backdropScreen: bar.screen
         items: {
             const list = [];
             for (const d of Drives.list)
@@ -190,6 +194,7 @@ PanelWindow {
         id: appleMenu
         anchorItem: logo
         keepOpenFor: [bar]
+        backdropScreen: bar.screen
         items: [
             { text: "Über diesen Computer", action: () => About.show() },
             { separator: true },
