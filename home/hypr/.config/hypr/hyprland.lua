@@ -64,6 +64,8 @@ end
 hl.config({
     input = {
         kb_layout    = S.keyboard.layout,
+        -- no ⌃⌥F1 … F12 into text consoles: riptide has a login screen and a Notfallmodus
+        kb_options   = "srvrkeys:none",
         repeat_delay = S.keyboard.repeat_delay,
         repeat_rate  = S.keyboard.repeat_rate,
 

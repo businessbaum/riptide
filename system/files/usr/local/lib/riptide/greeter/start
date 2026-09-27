@@ -1,0 +1,27 @@
+#!/bin/sh
+# greetd's greeter (/etc/greetd/config.toml), run as the user "greeter": riptide's login
+# screen – Hyprland with our Quickshell login window (/usr/local/share/riptide/greeter).
+# Should it not come up (or break), a text login takes its place instead of a black screen:
+# agreety, which starts a shell for repairs.
+
+# NVIDIA, as in the session (~/.config/uwsm/env)
+card=$(readlink -f /dev/dri/by-path/pci-0000:01:00.0-card 2>/dev/null)
+[ -n "$card" ] && export AQ_DRM_DEVICES="$card"
+export LIBVA_DRIVER_NAME=nvidia __GLX_VENDOR_LIBRARY_NAME=nvidia NVD_BACKEND=direct
+export XCURSOR_THEME=capitaine-cursors XCURSOR_SIZE=22 HYPRCURSOR_SIZE=22
+export QT_QPA_PLATFORM=wayland LANG=de_DE.UTF-8
+
+# the greeter has no home folder: everything it writes lives in its runtime folder
+export HOME="$XDG_RUNTIME_DIR/home"
+export XDG_CONFIG_HOME="$HOME/.config" XDG_CACHE_HOME="$HOME/.cache" XDG_DATA_HOME="$HOME/.local/share" XDG_STATE_HOME="$HOME/.local/state"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME"
+
+state="$XDG_RUNTIME_DIR/riptide-greeter"
+rm -rf "$state"
+mkdir -p "$state"
+
+Hyprland --config /usr/local/share/riptide/greeter/hyprland.lua >"$state/hyprland.log" 2>&1
+
+# logged in: greetd starts the session now
+[ -e "$state/launched" ] && exit 0
+exec agreety --cmd "/bin/bash --login"

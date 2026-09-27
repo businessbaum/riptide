@@ -45,8 +45,11 @@ xdg-desktop-portal-gtk
 hyprland-guiutils
 hyprlock
 hypridle
-hyprpaper
 quickshell
+# the login screen (greetd; our window: system/files/usr/local/share/riptide/greeter),
+# agreety: the text login it falls back to
+greetd
+greetd-agreety
 
 ## Desktop: NVIDIA on Wayland
 egl-wayland

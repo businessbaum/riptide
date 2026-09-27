@@ -21,6 +21,11 @@
 #      date in System Settings; later Time Machine)
 #   9. Time Machine, local part: hourly snapshots of /home (snapper config "home": the
 #      last 24 hours, 7 days, 4 weeks, 6 months), readable for the user – "Frühere Versionen"
+#  10. the login screen: greetd with our own login window instead of the text console
+#      (from the next start); should it not come up, a text login takes its place
+#  11. start without waiting and the Notfallmodus: Limine boots at once (its menu stays
+#      reachable: hold the space bar at power-on) and gets an entry "Notfallmodus" – the LTS
+#      kernel up to the text login only, no graphics
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -33,6 +38,10 @@ grep -Ev '^[[:space:]]*(#|$)' packages.txt | pacman -S --needed -
 # screen past Hyprland's question; wf-recorder records through screencopy instead
 if pacman -Q gpu-screen-recorder >/dev/null 2>&1; then
     pacman -Rns --noconfirm gpu-screen-recorder
+fi
+# not needed: the wallpaper is drawn by our shell
+if pacman -Q hyprpaper >/dev/null 2>&1; then
+    pacman -Rns --noconfirm hyprpaper
 fi
 
 step "Dienste"
@@ -108,5 +117,64 @@ elif [[ -n "$user" ]]; then
     echo "  /home: stündlich (24 Std., 7 Tage, 4 Wochen, 6 Monate)"
 fi
 
+step "Anmeldebildschirm (greetd) statt Textkonsole"
+# Our login window runs as the unprivileged user "greeter" (created with the package) and
+# reads only these root-owned files. Enabled for the next start – starting it now would end
+# this session (it takes over the first console).
+install -D -o root -g root -m 644 system/files/etc/greetd/config.toml /etc/greetd/config.toml
+for f in start run; do
+    install -D -o root -g root -m 755 "system/files/usr/local/lib/riptide/greeter/$f" "/usr/local/lib/riptide/greeter/$f"
+done
+for f in shell.qml Login.qml LoginScreen.qml hyprland.lua; do
+    install -D -o root -g root -m 644 "system/files/usr/local/share/riptide/greeter/$f" "/usr/local/share/riptide/greeter/$f"
+done
+install -d -o greeter -g greeter -m 755 /var/lib/riptide/greeter # who logged in last
+systemctl enable greetd.service
+echo "  ab dem nächsten Start"
+
+step "Start ohne Wartezeit und Notfallmodus (Limine)"
+# The Notfallmodus: the LTS kernel as its own signed image, up to the text login only
+# (multi-user.target: no greetd, no graphics). Its command line follows /etc/kernel/cmdline.
+recovery_cmdline="$(sed -E 's/(^| )quiet( |$)/ /g; s/  +/ /g; s/^ //; s/ $//' /etc/kernel/cmdline | tr -d '\n') systemd.unit=multi-user.target"
+if [[ -f /boot/EFI/Linux/arch-linux-recovery.efi ]] \
+    && [[ "$(cat /etc/kernel/cmdline-recovery 2>/dev/null)" == "$recovery_cmdline" ]] \
+    && cmp -s system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset; then
+    echo "  Notfall-Image aktuell"
+else
+    printf '%s\n' "$recovery_cmdline" > /etc/kernel/cmdline-recovery
+    install -D -o root -g root -m 644 system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset
+    mkinitcpio -p linux-lts
+    sbctl sign -s /boot/EFI/Linux/arch-linux-recovery.efi >/dev/null # signed now and after every update
+fi
+
+conf=/boot/limine.conf
+backup="$conf.bak-$(date +%Y%m%d-%H%M%S)"
+cp "$conf" "$backup"
+# global options (before the first entry): no waiting, no menu – a key during that second
+# shows it (Limine's quiet mode)
+awk '
+    BEGIN { global = 1 }
+    global && /^\// { if (!t) print "timeout: 1"; if (!q) print "quiet: yes"; global = 0 }
+    global && /^[ \t]*timeout:/ { print "timeout: 1"; t = 1; next }
+    global && /^[ \t]*quiet:/ { print "quiet: yes"; q = 1; next }
+    { print }
+' "$backup" > "$conf.new"
+if ! grep -q '^/Notfallmodus' "$conf.new"; then
+    printf '\n/Notfallmodus (Textanmeldung)\n    protocol: efi\n    path: boot():/EFI/Linux/arch-linux-recovery.efi\n' >> "$conf.new"
+fi
+mv "$conf.new" "$conf"
+if cmp -s "$conf" "$backup"; then
+    rm -f "$backup"
+    echo "  limine.conf unverändert"
+elif ! /usr/local/sbin/limine-seal; then
+    # never leave a changed, unsealed config: Limine would refuse to start
+    cp "$backup" "$conf"
+    /usr/local/sbin/limine-seal
+    echo "  Fehler beim Versiegeln – alte limine.conf wiederhergestellt" >&2
+    exit 1
+fi
+echo "  neue limine.conf (Sicherung: $backup):"
+sed 's/^/    /' "$conf"
+
 echo
-echo "Fertig."
+echo "Fertig. Neu starten: der Anmeldebildschirm kommt beim nächsten Start."

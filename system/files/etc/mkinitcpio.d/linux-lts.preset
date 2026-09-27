@@ -2,9 +2,17 @@
 # Builds a unified kernel image (UKI: kernel + initramfs + microcode + cmdline
 # from /etc/kernel/cmdline) that Limine chainloads via the firmware, so Secure
 # Boot verifies it. Signed automatically by sbctl's mkinitcpio post hook.
+#
+# "recovery": the Notfallmodus of the boot menu – the same LTS kernel, started only up to
+# the text login (no graphics, no login screen, no Hyprland). Its command line is written
+# by system/setup-os.sh: /etc/kernel/cmdline without "quiet", plus
+# systemd.unit=multi-user.target.
 
 ALL_kver="/boot/vmlinuz-linux-lts"
 
-PRESETS=('default')
+PRESETS=('default' 'recovery')
 
 default_uki="/boot/EFI/Linux/arch-linux-lts.efi"
+
+recovery_uki="/boot/EFI/Linux/arch-linux-recovery.efi"
+recovery_options="--cmdline /etc/kernel/cmdline-recovery"
