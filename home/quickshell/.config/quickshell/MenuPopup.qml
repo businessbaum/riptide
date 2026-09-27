@@ -13,8 +13,6 @@ PopupWindow {
     property int anchorEdges: Edges.Bottom | Edges.Left
     property int openTowards: Edges.Bottom | Edges.Right
     property int offset: 4
-    // Windows whose clicks do not close the menu (e.g. the bar with the button that opens it)
-    property var keepOpenFor: []
 
     anchor.item: anchorItem
     anchor.edges: anchorEdges
@@ -52,18 +50,26 @@ PopupWindow {
             grab.active = true;
         }
     }
+    // Rule for every menu and panel: a click anywhere else closes it. A click on the item
+    // that opened it closes it too – and must not open it again right away
+    property double closedAt: 0
     function close() {
+        if (visible)
+            closedAt = Date.now();
         showLater.stop();
         grab.active = false;
         visible = false;
     }
     function toggle() {
-        visible || showLater.running ? close() : open();
+        if (visible || showLater.running)
+            close();
+        else if (Date.now() - closedAt > 300)
+            open();
     }
 
     HyprlandFocusGrab {
         id: grab
-        windows: [root].concat(root.keepOpenFor)
+        windows: [root]
         onCleared: root.close()
     }
 

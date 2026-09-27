@@ -311,7 +311,6 @@ PanelWindow {
     }
     MenuPopup {
         id: menu
-        keepOpenFor: [root]
         items: {
             const it = root.menuItem;
             if (!it)

@@ -13,7 +13,6 @@ PopupWindow {
     id: root
 
     property Item anchorItem
-    property var keepOpenFor: [] // windows whose clicks keep it open (the menu bar)
     default property alias content: surface.data
     // the screen of the menu bar it hangs from: frosted glass (the bar sits at the
     // screen's top left, so the item's place in it is its place on the screen)
@@ -55,18 +54,26 @@ PopupWindow {
             grab.active = true;
         }
     }
+    // Rule for every menu and panel: a click anywhere else closes it. A click on the item
+    // that opened it closes it too – and must not open it again right away
+    property double closedAt: 0
     function close() {
+        if (visible)
+            closedAt = Date.now();
         showLater.stop();
         grab.active = false;
         visible = false;
     }
     function toggle() {
-        visible || showLater.running ? close() : open();
+        if (visible || showLater.running)
+            close();
+        else if (Date.now() - closedAt > 300)
+            open();
     }
 
     HyprlandFocusGrab {
         id: grab
-        windows: [root].concat(root.keepOpenFor)
+        windows: [root]
         onCleared: root.close()
     }
 

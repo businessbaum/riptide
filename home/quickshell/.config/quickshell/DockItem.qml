@@ -154,7 +154,6 @@ Item {
         anchorEdges: Edges.Top
         openTowards: Edges.Top
         offset: 18
-        keepOpenFor: [root.dockWindow]
         items: {
             const list = [];
             if (root.entry)

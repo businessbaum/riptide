@@ -8,7 +8,7 @@ Rectangle {
 
     property var options: []
     property var current
-    property var window // the window this sits in (keeps the menu open on clicks there)
+    property var window // (no longer used: a click anywhere outside the list closes it)
     signal picked(var value)
 
     readonly property var currentOption: options.find(o => o.value === current)
@@ -49,7 +49,6 @@ Rectangle {
     MenuPopup {
         id: menu
         anchorItem: root
-        keepOpenFor: root.window ? [root.window] : []
         items: root.options.map(o => ({
             text: (o.value === root.current ? "✓  " : "     ") + o.text,
             action: () => root.picked(o.value)

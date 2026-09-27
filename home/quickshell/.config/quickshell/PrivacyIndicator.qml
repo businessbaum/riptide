@@ -58,7 +58,6 @@ Item {
     MenuBarPopup {
         id: panel
         anchorItem: root
-        keepOpenFor: root.barWindow ? [root.barWindow] : []
         implicitWidth: 300
         panelHeight: list.implicitHeight + 24
 

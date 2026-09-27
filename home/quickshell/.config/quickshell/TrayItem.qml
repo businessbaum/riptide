@@ -56,7 +56,6 @@ Item {
     MenuPopup {
         id: menu
         anchorItem: root
-        keepOpenFor: root.barWindow ? [root.barWindow] : []
         items: opener.children.values.map(entry => entry.isSeparator ? { separator: true } : {
             text: entry.text.replace(/_(?=\S)/, "") + (entry.hasChildren ? "  ›" : ""), // drop mnemonic marks
             enabled: entry.enabled,
