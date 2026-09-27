@@ -24,6 +24,7 @@ const ENTRIES = [
     { page: "timemachine", title: "Time Machine", words: "time machine sicherung backup wiederherstellen frühere versionen snapshot" },
     { page: "defaults", title: "Standard-Apps", words: "standard apps browser mail öffnen mit dateitypen" },
     { page: "appearance", title: "Erscheinungsbild", words: "erscheinungsbild dunkel hell dark mode hintergrundbild akzentfarbe" },
+    { page: "accessibility", title: "Bedienungshilfen", words: "bedienungshilfen zoom lupe kontrast bewegung animationen textgröße schrift" },
     { page: "desktop", title: "Schreibtisch & Dock", words: "schreibtisch dock größe fenster ecken abstand aktive ecken hot corners mission control" },
     { page: "displays", title: "Bildschirme", words: "bildschirme monitor auflösung skalierung hz night shift nachtmodus" },
     { page: "energy", title: "Energie", words: "energie ruhezustand sperren bildschirm aus energiemodus leistung" },

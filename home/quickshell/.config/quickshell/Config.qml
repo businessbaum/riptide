@@ -34,18 +34,23 @@ Singleton {
     // Without blur the glass surfaces are made more opaque, so they stay calm.
     readonly property bool blur: settings.appearance?.blur === true
     function glassy(c, minAlpha) {
-        return blur ? c : Qt.rgba(c.r, c.g, c.b, Math.max(c.a, minAlpha));
+        const a = highContrast ? Math.max(minAlpha, 0.97) : minAlpha; // more contrast: almost solid
+        return blur && !highContrast ? c : Qt.rgba(c.r, c.g, c.b, Math.max(c.a, a));
     }
+
+    // Bedienungshilfen: fades instead of motion, stronger edges (Hyprland reads them too)
+    readonly property bool reduceMotion: settings.accessibility?.reduce_motion === true
+    readonly property bool highContrast: settings.accessibility?.contrast === true
 
     // Colours of the active mode
     readonly property color glass: glassy(col(tokens.glass, "#9428282e"), 0.88)
     readonly property color glassMenu: glassy(col(tokens.glass_menu, "#cc242428"), 0.95)
     readonly property color menubar: glassy(col(tokens.menubar, "#6b18181c"), 0.82)
-    readonly property color border: col(tokens.border, "#24ffffff")
+    readonly property color border: highContrast ? (dark ? "#80ffffff" : "#80000000") : col(tokens.border, "#24ffffff")
     readonly property color tile: col(tokens.tile, "#14ffffff")
     readonly property color hover: col(tokens.hover, "#1fffffff")
     readonly property color text: col(tokens.text, "#ffffff")
-    readonly property color textSecondary: col(tokens.text_secondary, "#99ffffff")
+    readonly property color textSecondary: highContrast ? (dark ? "#d9ffffff" : "#d9000000") : col(tokens.text_secondary, "#99ffffff")
     readonly property color windowBg: col(tokens.window_bg, "#1e1e1e")
     readonly property color sidebarBg: col(tokens.sidebar_bg, "#282828")
     readonly property color cardBg: col(tokens.card_bg, "#0fffffff")

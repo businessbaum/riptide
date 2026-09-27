@@ -36,6 +36,7 @@ FloatingWindow {
         { key: "timemachine", title: "Time Machine", icon: "\u{f02da}", colour: "#30d158" },
         { key: "defaults", title: "Standard-Apps", icon: "\uf0c1", colour: "#30d158" },
         { key: "appearance", title: "Erscheinungsbild", icon: "", colour: "#1c1c1e" },
+        { key: "accessibility", title: "Bedienungshilfen", icon: "\uf29a", colour: "#0a84ff" },
         { key: "desktop", title: "Schreibtisch & Dock", icon: "", colour: "#1c1c1e" },
         { key: "displays", title: "Bildschirme", icon: "", colour: "#0a84ff" },
         { key: "energy", title: "Energie", icon: "\u{f06a5}", colour: "#30d158" },
@@ -161,7 +162,7 @@ FloatingWindow {
                     general: "settings/GeneralPage.qml", login: "settings/LoginItemsPage.qml",
                     apps: "settings/AppsPage.qml", storage: "settings/StoragePage.qml", timemachine: "settings/TimeMachinePage.qml",
                     defaults: "settings/DefaultAppsPage.qml",
-                    appearance: "settings/AppearancePage.qml", desktop: "settings/DesktopPage.qml",
+                    appearance: "settings/AppearancePage.qml", accessibility: "settings/AccessibilityPage.qml", desktop: "settings/DesktopPage.qml",
                     displays: "settings/DisplaysPage.qml", energy: "settings/EnergyPage.qml", mouse: "settings/MousePage.qml",
                     keyboard: "settings/KeyboardPage.qml", printers: "settings/PrintersPage.qml"
                 };

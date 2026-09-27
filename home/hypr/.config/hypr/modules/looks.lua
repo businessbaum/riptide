@@ -11,7 +11,7 @@ hl.config({
         gaps_out = S.windows.gap, -- distance of maximized windows to the screen edge
 
         -- A hairline border, as macOS draws around windows
-        border_size = 1,
+        border_size = S.accessibility.contrast and 2 or 1, -- Bedienungshilfen → Kontrast erhöhen
         col = {
             active_border   = T.window_border_active or "rgba(ffffff26)",
             inactive_border = T.window_border_inactive or "rgba(ffffff14)",
@@ -107,3 +107,12 @@ hl.animation({ leaf = "workspaces",    enabled = true, speed = 4,    bezier = "m
 -- Minimized windows come from below, as if from the dock
 hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 3.5, bezier = "macos", style = "slidevert" })
 hl.animation({ leaf = "zoomFactor",    enabled = true, speed = 7,    bezier = "quick" })
+
+-- Bedienungshilfen → "Bewegung reduzieren": nothing slides or pops, things fade
+if S.accessibility.reduce_motion then
+    hl.animation({ leaf = "windowsIn",        enabled = true, speed = 2,   bezier = "almostLinear", style = "popin 100%" })
+    hl.animation({ leaf = "windowsOut",       enabled = true, speed = 1.5, bezier = "almostLinear", style = "popin 100%" })
+    hl.animation({ leaf = "windows",          enabled = true, speed = 1,   bezier = "quick" })
+    hl.animation({ leaf = "workspaces",       enabled = true, speed = 2.5, bezier = "almostLinear", style = "fade" })
+    hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 2.5, bezier = "almostLinear", style = "fade" })
+end

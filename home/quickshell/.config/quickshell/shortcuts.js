@@ -60,7 +60,8 @@ const GROUPS = [
         ["Lautstärketasten", "Lautstärke (auch für Bluetooth)"],
         ["Mikrofontaste", "Mikrofon für alle Apps aus- und einschalten"],
         ["Helligkeitstasten", "Helligkeit beider Bildschirme"],
-        ["Medientasten", "Wiedergabe, Weiter, Zurück"]
+        ["Medientasten", "Wiedergabe, Weiter, Zurück"],
+        ["⌥⌘8 / ⌥⌘+ / ⌥⌘-", "Zoom ein/aus, näher, weiter (Bedienungshilfen)"]
     ] }
 ];
 

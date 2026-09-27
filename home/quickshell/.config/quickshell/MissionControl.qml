@@ -280,10 +280,10 @@ Scope {
                     y: root.arranged || minimized ? gy : y0
                     width: root.arranged || minimized ? gw : w0
                     height: root.arranged || minimized ? gh : h0
-                    Behavior on x { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
-                    Behavior on y { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
-                    Behavior on width { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
-                    Behavior on height { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+                    Behavior on x { NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic } }
+                    Behavior on y { NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic } }
+                    Behavior on width { NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic } }
+                    Behavior on height { NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic } }
 
                     ClippingRectangle {
                         anchors.fill: parent

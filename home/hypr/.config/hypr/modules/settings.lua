@@ -18,6 +18,7 @@ local DEFAULTS = {
                    cursor_theme = "capitaine-macos" },
     keyboard   = { layout = "de", cmd_shortcuts = true, repeat_delay = 600, repeat_rate = 25 },
     monitors   = {},
+    accessibility = { reduce_motion = false, contrast = false, zoom_keys = false },
 }
 
 ---------------------------------------------
