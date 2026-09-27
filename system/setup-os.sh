@@ -129,6 +129,13 @@ for f in shell.qml Login.qml LoginScreen.qml hyprland.lua; do
     install -D -o root -g root -m 644 "system/files/usr/local/share/riptide/greeter/$f" "/usr/local/share/riptide/greeter/$f"
 done
 install -d -o greeter -g greeter -m 755 /var/lib/riptide/greeter # who logged in last
+# each person's session leaves mouse and keyboard settings for the login screen here
+# (hypr/modules/greeter.lua); written now once, then on every change
+if [[ -n "$user" ]]; then
+    install -d -o root -g root -m 755 /var/lib/riptide/greeter/users
+    install -d -o "$user" -g "$(id -gn "$user")" -m 755 "/var/lib/riptide/greeter/users/$user"
+    runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$(id -u "$user")" hyprctl -i 0 reload >/dev/null 2>&1 || true
+fi
 systemctl enable greetd.service
 echo "  ab dem nächsten Start"
 

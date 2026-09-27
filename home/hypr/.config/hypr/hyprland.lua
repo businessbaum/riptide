@@ -22,6 +22,7 @@
 --   modules/permissions.lua    screen recording and plugins ask first (our own tools allowed)
 --   modules/accessibility.lua  zoom keys, reduced motion, contrast (Bedienungshilfen)
 --   modules/autostart.lua      background services started with the session
+--   modules/greeter.lua        mouse and keyboard settings for the login screen
 --
 -- Environment variables (NVIDIA, cursor) are in ~/.config/uwsm/env, so that
 -- services started by uwsm/systemd see them too, not only Hyprland's children.
@@ -121,3 +122,4 @@ require("modules.shell")
 require("modules.permissions")
 require("modules.accessibility")
 require("modules.autostart")
+require("modules.greeter")

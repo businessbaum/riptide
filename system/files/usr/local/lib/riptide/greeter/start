@@ -16,6 +16,9 @@ export HOME="$XDG_RUNTIME_DIR/home"
 export XDG_CONFIG_HOME="$HOME/.config" XDG_CACHE_HOME="$HOME/.cache" XDG_DATA_HOME="$HOME/.local/share" XDG_STATE_HOME="$HOME/.local/state"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME"
 
+# the console stays black: no boot messages before, none between login screen and desktop
+printf '\033c\033[?25l'
+
 state="$XDG_RUNTIME_DIR/riptide-greeter"
 rm -rf "$state"
 mkdir -p "$state"
@@ -23,10 +26,13 @@ mkdir -p "$state"
 Hyprland --config /usr/local/share/riptide/greeter/hyprland.lua >"$state/hyprland.log" 2>&1
 
 # logged in: greetd starts the session now
-[ -e "$state/launched" ] && exit 0
+if [ -e "$state/launched" ]; then
+    printf '\033c\033[?25l'
+    exit 0
+fi
 
 # the text login: the console back to text first – a Hyprland that crashed on its way out
 # can leave it in graphics mode, and the login would be invisible (KDSETMODE, KD_TEXT)
 python3 -c 'import fcntl; fcntl.ioctl(0, 0x4B3A, 0)' 2>/dev/null
-printf '\033c'
+printf '\033c\033[?25h'
 exec agreety --cmd "/bin/bash --login"

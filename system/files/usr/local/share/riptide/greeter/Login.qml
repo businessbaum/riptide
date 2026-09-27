@@ -13,7 +13,8 @@ Singleton {
     id: root
 
     readonly property string stateDir: Quickshell.env("XDG_RUNTIME_DIR") + "/riptide-greeter"
-    readonly property var session: ["uwsm", "start", "-e", "-D", "Hyprland", "hyprland.desktop"]
+    // (its messages go to the journal – on the console they flashed up before the desktop)
+    readonly property var session: ["systemd-cat", "-t", "riptide-session", "uwsm", "start", "-e", "-D", "Hyprland", "hyprland.desktop"]
 
     // people who can log in: /etc/passwd, uid 1000 and up with a real shell
     property var users: []
