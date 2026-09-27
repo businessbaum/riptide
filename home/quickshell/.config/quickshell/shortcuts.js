@@ -23,6 +23,8 @@ const GROUPS = [
         ["⌃⇧ Esc", "Aufgabenverwaltung (Mission Center)"]
     ] },
     { title: "Schreibtische", items: [
+        ["⌃ ↑", "Mission Control: alle Fenster und Schreibtische"],
+        ["⌃ ↓", "App-Fenster: alle Fenster der App im Vordergrund"],
         ["⌃ ← / →", "Zum Schreibtisch links oder rechts"],
         ["⌃1 … ⌃9", "Zu Schreibtisch 1 … 9"],
         ["⌃⇧1 … ⌃⇧9", "Fenster auf Schreibtisch 1 … 9 bewegen"],

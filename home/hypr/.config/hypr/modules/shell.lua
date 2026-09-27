@@ -26,6 +26,40 @@ local function bring_to_front(w)
     hl.dispatch(hl.dsp.window.bring_to_top({ window = w }))
 end
 
+-- Mission Control: a click on one window brings exactly that one to the front
+function macos.focus_window(address)
+    local w = hl.get_window("address:" .. address)
+    if w and w.mapped then bring_to_front(w) end
+    return hl.dsp.no_op()
+end
+
+-- "Schreibtisch" (hot corner): every window of the visible desktops steps aside;
+-- the second time they come back where they were
+local set_aside = {}
+function macos.show_desktop()
+    if #set_aside > 0 then
+        for _, e in ipairs(set_aside) do
+            local w = hl.get_window("address:" .. e.address)
+            if w and w.mapped then
+                hl.dispatch(hl.dsp.window.move({ window = w, workspace = e.workspace, follow = false }))
+            end
+        end
+        set_aside = {}
+        return hl.dsp.no_op()
+    end
+    local visible = {}
+    for _, m in ipairs(hl.get_monitors()) do
+        if m.active_workspace then visible[m.active_workspace.id] = true end
+    end
+    for _, w in ipairs(hl.get_windows()) do
+        if w.mapped and w.workspace and visible[w.workspace.id] then
+            set_aside[#set_aside + 1] = { address = w.address, workspace = w.workspace.id }
+            hl.dispatch(hl.dsp.window.move({ window = w, workspace = "special:desktop", follow = false }))
+        end
+    end
+    return hl.dsp.no_op()
+end
+
 -- Dock click on a running app
 function macos.activate_app(class)
     local w = app_windows(class)[1]

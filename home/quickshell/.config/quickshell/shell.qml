@@ -14,6 +14,7 @@
 //   Clipboard.qml      SUPER+V clipboard history (cliphist)
 //   EmojiPicker.qml    ⌃⌘Space emoji & symbols
 //   Switcher.qml       ⌘Tab / ⌥Tab panel (logic in Hyprland)
+//   MissionControl.qml ⌃↑ Mission Control, ⌃↓ App Exposé; HotCorners.qml: active corners
 //   ControlCenter.qml  + NotificationCenter.qml: panels from the menu bar
 //   BannerWindow.qml   everything at the top right (Banners.qml: notifications, system messages)
 //   BluetoothBanners   "AirPods · Verbunden" when a Bluetooth device connects (UsbBanners: USB)
@@ -70,6 +71,8 @@ ShellRoot {
     Clipboard {}
     EmojiPicker {}
     Switcher {}
+    MissionControl {}
+    HotCorners {}
     BannerWindow {}
     BluetoothBanners {}
     UsbBanners {}

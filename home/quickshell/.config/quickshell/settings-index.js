@@ -24,7 +24,7 @@ const ENTRIES = [
     { page: "timemachine", title: "Time Machine", words: "time machine sicherung backup wiederherstellen frühere versionen snapshot" },
     { page: "defaults", title: "Standard-Apps", words: "standard apps browser mail öffnen mit dateitypen" },
     { page: "appearance", title: "Erscheinungsbild", words: "erscheinungsbild dunkel hell dark mode hintergrundbild akzentfarbe" },
-    { page: "desktop", title: "Schreibtisch & Dock", words: "schreibtisch dock größe fenster ecken abstand" },
+    { page: "desktop", title: "Schreibtisch & Dock", words: "schreibtisch dock größe fenster ecken abstand aktive ecken hot corners mission control" },
     { page: "displays", title: "Bildschirme", words: "bildschirme monitor auflösung skalierung hz night shift nachtmodus" },
     { page: "energy", title: "Energie", words: "energie ruhezustand sperren bildschirm aus energiemodus leistung" },
     { page: "mouse", title: "Maus", words: "maus zeiger geschwindigkeit scrollen natürlich cursor" },

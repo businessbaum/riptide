@@ -181,6 +181,8 @@ hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true })
 ----------------------------
 
 -- ⌃←/⌃→ switch desktop, ⌃1…9 jump to it, ⌃⇧1…9 take the window along
+hl.bind("CTRL + up",    hl.dsp.exec_cmd("qs ipc call mission all")) -- ⌃↑: Mission Control
+hl.bind("CTRL + down",  hl.dsp.exec_cmd("qs ipc call mission app")) -- ⌃↓: App Exposé
 hl.bind("CTRL + left",  hl.dsp.focus({ workspace = "r-1" }))
 hl.bind("CTRL + right", hl.dsp.focus({ workspace = "r+1" }))
 for i = 1, 9 do
