@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
+import Quickshell.Io
 import Quickshell.Networking
 import qs
 
@@ -118,6 +120,109 @@ Page {
                                 color: Config.textSecondary
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- VPN (NetworkManager)
+
+    property var vpns: [] // [{ name, uuid, active }]
+    property string vpnError: ""
+    Timer {
+        running: true
+        repeat: true
+        interval: 3000
+        onTriggered: if (!vpnReader.running) vpnReader.running = true
+    }
+    // "name:type:active:uuid" (nmcli escapes ":" in names as "\:")
+    Process {
+        id: vpnReader
+        running: true
+        command: ["nmcli", "-t", "-f", "NAME,TYPE,ACTIVE,UUID", "connection", "show"]
+        stdout: StdioCollector {
+            onStreamFinished: page.vpns = text.split("\n").map(l => l.replace(/\\:/g, "\u0001").split(":").map(f => f.replace(/\u0001/g, ":")))
+                .filter(f => f.length === 4 && (f[1] === "vpn" || f[1] === "wireguard"))
+                .map(f => ({ name: f[0], active: f[2] === "yes", uuid: f[3] }))
+        }
+    }
+    Process {
+        id: vpnChange
+        stderr: StdioCollector { id: vpnErr }
+        onExited: code => {
+            page.vpnError = code === 0 ? "" : (vpnErr.text.trim().split("\n").pop() || "Nicht geändert");
+            vpnReader.running = true;
+        }
+    }
+    function nm(args) {
+        vpnError = "";
+        vpnChange.command = ["nmcli"].concat(args);
+        vpnChange.running = true;
+    }
+
+    Group {
+        title: "VPN"
+        description: page.vpnError !== "" ? page.vpnError
+            : "Eine VPN-Verbindung leitet deinen Internetverkehr verschlüsselt über einen anderen Server."
+        Repeater {
+            model: page.vpns
+            SettingRow {
+                required property var modelData
+                required property int index
+                first: index === 0
+                glyph: "\u{f0582}"
+                glyphColour: modelData.active ? "#30d158" : "#8e8e93"
+                title: modelData.name
+                subtitle: modelData.active ? "Verbunden" : "Nicht verbunden"
+                Row {
+                    spacing: 8
+                    DialogButton {
+                        anchors.verticalCenter: parent.verticalCenter
+                        implicitWidth: 90
+                        width: implicitWidth
+                        text: "Entfernen …"
+                        onClicked: {
+                            const v = modelData;
+                            Confirm.ask(`„${v.name}“ entfernen?`, "Die Verbindung und ihre Schlüssel werden gelöscht.", "Entfernen",
+                                () => page.nm(["connection", "delete", "uuid", v.uuid]));
+                        }
+                    }
+                    Toggle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        checked: modelData.active
+                        onToggled: on => page.nm(["connection", on ? "up" : "down", "uuid", modelData.uuid])
+                    }
+                }
+            }
+        }
+        SettingRow {
+            first: page.vpns.length === 0
+            title: "WireGuard-Konfiguration importieren"
+            subtitle: "Die .conf-Datei deines VPN-Anbieters, z. B. ~/Downloads/vpn.conf"
+            Row {
+                spacing: 8
+                Field {
+                    id: vpnFile
+                    implicitWidth: 200
+                    placeholder: "~/Downloads/vpn.conf"
+                    onAccepted: vpnImport.clicked()
+                }
+                DialogButton {
+                    id: vpnImport
+                    implicitWidth: 100
+                    width: implicitWidth
+                    text: "Importieren"
+                    onClicked: {
+                        const path = vpnFile.text.trim().replace(/^~(?=\/)/, Quickshell.env("HOME"));
+                        if (path === "")
+                            return;
+                        if (/\.ovpn$/i.test(path)) {
+                            page.vpnError = "OpenVPN braucht das Paket networkmanager-openvpn (App Store).";
+                            return;
+                        }
+                        page.nm(["connection", "import", "type", "wireguard", "file", path]);
+                        vpnFile.text = "";
                     }
                 }
             }
