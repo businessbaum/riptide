@@ -60,7 +60,7 @@ Item {
         anchorItem: root
         keepOpenFor: root.barWindow ? [root.barWindow] : []
         implicitWidth: 300
-        implicitHeight: list.implicitHeight + 24
+        panelHeight: list.implicitHeight + 24
 
         Column {
             id: list

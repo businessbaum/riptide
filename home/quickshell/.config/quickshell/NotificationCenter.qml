@@ -7,7 +7,6 @@ import Quickshell.Hyprland
 MenuBarPopup {
     id: root
 
-    readonly property int screenHeight: anchorItem?.QsWindow.window?.screen?.height ?? 1440
 
     // One app's notifications lie on top of each other, the newest in front, like on a
     // Mac: a click on the stack opens it, "Weniger" closes it again.
@@ -42,7 +41,7 @@ MenuBarPopup {
     }
 
     implicitWidth: 380
-    implicitHeight: Math.min(screenHeight - 140, header.height + list.contentHeight + 24)
+    panelHeight: Math.min(screenHeight - 140, header.height + list.contentHeight + 24)
 
     Item {
         id: header

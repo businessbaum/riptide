@@ -56,7 +56,7 @@ MenuBarPopup {
     }
 
     implicitWidth: 340
-    implicitHeight: content.implicitHeight + 28
+    panelHeight: content.implicitHeight + 28
 
     component Heading: Text {
         font.family: Config.fontSans

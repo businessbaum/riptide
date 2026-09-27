@@ -28,6 +28,8 @@ end
 
 -- Mission Control: a click on one window brings exactly that one to the front
 function macos.focus_window(address)
+    -- (the shell may give it with or without 0x)
+    if not address:match("^0x") then address = "0x" .. address end
     local w = hl.get_window("address:" .. address)
     if w and w.mapped then bring_to_front(w) end
     return hl.dsp.no_op()

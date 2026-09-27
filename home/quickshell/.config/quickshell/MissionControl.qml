@@ -299,6 +299,12 @@ Scope {
                             live: false
                             captureSource: tile.modelData.toplevel.wayland ?? null
                             Component.onCompleted: captureFrame()
+                            // sharp when small: drawn at the window's own size, then scaled
+                            // down with mipmaps (plain scaling made the text grainy)
+                            layer.enabled: true
+                            layer.smooth: true
+                            layer.mipmap: true
+                            layer.textureSize: Qt.size(tile.w0, tile.h0)
                         }
                         AppIcon {
                             visible: !picture.hasContent

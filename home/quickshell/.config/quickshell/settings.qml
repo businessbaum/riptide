@@ -83,7 +83,20 @@ FloatingWindow {
             Layout.preferredWidth: 230
             color: Config.sidebarBg
 
+            // (scrolls when the window is lower than the list of pages)
+            Flickable {
+                id: sidebar
+                anchors.fill: parent
+                contentHeight: pageList.implicitHeight + 28
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+
+                FastScroll {
+                    view: sidebar
+                }
+
             Column {
+                id: pageList
                 x: 10
                 y: 14
                 width: parent.width - 20
@@ -140,6 +153,7 @@ FloatingWindow {
                         }
                     }
                 }
+            }
             }
         }
 

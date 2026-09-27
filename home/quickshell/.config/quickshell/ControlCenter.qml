@@ -23,7 +23,7 @@ MenuBarPopup {
     readonly property var btConnected: adapter?.devices.values.filter(d => d.connected) ?? []
 
     implicitWidth: 330
-    implicitHeight: content.implicitHeight + 24
+    panelHeight: content.implicitHeight + 24
 
     PwObjectTracker {
         objects: [root.sink]
@@ -138,6 +138,10 @@ MenuBarPopup {
             readonly property var current: modes.find(m => m.profile === PowerProfiles.profile) ?? modes[1]
             width: parent.width
             height: 51 + (unfolded ? modesRow.height + 10 : 0)
+            clip: true
+            Behavior on height {
+                NumberAnimation { duration: Config.reduceMotion ? 0 : 220; easing.type: Easing.OutCubic }
+            }
 
             Row {
                 width: parent.width
@@ -225,8 +229,9 @@ MenuBarPopup {
             radius: Config.radiusTile
             color: Config.tile
             border.color: Config.border
+            clip: true
             Behavior on height {
-                NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: Config.reduceMotion ? 0 : 220; easing.type: Easing.OutCubic }
             }
 
             // "BenQ EX2710Q", with left/right when two look alike
@@ -285,10 +290,12 @@ MenuBarPopup {
                     value: Brightness.average
                     onMoved: v => Brightness.setAll(v)
                 }
+                // (by count: a list as model would rebuild the sliders on every value while dragging)
                 Repeater {
-                    model: screensBox.unfolded ? Brightness.displays : []
+                    model: screensBox.unfolded ? Brightness.displays.length : 0
                     Column {
-                        required property var modelData
+                        required property int index
+                        readonly property var modelData: Brightness.displays[index] ?? ({})
                         width: screensColumn.width
                         spacing: 4
                         Text {
@@ -320,8 +327,10 @@ MenuBarPopup {
                     width: parent.width
                     icon: "\u{f0594}" // moon and stars
                     title: "Night Shift"
+                    // (switched on by hand before the schedule starts: the schedule then keeps it on)
                     status: NightShift.active
-                        ? (NightShift.override?.on ? "An bis " + Qt.formatTime(new Date(NightShift.override.until), "H:mm") + " Uhr"
+                        ? (NightShift.override?.on && !NightShift.schedule
+                            ? "An bis " + Qt.formatTime(new Date(NightShift.override.until), "H:mm") + " Uhr"
                             : "An bis " + Math.floor(NightShift.to) + " Uhr")
                         : NightShift.schedule ? "Ab " + Math.floor(NightShift.from) + " Uhr" : "Aus"
                     on: NightShift.active
