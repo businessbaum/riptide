@@ -51,6 +51,9 @@ Singleton {
     readonly property color menubar: glassy(col(tokens.menubar, "#6b18181c"), 0.82)
     readonly property color border: highContrast ? (dark ? "#80ffffff" : "#80000000") : col(tokens.border, "#24ffffff")
     readonly property color tile: col(tokens.tile, "#14ffffff")
+    // a tile on the menu glass, but solid: cards that must not let what lies behind them
+    // shine through (the notification centre, its stacks)
+    readonly property color tileSolid: Qt.tint(Qt.rgba(glassMenu.r, glassMenu.g, glassMenu.b, 1), tile)
     readonly property color hover: col(tokens.hover, "#1fffffff")
     readonly property color text: col(tokens.text, "#ffffff")
     readonly property color textSecondary: highContrast ? (dark ? "#d9ffffff" : "#d9000000") : col(tokens.text_secondary, "#99ffffff")

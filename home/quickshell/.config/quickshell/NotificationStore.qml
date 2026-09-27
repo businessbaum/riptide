@@ -166,8 +166,11 @@ Singleton {
         NotificationSounds.play(asked && NotificationSounds.list.some(s => s.value === asked) ? asked : (dndSettings.sound ?? "message"));
     }
 
+    // The app's name: what it sent, else the name of its start entry (Discord sends none).
+    // History entries keep the name found when they came (`name`); older ones find it by
+    // their app key.
     function nameOf(n) {
-        return n ? n.appName || senders[entryOf(n)?.id ?? ""]?.name || "" : "";
+        return n ? n.name || n.appName || senders[entryOf(n)?.id ?? ""]?.name || senders[n.app ?? ""]?.name || "" : "";
     }
 
     // [{ key, appName, summary, body, appIcon, image, urgency, time, live }] newest first;
@@ -185,12 +188,14 @@ Singleton {
     function add(n, app) {
         const entry = {
             key: `${Date.now()}-${counter++}`, id: n.id, app: app ?? "",
-            appName: n.appName, summary: n.summary, body: n.body,
+            appName: n.appName, name: nameOf(n), summary: n.summary, body: n.body,
             appIcon: n.appIcon, image: n.image.startsWith("/") || n.image.startsWith("file:") ? n.image : "",
             urgency: n.urgency, time: Date.now(), live: n
         };
         // closed by the app or expired: the entry stays, only the link to the app goes
         n.closed.connect(() => entry.live = null);
+        if (n.image && !n.image.startsWith("/") && !n.image.startsWith("file:"))
+            pendingImages = pendingImages.concat([{ key: entry.key, url: n.image }]);
         history = [entry].concat(history).slice(0, 50);
         save();
         return entry;
@@ -238,9 +243,32 @@ Singleton {
 
     function save() {
         storage.setText(JSON.stringify(history.map(h => ({
-            key: h.key, id: h.id, app: h.app, appName: h.appName, summary: h.summary, body: h.body,
+            key: h.key, id: h.id, app: h.app, appName: h.appName, name: h.name, summary: h.summary, body: h.body,
             appIcon: h.appIcon, image: h.image, urgency: h.urgency, time: h.time
         }))));
+        // pictures of notifications that are gone
+        Quickshell.execDetached(["sh", "-c", 'cd "$1" 2>/dev/null || exit 0; shift; for f in *.png; do '
+            + 'case " $* " in *" ${f%.png} "*) ;; *) rm -f -- "$f" ;; esac; done', "sh", imageDir, ...history.map(h => h.key)]);
+    }
+
+    // The picture a notification brings (a profile picture – Discord sends it as image
+    // data, which is gone with the notification) is kept as a file, so the notification
+    // centre still has it later: waiting here until the menu bar has drawn it once, out of
+    // sight (MenuBar.qml), and saved it – also when no banner shows ("Nicht stören")
+    readonly property string imageDir: Quickshell.env("HOME") + "/.local/state/macos/notification-images"
+    Component.onCompleted: Quickshell.execDetached(["mkdir", "-p", imageDir])
+    property var pendingImages: [] // [{ key, url }]
+    function imagePath(key) {
+        return `${imageDir}/${key}.png`;
+    }
+    function imageKept(key, ok) {
+        pendingImages = pendingImages.filter(p => p.key !== key);
+        const entry = history.find(h => h.key === key);
+        if (!ok || !entry)
+            return;
+        entry.image = "file://" + imagePath(key);
+        history = history.slice();
+        save();
     }
 
     FileView {

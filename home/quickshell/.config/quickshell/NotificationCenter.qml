@@ -156,7 +156,8 @@ MenuBarPopup {
                 }
             }
 
-            // the cards behind the front one of a stack
+            // the cards behind the front one of a stack: solid, one behind the other, each
+            // a little smaller and darker – like a deck, nothing shines through
             Repeater {
                 model: slot.stack > 0 ? (slot.stack > 1 ? 2 : 1) : 0
                 Rectangle {
@@ -166,8 +167,8 @@ MenuBarPopup {
                     width: slot.width - 8 - 20 * (index + 1)
                     height: 20
                     radius: 12
-                    color: Config.tile
-                    opacity: 0.8 - 0.25 * index
+                    color: Qt.tint(Config.tileSolid, Qt.rgba(0, 0, 0, 0.14 * (index + 1)))
+                    border.color: Config.border
                     z: -1 - index
                 }
             }
@@ -180,7 +181,7 @@ MenuBarPopup {
                 width: parent.width - 8
                 n: slot.modelData.n
                 stack: slot.stack
-                color: Config.tile
+                color: Config.tileSolid
                 onOpenStack: root.setExpanded(slot.modelData.key, true)
             }
         }

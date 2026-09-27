@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Services.Pipewire
 import Quickshell.Services.SystemTray
 import Quickshell.Wayland
+import Quickshell.Widgets
 
 // The menu bar at the top of every screen:
 //   left:  Apple menu, the active app's menu (its name)
@@ -71,6 +72,25 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: Config.menubar
+    }
+
+    // Pictures of new notifications (image data), drawn once out of sight and kept as a
+    // file for the notification centre (NotificationStore.pendingImages) – on one screen
+    Repeater {
+        model: bar.screen === Quickshell.screens[0] ? NotificationStore.pendingImages : []
+        IconImage {
+            id: keep
+            required property var modelData
+            x: -200 // (a grab needs the item in a window, not on screen)
+            implicitSize: 72
+            source: modelData.url
+            onStatusChanged: {
+                if (status === Image.Ready)
+                    keep.grabToImage(result => NotificationStore.imageKept(keep.modelData.key, result.saveToFile(NotificationStore.imagePath(keep.modelData.key))));
+                else if (status === Image.Error)
+                    NotificationStore.imageKept(modelData.key, false);
+            }
+        }
     }
 
     Row {

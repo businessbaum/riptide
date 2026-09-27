@@ -32,8 +32,9 @@ Banner {
     readonly property string picture: {
         if (!n)
             return "";
-        if (n.image)
-            return n.image;
+        const image = n.image || (n.live?.image ?? "");
+        if (image)
+            return image;
         if (n.appIcon?.startsWith("/"))
             return "file://" + n.appIcon;
         return "";
