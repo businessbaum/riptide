@@ -1,0 +1,29 @@
+/* Window buttons of Gecko apps (Thunderbird, Zen): the traffic lights of the other
+   windows, colours from theme.json (--rt-light-* tokens, written by desktop-theme). */
+
+.titlebar-buttonbox {
+  --titlebar-button-size: var(--rt-light-size) !important;
+  --titlebar-button-spacing: calc(var(--rt-light-spacing) / 2) !important;
+  --titlebar-button-end-spacing: calc(var(--rt-light-spacing) / 2) !important;
+  padding-inline: 8px !important;
+}
+.titlebar-button > .toolbarbutton-icon {
+  appearance: none !important;
+  background-size: 10px !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12) !important;
+  transition: none !important;
+}
+.titlebar-close > .toolbarbutton-icon { background-color: var(--rt-light-close) !important; stroke: var(--rt-light-close-glyph) !important; }
+.titlebar-min > .toolbarbutton-icon { background-color: var(--rt-light-minimize) !important; stroke: var(--rt-light-minimize-glyph) !important; }
+:is(.titlebar-max, .titlebar-restore) > .toolbarbutton-icon { background-color: var(--rt-light-zoom) !important; stroke: var(--rt-light-zoom-glyph) !important; }
+/* the symbols show while the pointer is over the three, like on a Mac */
+.titlebar-buttonbox:hover .titlebar-close > .toolbarbutton-icon { background-image: -moz-symbolic-icon(window-close-symbolic) !important; }
+.titlebar-buttonbox:hover .titlebar-min > .toolbarbutton-icon { background-image: -moz-symbolic-icon(window-minimize-symbolic) !important; }
+.titlebar-buttonbox:hover .titlebar-max > .toolbarbutton-icon { background-image: -moz-symbolic-icon(window-maximize-symbolic) !important; }
+.titlebar-buttonbox:hover .titlebar-restore > .toolbarbutton-icon { background-image: -moz-symbolic-icon(window-restore-symbolic) !important; }
+.titlebar-button:hover:active > .toolbarbutton-icon { filter: brightness(0.85) !important; }
+/* a window in the background: grey, like on a Mac */
+.titlebar-button:-moz-window-inactive > .toolbarbutton-icon {
+  background-color: color-mix(in srgb, currentColor 18%, transparent) !important;
+}
