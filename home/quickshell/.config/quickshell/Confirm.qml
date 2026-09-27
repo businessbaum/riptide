@@ -41,9 +41,11 @@ Singleton {
 
     function answer(ok) {
         const question = current;
+        // read before the queue moves on: the next question resets the checkbox
+        const checked = optionChecked;
         queue = queue.slice(1);
         if (ok)
-            question?.action?.(optionChecked);
+            question?.action?.(checked);
         else
             question?.cancelled?.();
     }
