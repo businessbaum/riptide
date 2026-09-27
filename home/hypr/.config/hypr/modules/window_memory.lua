@@ -4,8 +4,8 @@
 -- size, and whether it was zoomed or snapped to an edge (then also the size the green
 -- button brings back). The next time the app opens a window while it has no other window
 -- open, that window gets the frame back – on the screen the pointer is on, where you
--- clicked the app in the dock – zoomed again if it was. Dialogs next to a main window are
--- left alone.
+-- clicked the app in the dock – zoomed again if it was, in full screen again if it was
+-- closed in full screen. Dialogs next to a main window are left alone.
 --
 -- Stored per app (window class; some windows of an app on their own: "class#kind") in
 -- ~/.local/state/macos/window-frames.tsv, one line per app: class, x, y (from the screen's
@@ -63,10 +63,13 @@ local function others(w)
     return n
 end
 
+-- fullscreen is a number (0 = not fullscreen); in Lua even 0 counts as true
+local function is_fullscreen(w)
+    return w and (w.fullscreen == true or (tonumber(w.fullscreen) or 0) ~= 0)
+end
+
 local function remembers(w)
-    -- fullscreen is a number (0 = not fullscreen); in Lua even 0 counts as true
-    local fullscreen = w and (w.fullscreen == true or (tonumber(w.fullscreen) or 0) ~= 0)
-    return w and w.class and w.class ~= "" and w.floating and not fullscreen
+    return w and w.class and w.class ~= "" and (w.floating or is_fullscreen(w))
 end
 
 
@@ -131,6 +134,17 @@ hl.on("window.close", function(w)
     if not remembers(w) or others(w) > 0 then return end
     local m = monitor_at(w.at.x + w.size.x / 2, w.at.y + w.size.y / 2) or w.monitor
     if not m then return end
+    if is_fullscreen(w) then
+        -- closed in full screen: it comes back in full screen; its window size stays the
+        -- one from before (what leaving full screen goes back to)
+        local before = frames[key(w)]
+        local old = before and (before.kind and before.old or before)
+        local r = { x = 0, y = 0, w = m.width, h = m.height, kind = "fullscreen" }
+        if old and old.w then r.old = { x = old.x, y = old.y, w = old.w, h = old.h } end
+        frames[key(w)] = r
+        save()
+        return
+    end
     local r = { x = w.at.x - m.x, y = w.at.y - m.y, w = w.size.x, h = w.size.y }
     local kind, old = snapping.snapped(w)
     if kind then
@@ -159,6 +173,10 @@ hl.on("window.open", function(w)
         if old then
             hl.dispatch(hl.dsp.window.resize({ window = w, x = old.w, y = old.h }))
             hl.dispatch(hl.dsp.window.move({ window = w, x = old.x, y = old.y }))
+        end
+        if r.kind == "fullscreen" then
+            hl.dispatch(hl.dsp.window.fullscreen({ window = w, mode = "fullscreen", action = "set" }))
+            return
         end
         snapping.snap(hl.get_window("address:" .. w.address) or w, r.kind, old)
         return
