@@ -118,22 +118,33 @@ local function place(w, r)
     hl.dispatch(hl.dsp.window.move({ window = w, x = r.x, y = r.y }))
 end
 
+-- Tell the app whether it is zoomed ("maximized" in Wayland's words) – Hyprland itself
+-- changes nothing. Apps with their own title bar (Discord, Finder) switch their own green
+-- button by it; without it they asked to be maximized on every click and never came back.
+local function tell_app(w, zoomed)
+    if not w or w.fullscreen ~= 0 then return end
+    hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 0, client = zoomed and 1 or 0 }))
+end
+
 -- `old`: the size to come back to, when it is not the window's current one (a window
 -- that reopens zoomed, window_memory.lua)
+local snap_old -- (defined below: fills_screen, default_frame)
 local function snap(w, kind, old)
     if not before[w.address] then
-        before[w.address] = old or { x = w.at.x, y = w.at.y, w = w.size.x, h = w.size.y }
+        before[w.address] = old or snap_old(w)
     end
     before[w.address].kind = kind
     save_before()
     local m = w.monitor or hl.get_monitor_at_cursor()
     place(w, target(kind, usable_area(m), titlebar(w)))
+    tell_app(w, kind == "full")
 end
 
 local function unsnap(w)
     local old = before[w.address]
     before[w.address] = nil
     save_before()
+    tell_app(w, false)
     return old
 end
 
@@ -158,6 +169,13 @@ local function default_frame(w)
     local a, bar = usable_area(m), titlebar(w)
     local width, height = math.floor(a.w * 0.7), math.floor((a.h - bar) * 0.75)
     return { x = a.x + math.floor((a.w - width) / 2), y = a.y + bar + math.floor((a.h - bar - height) / 2), w = width, h = height }
+end
+
+-- The size to come back to when a window is snapped: its current one – unless it fills
+-- the screen already (then coming back would change nothing)
+snap_old = function(w)
+    if fills_screen(w) then return default_frame(w) end
+    return { x = w.at.x, y = w.at.y, w = w.size.x, h = w.size.y }
 end
 
 -- A window may not go under the menu bar
@@ -236,6 +254,7 @@ function macos.zoom(reason)
         place(w, old)
     elseif fills_screen(w) then
         place(w, default_frame(w)) -- filled the screen already (by itself): a smaller size
+        tell_app(w, false)
     else
         snap(w, "full")
     end
@@ -254,6 +273,8 @@ function macos.maximize_request(address, on)
     elseif not on and zoomed then
         local old = unsnap(w)
         if old then place(w, old) end
+    else
+        tell_app(w, zoomed) -- asked for what it is already: it just did not know
     end
     return hl.dsp.no_op()
 end
@@ -322,6 +343,7 @@ local function fit_on_screen(address)
         before[address] = default_frame(w)
         before[address].kind = "full"
         save_before()
+        tell_app(w, true)
         return
     end
     local m = w.monitor or hl.get_monitor_at_cursor()
