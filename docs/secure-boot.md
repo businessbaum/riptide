@@ -23,6 +23,14 @@ Forgetting this makes Limine refuse to boot. Recovery: firmware boot menu ->
 Windows Boot Manager or Arch ISO, or disable Secure Boot temporarily
 (`hash_mismatch_panic` is only forced with Secure Boot on).
 
+## Notfallmodus
+
+The boot menu (hidden: `quiet`, 1 s – hold the space bar at power-on) has an entry
+"Notfallmodus (Textanmeldung)": up to the text login only, no graphics. Before Secure Boot it
+is a copy of the LTS kernel entry (system/setup-os.sh → system/limine-edit.py); stage 1 builds
+its own UKI (linux-lts.preset "recovery", /etc/kernel/cmdline-recovery), stage 2 signs it,
+stage 4 points the entry to it.
+
 ## Setup stages
 
 Run in order with sudo from `system/secure-boot/`: `1-uki.sh`, reboot,

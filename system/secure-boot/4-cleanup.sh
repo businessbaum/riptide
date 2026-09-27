@@ -17,6 +17,9 @@ awk '
     END { flush() }
 ' "$CONF" | sed 's|^/Arch Linux (UKI)$|/Arch Linux|; s|^/Arch Linux LTS (UKI)$|/Arch Linux LTS|' > "$CONF.new"
 mv "$CONF.new" "$CONF"
+# the Notfallmodus was a kernel + initramfs copy (dropped above): now its signed image
+python3 "$(dirname "$0")/../limine-edit.py" "$CONF" "$CONF.new" uki
+mv "$CONF.new" "$CONF"
 cat "$CONF"
 
 step "Alte Initramfs-Dateien löschen"

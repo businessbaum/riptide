@@ -6,6 +6,9 @@ source "$(dirname "$0")/lib.sh"
 
 step "Kernel-Befehlszeile und mkinitcpio-Presets installieren"
 put 644 /etc/kernel/cmdline
+# the Notfallmodus (linux-lts.preset "recovery"): up to the text login only (as setup-os.sh)
+{ sed -E 's/(^| )quiet( |$)/ /g; s/  +/ /g; s/^ //; s/ $//' /etc/kernel/cmdline | tr -d '\n'
+  printf ' systemd.unit=multi-user.target\n'; } > /etc/kernel/cmdline-recovery
 put 644 /etc/mkinitcpio.d/linux.preset
 put 644 /etc/mkinitcpio.d/linux-lts.preset
 

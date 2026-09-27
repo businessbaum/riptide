@@ -133,48 +133,47 @@ systemctl enable greetd.service
 echo "  ab dem nächsten Start"
 
 step "Start ohne Wartezeit und Notfallmodus (Limine)"
-# The Notfallmodus: the LTS kernel as its own signed image, up to the text login only
-# (multi-user.target: no greetd, no graphics). Its command line follows /etc/kernel/cmdline.
-recovery_cmdline="$(sed -E 's/(^| )quiet( |$)/ /g; s/  +/ /g; s/^ //; s/ $//' /etc/kernel/cmdline | tr -d '\n') systemd.unit=multi-user.target"
-if [[ -f /boot/EFI/Linux/arch-linux-recovery.efi ]] \
-    && [[ "$(cat /etc/kernel/cmdline-recovery 2>/dev/null)" == "$recovery_cmdline" ]] \
-    && cmp -s system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset; then
-    echo "  Notfall-Image aktuell"
+conf=/boot/limine.conf
+if [[ -f /etc/kernel/cmdline ]] && command -v sbctl >/dev/null && [[ -x /usr/local/sbin/limine-seal ]]; then
+    # Secure Boot set up (unified kernel images, docs/secure-boot.md): the Notfallmodus is
+    # the LTS kernel as its own signed image, up to the text login only (multi-user.target:
+    # no greetd, no graphics). Its command line follows /etc/kernel/cmdline.
+    mode=uki
+    recovery_cmdline="$(sed -E 's/(^| )quiet( |$)/ /g; s/  +/ /g; s/^ //; s/ $//' /etc/kernel/cmdline | tr -d '\n') systemd.unit=multi-user.target"
+    if [[ -f /boot/EFI/Linux/arch-linux-recovery.efi ]] \
+        && [[ "$(cat /etc/kernel/cmdline-recovery 2>/dev/null)" == "$recovery_cmdline" ]] \
+        && cmp -s system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset; then
+        echo "  Notfall-Image aktuell"
+    else
+        printf '%s\n' "$recovery_cmdline" > /etc/kernel/cmdline-recovery
+        install -D -o root -g root -m 644 system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset
+        mkinitcpio -p linux-lts
+        sbctl sign -s /boot/EFI/Linux/arch-linux-recovery.efi >/dev/null # signed now and after every update
+    fi
 else
-    printf '%s\n' "$recovery_cmdline" > /etc/kernel/cmdline-recovery
-    install -D -o root -g root -m 644 system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset
-    mkinitcpio -p linux-lts
-    sbctl sign -s /boot/EFI/Linux/arch-linux-recovery.efi >/dev/null # signed now and after every update
+    # before Secure Boot: kernel + initramfs entries; the Notfallmodus is a copy of the LTS
+    # entry with its own command line (after the Secure Boot stages run this again)
+    mode=linux
 fi
 
-conf=/boot/limine.conf
 backup="$conf.bak-$(date +%Y%m%d-%H%M%S)"
 cp "$conf" "$backup"
-# global options (before the first entry): no waiting, no menu – a key during that second
-# shows it (Limine's quiet mode)
-awk '
-    BEGIN { global = 1 }
-    global && /^\// { if (!t) print "timeout: 1"; if (!q) print "quiet: yes"; global = 0 }
-    global && /^[ \t]*timeout:/ { print "timeout: 1"; t = 1; next }
-    global && /^[ \t]*quiet:/ { print "quiet: yes"; q = 1; next }
-    { print }
-' "$backup" > "$conf.new"
-if ! grep -q '^/Notfallmodus' "$conf.new"; then
-    printf '\n/Notfallmodus (Textanmeldung)\n    protocol: efi\n    path: boot():/EFI/Linux/arch-linux-recovery.efi\n' >> "$conf.new"
-fi
+python3 system/limine-edit.py "$backup" "$conf.new" "$mode"
 mv "$conf.new" "$conf"
 if cmp -s "$conf" "$backup"; then
     rm -f "$backup"
     echo "  limine.conf unverändert"
-elif ! /usr/local/sbin/limine-seal; then
-    # never leave a changed, unsealed config: Limine would refuse to start
-    cp "$backup" "$conf"
-    /usr/local/sbin/limine-seal
-    echo "  Fehler beim Versiegeln – alte limine.conf wiederhergestellt" >&2
-    exit 1
+else
+    if [[ "$mode" == uki ]] && ! /usr/local/sbin/limine-seal; then
+        # never leave a changed, unsealed config: Limine would refuse to start
+        cp "$backup" "$conf"
+        /usr/local/sbin/limine-seal
+        echo "  Fehler beim Versiegeln – alte limine.conf wiederhergestellt" >&2
+        exit 1
+    fi
+    echo "  neue limine.conf (Sicherung: $backup):"
+    sed 's/^/    /' "$conf"
 fi
-echo "  neue limine.conf (Sicherung: $backup):"
-sed 's/^/    /' "$conf"
 
 echo
 echo "Fertig. Neu starten: der Anmeldebildschirm kommt beim nächsten Start."

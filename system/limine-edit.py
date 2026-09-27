@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+"""Start without waiting, and the Notfallmodus entry – for system/setup-os.sh.
+
+    limine-edit.py <limine.conf> <output> uki|linux
+
+Global options: timeout 1 s and quiet (the menu stays hidden; a key during that second
+shows it). Adds "/Notfallmodus (Textanmeldung)" once:
+  uki    (Secure Boot set up): chainloads /EFI/Linux/arch-linux-recovery.efi, the LTS
+         kernel image with its own command line
+  linux  (kernel + initramfs, before Secure Boot): a copy of the LTS entry (else the first
+         Linux entry) whose command line ends at the text login: systemd.unit=multi-user.target,
+         without "quiet"
+Prints what it did; writes <output> in any case."""
+import re
+import sys
+
+TITLE = "/Notfallmodus (Textanmeldung)"
+
+
+def set_option(lines, key, value):
+    for i, line in enumerate(lines):
+        if re.match(rf"\s*{key}\s*:", line):
+            lines[i] = f"{key}: {value}"
+            return
+    lines.append(f"{key}: {value}")
+
+
+def main():
+    path, out, mode = sys.argv[1:4]
+    lines = open(path, encoding="utf-8").read().split("\n")
+    first = next((i for i, l in enumerate(lines) if re.match(r"^/[^/]", l)), len(lines))
+    head, blocks = lines[:first], []
+    for line in lines[first:]:
+        if re.match(r"^/[^/]", line):
+            blocks.append([line])
+        else:
+            blocks[-1].append(line)
+
+    while head and head[-1].strip() == "":
+        head.pop()
+    set_option(head, "timeout", "1")
+    set_option(head, "quiet", "yes")
+    head.append("")
+
+    if any(b[0].startswith("/Notfallmodus") for b in blocks):
+        print("  Notfallmodus: schon vorhanden")
+    elif mode == "uki":
+        blocks.append([TITLE, "    protocol: efi", "    path: boot():/EFI/Linux/arch-linux-recovery.efi", ""])
+        print("  Notfallmodus: eigenes Kernel-Image (LTS)")
+    else:
+        linux = [b for b in blocks if any(re.match(r"\s*protocol:\s*linux\s*$", l) for l in b)]
+        pick = next((b for b in linux if any("vmlinuz-linux-lts" in l for l in b)), linux[0] if linux else None)
+        if pick is None:
+            print("  Notfallmodus: kein Linux-Eintrag gefunden – nicht angelegt")
+        else:
+            copy = [TITLE]
+            for line in pick[1:]:
+                if re.match(r"^//", line):
+                    break  # sub-entries stay with the original
+                m = re.match(r"(\s*(?:kernel_)?cmdline\s*:\s*)(.*)$", line)
+                if m:
+                    args = [a for a in m.group(2).split() if a != "quiet" and not a.startswith("systemd.unit=")]
+                    line = m.group(1) + " ".join(args + ["systemd.unit=multi-user.target"])
+                copy.append(line)
+            while copy[-1].strip() == "":
+                copy.pop()
+            blocks.append(copy + [""])
+            print(f"  Notfallmodus: Kopie von „{pick[0][1:]}“ bis zur Textanmeldung")
+
+    for b in blocks[:-1]:
+        if b[-1].strip() != "":
+            b.append("")
+    text = "\n".join(head + [l for b in blocks for l in b]).rstrip("\n") + "\n"
+    open(out, "w", encoding="utf-8").write(text)
+
+
+main()

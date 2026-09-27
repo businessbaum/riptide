@@ -30,6 +30,7 @@ put 644 /etc/pacman.d/hooks/limine-deploy.hook
 step "UKIs signieren"
 sbctl sign -s /boot/EFI/Linux/arch-linux.efi
 sbctl sign -s /boot/EFI/Linux/arch-linux-lts.efi
+sbctl sign -s /boot/EFI/Linux/arch-linux-recovery.efi
 
 step "Limine: Config-Prüfsumme einbauen und signieren"
 /usr/local/sbin/limine-seal
