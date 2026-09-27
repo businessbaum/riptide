@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 
 // The frame of everything that pops up at the top right (Banners.qml), also used for the
 // cards in the notification centre: glass surface, slides in, hides itself after
@@ -84,12 +85,21 @@ Glass {
         height: 20
         radius: 10
 
-        Text {
-            anchors.centerIn: parent
-            text: ""
-            font.family: Config.fontSymbols
-            font.pixelSize: 10
-            color: Config.text
+        // the × drawn, not a font glyph (the glyph had got lost: an empty round button)
+        Shape {
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                strokeColor: closeMouse.containsMouse ? Config.text : Config.textSecondary
+                strokeWidth: 1.6
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                startX: 6.5
+                startY: 6.5
+                PathLine { x: 13.5; y: 13.5 }
+                PathMove { x: 13.5; y: 6.5 }
+                PathLine { x: 6.5; y: 13.5 }
+            }
         }
         MouseArea {
             id: closeMouse
