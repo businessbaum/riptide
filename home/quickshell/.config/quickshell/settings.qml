@@ -20,8 +20,8 @@ FloatingWindow {
     // Part of a page, e.g. "microphone" of "privacy/microphone" (pages with `selected`)
     property string subpage: ""
 
-    // key, title, icon (Symbols Nerd Font), scale (Material symbols are drawn smaller than
-    // Font Awesome ones), tile colour; null = separator like on a Mac
+    // key, title, icon (Symbols Nerd Font; GlyphTile brings them to one size), tile colour;
+    // null = separator like on a Mac
     readonly property var pages: [
         { key: "network", title: "WLAN & Netzwerk", icon: "", colour: "#0a84ff" },
         { key: "bluetooth", title: "Bluetooth", icon: "", colour: "#0a84ff" },
@@ -30,8 +30,8 @@ FloatingWindow {
         { key: "privacy", title: "Datenschutz & Sicherheit", icon: "\u{f099d}", colour: "#0a84ff" },
         null,
         { key: "general", title: "Allgemein", icon: "", colour: "#8e8e93" },
-        { key: "login", title: "Anmeldeobjekte", icon: "\u{f0342}", scale: 1.3, colour: "#8e8e93" },
-        { key: "apps", title: "Apps", icon: "\u{f0570}", scale: 1.35, colour: "#0a84ff" },
+        { key: "login", title: "Anmeldeobjekte", icon: "\u{f0342}", colour: "#8e8e93" },
+        { key: "apps", title: "Apps", icon: "\u{f0570}", colour: "#0a84ff" },
         { key: "storage", title: "Speicher", icon: "\uf1c0", colour: "#8e8e93" },
         { key: "timemachine", title: "Time Machine", icon: "\u{f02da}", colour: "#30d158" },
         { key: "defaults", title: "Standard-Apps", icon: "\uf0c1", colour: "#30d158" },
@@ -41,7 +41,7 @@ FloatingWindow {
         { key: "displays", title: "Bildschirme", icon: "", colour: "#0a84ff" },
         { key: "energy", title: "Energie", icon: "\u{f06a5}", colour: "#30d158" },
         null,
-        { key: "mouse", title: "Maus", icon: "", colour: "#8e8e93" },
+        { key: "mouse", title: "Maus", icon: "\u{f037d}", colour: "#8e8e93" },
         { key: "keyboard", title: "Tastatur", icon: "", colour: "#8e8e93" },
         { key: "printers", title: "Drucker & Scanner", icon: "\uf02f", colour: "#8e8e93" }
     ]
@@ -132,7 +132,6 @@ FloatingWindow {
                                 x: 6
                                 anchors.verticalCenter: parent.verticalCenter
                                 glyph: entry.modelData?.icon ?? ""
-                                glyphScale: entry.modelData?.scale ?? 1
                                 color: entry.modelData?.colour ?? "transparent"
                             }
                             Text {

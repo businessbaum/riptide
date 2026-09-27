@@ -46,6 +46,9 @@ Item {
     ClippingRectangle {
         anchors.fill: parent
         anchors.margins: root.inset
+        // the icon fills the whole shape, its fine edge lies on top (by default the content
+        // would start inside the border: a pixel to the right and down, and cut off there)
+        contentUnderBorder: true
         radius: root.shape === "circle" ? width / 2 : root.radius
         color: root.shape === "tile" ? "#f4f4f6" : "transparent"
         border.color: root.shape === "tile" ? "#1a000000" : "transparent"
