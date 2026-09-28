@@ -640,7 +640,7 @@ def sync():
             entry = read_entry(source)
             if (entry.get("Type") != "Application" or entry.get("NoDisplay") == "true"
                     or entry.get("Hidden") == "true" or entry.get("Terminal") == "true"
-                    or is_system_app(app, profiles) or "flatpak run" in entry.get("Exec", "")
+                    or is_system_app(app, profiles)
                     or app in wanted or own_entry(OVERRIDES / source.name)):
                 continue
             wanted[app] = source

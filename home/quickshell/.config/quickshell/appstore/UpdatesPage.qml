@@ -67,7 +67,7 @@ Flickable {
         RowLayout {
             Layout.fillWidth: true
             spacing: 12
-            readonly property int total: Catalog.updates.length + Catalog.flatpakUpdates.length
+            readonly property int total: Catalog.updates.length
             Text {
                 Layout.fillWidth: true
                 text: Catalog.checkingUpdates ? "Suche nach Updates …"
@@ -93,8 +93,8 @@ Flickable {
                 implicitWidth: 160
                 width: implicitWidth
                 primary: true
-                text: Catalog.busy?.action === "upgrade" || Catalog.updatingFlatpaks ? "Wird aktualisiert …" : "Alle aktualisieren"
-                onClicked: if (Catalog.busy === null && !Catalog.updatingFlatpaks) Catalog.updateAll()
+                text: Catalog.busy?.action === "upgrade" ? "Wird aktualisiert …" : "Alle aktualisieren"
+                onClicked: if (Catalog.busy === null) Catalog.updateAll()
             }
         }
 
@@ -120,7 +120,7 @@ Flickable {
 
         Rectangle {
             Layout.fillWidth: true
-            visible: Catalog.updates.length + Catalog.flatpakUpdates.length > 0
+            visible: Catalog.updates.length > 0
             implicitHeight: list.implicitHeight
             radius: 10
             color: Config.cardBg
@@ -129,12 +129,8 @@ Flickable {
                 id: list
                 width: parent.width
                 Repeater {
-                    // system packages, then Flatpak apps (name from their start entry)
-                    model: Catalog.updates.concat(Catalog.flatpakUpdates.map(f => ({
-                        pkg: Apps.entryById(f.app)?.name
-                            ?? (f.app.startsWith("org.freedesktop.Platform.GL.") ? "Grafiktreiber für Flatpak-Apps" : f.app),
-                        from: "", to: f.to ? "Flatpak " + f.to : "Flatpak"
-                    })))
+                    // the system packages (apps from release archives update by themselves)
+                    model: Catalog.updates
                     Item {
                         required property var modelData
                         required property int index

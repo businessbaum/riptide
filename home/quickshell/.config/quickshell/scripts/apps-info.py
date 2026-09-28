@@ -33,7 +33,7 @@ PROTECTED = protected_patterns()
 
 # Folders of our own desktop – never offered as "leftovers"
 OWN = {"macos", "hypr", "quickshell", "desktop-theme", "appstore", "uwsm", "systemd", "gtk-3.0", "gtk-4.0",
-       "qt5ct", "qt6ct", "kitty", "flatpak", "applications", "icons", "fonts", "trash", "pulse", "dconf"}
+       "qt5ct", "qt6ct", "kitty", "applications", "icons", "fonts", "trash", "pulse", "dconf"}
 
 UNITS = {"B": 1, "KiB": 1024, "MiB": 1024 ** 2, "GiB": 1024 ** 3}
 
@@ -80,14 +80,17 @@ def apps():
             "protected": bool(PROTECTED.match(pkg)),
         })
 
-    # Flatpak (user installation)
-    for line in run("flatpak", "list", "--user", "--app", "--columns=application").splitlines():
-        app_id = line.strip()
-        if app_id:
+    # Apps from their maker's release archive (archive_apps.py: Zen …)
+    try:
+        archives = json.loads((HOME / ".config/macos/archive-apps.json").read_text())
+    except (OSError, ValueError):
+        archives = {}
+    for app_id, spec in archives.items():
+        folder = HOME / ".local/share/macos/apps" / app_id
+        if not app_id.startswith("_") and (folder / ".riptide-release").is_file():
             result.append({
-                "desktop": app_id + ".desktop", "source": "flatpak", "pkg": app_id,
-                "size": du(HOME / ".local/share/flatpak/app" / app_id),
-                "explicit": True, "requiredBy": [], "protected": False,
+                "desktop": app_id + ".desktop", "source": "archive", "pkg": spec.get("repo", app_id),
+                "size": du(folder), "explicit": True, "requiredBy": [], "protected": False,
             })
 
     # Our own apps (dotfiles)
@@ -113,9 +116,6 @@ def leftovers(desktop_id, pkg, name):
                 continue  # in the home folder itself only hidden folders like ~/.thunderbird
             if candidate in names and entry.is_dir():
                 found.append(entry)
-    flatpak_data = HOME / ".var/app" / base
-    if flatpak_data.is_dir():
-        found.append(flatpak_data)
     own_files = set(run("pacman", "-Qlq", pkg).split()) if pkg and "." not in pkg else set()
 
     def shared(path):

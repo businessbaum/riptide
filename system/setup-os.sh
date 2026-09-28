@@ -4,7 +4,7 @@
 # Safe to run again; every step checks first.
 #   1. packages from packages.txt (official repos): disk health, energy mode, firmware
 #      updates, Night Shift, colour picker, screen recording, Quick Look, phones,
-#      passwords app, disk utility
+#      passwords app, disk utility; Flatpak goes (every app runs in our sandbox)
 #   2. services: disk health watch (smartd), monthly btrfs check (scrub), energy mode,
 #      firmware update check, NVIDIA sleep/wake (keeps the screen content across sleep)
 #   3. monitor brightness over DDC: load the i2c-dev kernel module at every boot
@@ -45,6 +45,14 @@ fi
 # not needed: the wallpaper is drawn by our shell
 if pacman -Q hyprpaper >/dev/null 2>&1; then
     pacman -Rns --noconfirm hyprpaper
+fi
+# Flatpak goes (2026-09-28): every app runs in our sandbox, Zen comes from its release
+# archive (archive-app). Our sandbox is built from two of Flatpak's parts – bubblewrap and
+# xdg-dbus-proxy – which were installed as its dependencies: kept on purpose first, or
+# "pacman -Rns flatpak" would take the D-Bus filter of every app with it.
+pacman -D --asexplicit bubblewrap xdg-dbus-proxy flatpak-xdg-utils >/dev/null
+if pacman -Q flatpak >/dev/null 2>&1; then
+    pacman -Rns --noconfirm flatpak
 fi
 
 step "Dienste"

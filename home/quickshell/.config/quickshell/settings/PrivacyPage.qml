@@ -32,14 +32,11 @@ Page {
     function isSystem(id) {
         return systemPatterns.some(p => new RegExp("^" + p.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$").test(id));
     }
-    function isFlatpak(entry) {
-        return entry.execString.includes("flatpak run");
-    }
     readonly property var visibleApps: DesktopEntries.applications.values
         .filter(e => !e.noDisplay)
         .sort((a, b) => a.name.localeCompare(b.name))
     // Terminal programs (nvtop …) run in the terminal, which is a system app
-    readonly property var apps: visibleApps.filter(e => !isSystem(e.id) && !isFlatpak(e) && !e.runInTerminal)
+    readonly property var apps: visibleApps.filter(e => !isSystem(e.id) && !e.runInTerminal)
     readonly property var systemApps: visibleApps.filter(e => isSystem(e.id) || e.runInTerminal)
 
     // ---------------------------------------------------------------- security

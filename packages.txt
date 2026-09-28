@@ -113,7 +113,6 @@ gnome-calculator
 gnome-text-editor
 file-roller
 baobab
-flatpak
 
 ## Vorschau (preview app): PDFs, audio and video codecs
 python-pymupdf
@@ -156,8 +155,9 @@ cpio
 ## Local packages (built from packages/<name> with makepkg, never from the AUR)
 # claude-desktop   (packages/claude-desktop: Anthropic's signed apt repo)
 
-## Flatpak (user installation from Flathub, see system/setup-desktop.sh)
-# app.zen_browser.zen   (installed 2026-09-24: flatpak install --user flathub app.zen_browser.zen)
+## Apps from their maker's release archive (not packages: archive-app, archive-apps.json)
+# zen   (Zen Browser: the official GitHub release, installed and updated by riptide-session;
+#        Flatpak removed 2026-09-28)
 
 ## AUR (manual, reviewed) -- none yet
 # (none – the macOS-like pointer comes from capitaine-cursors, see desktop-theme)

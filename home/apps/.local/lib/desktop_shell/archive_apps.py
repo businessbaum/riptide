@@ -5,6 +5,7 @@ in our sandbox like every other app. Which apps and how: ~/.config/macos/archive
     archive-app list            the apps with the installed and the newest release (JSON)
     archive-app install <app>   install it, or update it to the newest release
     archive-app update          update every installed app that has a newer release (JSON)
+    archive-app remove <app>    remove it (its personal data stays: System Settings → Apps)
     archive-app clean           remove old versions that no running app uses any more
 
 Where:
@@ -218,6 +219,20 @@ def clean(app=None):
             path.unlink(missing_ok=True)
 
 
+def remove(app):
+    """The program and its start entry; not while it runs (its sandbox uses the files)"""
+    from desktop_shell import sandbox
+
+    spec_of(app)
+    if any(a == app and sandbox.running(folder) for a, _instance, folder in sandbox.instances()):
+        raise ArchiveError("Die App läuft noch – bitte zuerst beenden.")
+    shutil.rmtree(APPS / app, ignore_errors=True)
+    (ENTRIES / f"{app}.desktop").unlink(missing_ok=True)
+    sandbox.sync()  # its sandboxed start entry goes too
+    clean(app)
+    return {"app": app, "removed": True}
+
+
 def main():
     args = sys.argv[1:]
     try:
@@ -235,6 +250,8 @@ def main():
             print(json.dumps(install(args[1], log=lambda m: print(m, file=sys.stderr)), ensure_ascii=False))
         elif args == ["update"]:
             print(json.dumps(update(log=lambda m: print(m, file=sys.stderr)), ensure_ascii=False))
+        elif len(args) == 2 and args[0] == "remove":
+            print(json.dumps(remove(args[1]), ensure_ascii=False))
         elif args == ["clean"]:
             clean()
         else:

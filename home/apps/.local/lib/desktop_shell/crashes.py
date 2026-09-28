@@ -5,7 +5,6 @@ crash (systemd-coredump writes it down), a notification says so, like the macOS 
 Which app it was comes from the systemd scope the crashed process ran in:
     app-sandbox-<app>-<n>.scope     started through our sandbox
     app-<launcher>-<app>-<hex>.scope  started from the dock/Launchpad (uwsm app)
-    app-flatpak-<app>-<n>.scope     a Flatpak
 Only when the whole app is gone (its scope ended): a crashed helper process of an app that
 keeps running (a browser's GPU process) is not worth a notice. The shell itself (qs) and
 anything outside an app scope (Hyprland, services) are left to riptide-report.
@@ -21,10 +20,9 @@ from gi.repository import Gio, GLib
 from desktop_shell import sandbox
 
 COREDUMP = "fc2e22bc6ee647b6b90729ab34a250b1"  # MESSAGE_ID of systemd-coredump's message
-SCOPE = re.compile(r"^app-(?:sandbox-(?P<sandboxed>.+)-\d+|flatpak-(?P<flatpak>.+)-\d+|[^-]+-(?P<launched>.+)-[0-9a-f]{8})\.scope$")
+SCOPE = re.compile(r"^app-(?:sandbox-(?P<sandboxed>.+)-\d+|[^-]+-(?P<launched>.+)-[0-9a-f]{8})\.scope$")
 NOT_APPS = {"qs"}  # the shell: it restarts by itself (riptide-shell.service)
-ICON_BASES = [Path.home() / ".local/share/icons", Path.home() / ".local/share/flatpak/exports/share/icons",
-              Path("/var/lib/flatpak/exports/share/icons"), Path("/usr/share/icons")]
+ICON_BASES = [Path.home() / ".local/share/icons", Path("/usr/share/icons")]
 ICON_SIZES = ["scalable", "512x512", "256x256", "128x128", "96x96", "64x64", "48x48"]
 
 

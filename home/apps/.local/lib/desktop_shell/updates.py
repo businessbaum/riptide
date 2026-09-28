@@ -3,7 +3,6 @@ the macOS Softwareupdate: 5 minutes after login, then every 6 hours, and again a
 packages changed:
 
     system packages   checkupdates (pacman-contrib: a copy of the package lists, no root)
-    Flatpak apps      flatpak remote-ls --updates
     archive apps      apps from their maker's release archive (archive_apps.py, e.g. Zen):
                       a newer release is installed right away, like a browser updates
                       itself; a running app changes at its next start
@@ -73,7 +72,7 @@ class Updates:
         except (OSError, ValueError):
             self.state = {}
         self.state.setdefault("packages", [])
-        self.state.setdefault("flatpaks", [])
+        self.state.pop("flatpaks", None)  # (Flatpak is gone, 2026-09-28)
         self.state.setdefault("told", [])
         self.checking = False
         self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
@@ -92,7 +91,7 @@ class Updates:
         self.monitor.connect("changed", self.on_packages_changed)
 
     def event(self):
-        return {"event": "updates", "count": len(self.state["packages"]) + len(self.state["flatpaks"]),
+        return {"event": "updates", "count": len(self.state["packages"]),
                 "reboot": self.state.get("reboot", False), "relogin": self.state.get("relogin", False)}
 
     def on_packages_changed(self, *_):
@@ -134,15 +133,6 @@ class Updates:
             # "firefox 150.0-1 -> 151.0-1"
             self.state["packages"] = [{"pkg": m[0], "from": m[1], "to": m[2]}
                                       for m in re.findall(r"^(\S+) (\S+) -> (\S+)$", out, re.M)]
-        if run(["which", "flatpak"]):
-            self.spawn(["flatpak", "remote-ls", "--updates", "--columns=application,version"], self.got_flatpaks)
-        else:
-            self.got_flatpaks("")
-
-    def got_flatpaks(self, out):
-        if out is not None:
-            self.state["flatpaks"] = [{"app": line.split("\t")[0], "to": (line.split("\t") + [""])[1]}
-                                      for line in out.splitlines() if line.strip()]
         self.spawn([str(ARCHIVE_APP), "update"], self.got_archive_apps)
 
     def got_archive_apps(self, out):
@@ -176,8 +166,7 @@ class Updates:
 
     def tell(self):
         now = time.time()
-        found = [f"{p['pkg']}@{p['to']}" for p in self.state["packages"]] + \
-                [f"{f['app']}@{f['to']}" for f in self.state["flatpaks"]]
+        found = [f"{p['pkg']}@{p['to']}" for p in self.state["packages"]]
         new = [k for k in found if k not in self.state["told"]]
         if new and now - self.state.get("told_at", 0) >= NOTIFY_AGAIN:
             n = len(found)

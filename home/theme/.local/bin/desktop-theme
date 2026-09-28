@@ -297,7 +297,7 @@ def zen(theme):
     (share/desktop-theme/gecko-traffic-lights.css) in every profile – the Flatpak's and a
     native one; light/dark it follows by itself. Zen reads it when it starts."""
     profiles = []
-    for root in (HOME / ".var/app/app.zen_browser.zen/.zen", HOME / ".zen"):
+    for root in (HOME / ".zen",):
         ini = configparser.ConfigParser(interpolation=None)
         if ini.read(root / "profiles.ini"):
             profiles += [root / s["Path"] if s.get("IsRelative", "1") == "1" else Path(s["Path"])

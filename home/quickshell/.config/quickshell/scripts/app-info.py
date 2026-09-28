@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What the app menu's "Über „App“" shows (AppInfoWindow.qml), as JSON:
 where the app comes from (package, version, size, website) and whether it runs in a
-sandbox. Only reads: the start entry, pacman's database, flatpak.
+sandbox. Only reads: the start entry, pacman's database, archive-apps (release archives).
     app-info.py <desktop id>"""
 import configparser
 import json
@@ -47,7 +47,7 @@ def fields(text):
     for line in text.splitlines():
         key, sep, value = line.partition(":")
         key = key.strip()
-        # "Key: value" (flatpak indents its keys, pacman pads them)
+        # "Key: value" (pacman pads its keys)
         if sep and key and (" " not in key or key == "Installed Size"):
             out[key] = value.strip().replace("\u00a0", " ")
     return out
@@ -67,12 +67,20 @@ def main():
         info["sandbox"] = "riptide"
         source = Path(entry.get("X-Sandbox-Source", path))
 
-    if "flatpak" in str(path.resolve()) or "flatpak run" in entry.get("Exec", ""):
-        info.update(source="flatpak", sandbox="flatpak", package=app)
-        f = fields(run("flatpak", "info", app))
-        info["version"] = f.get("Version", "")
-        info["size"] = f.get("Installed Size", "")
-        info["url"] = "https://flathub.org/apps/" + app
+    release = Path.home() / ".local/share/macos/apps" / app / ".riptide-release"
+    if release.is_file():
+        # from the maker's release archive (archive_apps.py)
+        try:
+            tag = json.loads(release.read_text()).get("tag", "")
+        except ValueError:
+            tag = ""
+        spec = {}
+        try:
+            spec = json.loads((Path.home() / ".config/macos/archive-apps.json").read_text()).get(app, {})
+        except (OSError, ValueError):
+            pass
+        info.update(source="archive", package=spec.get("repo", app), version=tag,
+                    url=f"https://github.com/{spec['repo']}" if spec.get("repo") else "")
     elif path.is_symlink() and "dotfiles" in str(path.resolve()):
         info["source"] = "riptide"  # our own apps (System Settings, App Store …)
     else:

@@ -25,8 +25,7 @@ from pathlib import Path
 HOME = Path.home()
 USER = HOME / ".config/autostart"
 SYSTEM = Path("/etc/xdg/autostart")
-APP_DIRS = [HOME / ".local/share/applications", HOME / ".local/share/flatpak/exports/share/applications",
-            Path("/var/lib/flatpak/exports/share/applications"), Path("/usr/local/share/applications"),
+APP_DIRS = [HOME / ".local/share/applications", Path("/usr/local/share/applications"),
             Path("/usr/share/applications")]
 MARK = "X-Riptide-Login-Item"
 VALID = re.compile(r"^[A-Za-z0-9._-]+$")

@@ -4,7 +4,7 @@ import Quickshell
 import Quickshell.Io
 import qs
 
-// Every installed app with a launcher – from pacman, Flatpak or our own – and removing it
+// Every installed app with a launcher – from pacman, a release archive or our own – and removing it
 // completely: the program, dependencies nothing else needs, and (chosen by you) its
 // personal data folders, which go to the trash (so a mistake can be undone).
 Page {
@@ -13,7 +13,7 @@ Page {
     property var window
 
     property var raw: []           // from apps-info.py
-    // Rows, one per package / Flatpak / own app. Names and icons come from the launchers,
+    // Rows, one per package / archive app / own app. Names and icons come from the launchers,
     // which are read in the background – depending on their list fills them in when ready.
     readonly property var apps: {
         const loaded = DesktopEntries.applications.values.length;
@@ -89,8 +89,8 @@ Page {
     function status(a) {
         if (a.source === "own")
             return "Eigene App (Teil dieses Desktops)";
-        if (a.source === "flatpak")
-            return `Flatpak · ${page.human(a.size)}`;
+        if (a.source === "archive")
+            return `Offizielles Release (${a.pkg}) · ${page.human(a.size)}`;
         let s = `Arch-Paket ${a.pkg} · ${page.human(a.size)}`;
         if (a.protected)
             s += " · Teil des Systems";
@@ -99,7 +99,7 @@ Page {
         return s;
     }
     function removable(a) {
-        return a.source === "flatpak" || (a.source === "pacman" && a.explicit && !a.protected);
+        return a.source === "archive" || (a.source === "pacman" && a.explicit && !a.protected);
     }
 
     // Remove panel: find the app's personal data folders first
@@ -127,11 +127,11 @@ Page {
     function removeCompletely(a) {
         const trash = leftovers.filter(l => l.chosen).map(l => l.path);
         removing = "";
-        if (a.source === "flatpak") {
-            flatpakRemove.trash = trash;
-            flatpakRemove.command = ["flatpak", "uninstall", "--user", "-y", "--noninteractive", a.pkg];
-            flatpakRemove.name = a.names[0];
-            flatpakRemove.running = true;
+        if (a.source === "archive") {
+            archiveRemove.trash = trash;
+            archiveRemove.command = [Quickshell.env("HOME") + "/.local/bin/archive-app", "remove", a.desktop.replace(/\.desktop$/, "")];
+            archiveRemove.name = a.names[0];
+            archiveRemove.running = true;
         } else {
             pendingTrash = JSON.stringify(trash);
             PackageAdmin.run("remove", [a.pkg], a.names[0]);
@@ -153,8 +153,9 @@ Page {
             page.load();
         }
     }
+    // an app from a release archive (archive_apps.py): no password, it is this user's
     Process {
-        id: flatpakRemove
+        id: archiveRemove
         property var trash: []
         property string name: ""
         onExited: code => {
@@ -280,8 +281,8 @@ Page {
 
                         Text {
                             Layout.fillWidth: true
-                            text: row.app.source === "flatpak"
-                                ? `„${row.app.names[0]}“ wird mit seinen Laufzeitdaten entfernt.`
+                            text: row.app.source === "archive"
+                                ? `„${row.app.names[0]}“ wird entfernt.`
                                 : `„${row.app.names[0]}“ wird entfernt, dazu alle Pakete, die nur dafür installiert wurden.`
                             wrapMode: Text.Wrap
                             font.family: Config.fontSans

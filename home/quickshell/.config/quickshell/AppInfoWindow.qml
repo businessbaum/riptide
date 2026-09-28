@@ -26,7 +26,6 @@ Scope {
             property var info: null
             readonly property string sandbox: !info ? ""
                 : info.sandbox === "riptide" ? "Ja – nur mit deinen Freigaben"
-                : info.sandbox === "flatpak" ? "Ja (Flatpak)"
                 : "Nein – Teil des Systems"
             readonly property var rows: !info ? [] : [
                 ["Version", info.version],

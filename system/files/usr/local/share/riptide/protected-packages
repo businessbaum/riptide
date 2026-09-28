@@ -44,4 +44,4 @@ gnome-keyring
 tpm2-.*
 bubblewrap
 xdg-dbus-proxy
-flatpak
+flatpak-xdg-utils

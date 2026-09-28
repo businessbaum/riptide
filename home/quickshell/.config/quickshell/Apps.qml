@@ -93,8 +93,7 @@ Singleton {
         if (Quickshell.hasThemeIcon(name))
             return [Quickshell.iconPath(name), genericIcon];
         const list = [];
-        const roots = [home + "/.local/share/flatpak/exports/share/icons/hicolor", "/var/lib/flatpak/exports/share/icons/hicolor",
-                       home + "/.local/share/icons/hicolor", "/usr/share/icons/hicolor"];
+        const roots = [home + "/.local/share/icons/hicolor", "/usr/share/icons/hicolor"];
         for (const r of roots) {
             list.push(`file://${r}/scalable/apps/${name}.svg`);
             for (const s of [512, 256, 128, 96, 64, 48])
