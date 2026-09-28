@@ -23,6 +23,16 @@ link)
     shared=(applications apps wireplumber systemd)
     stow --dir=home --target="$HOME" $(ls home | grep -vxF -f <(printf '%s\n' "${shared[@]}"))
     stow --dir=home --target="$HOME" --restow --no-folding "${shared[@]}"
+    # "Neues Dokument" in the file manager's menu (right click on an empty spot): Nautilus
+    # offers what lies in the templates folder. An empty file without an ending – the ending
+    # is typed with the name – and a text document. Real files, not links: a new document is
+    # a copy of one.
+    templates=$(xdg-user-dir TEMPLATES 2>/dev/null || true)
+    if [[ -n "$templates" && "$templates" != "$HOME" ]]; then
+        mkdir -p "$templates"
+        [[ -e "$templates/Neue Datei" ]] || : > "$templates/Neue Datei"
+        [[ -e "$templates/Textdokument.txt" ]] || : > "$templates/Textdokument.txt"
+    fi
     ;;
 services)
     ((EUID != 0)) || { echo "Bitte ohne sudo ausführen." >&2; exit 1; }
