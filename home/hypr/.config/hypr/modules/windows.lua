@@ -92,6 +92,31 @@ hl.layer_rule({
 })
 
 
+-----------------------------
+---- FULL SCREEN IN FRONT ----
+-----------------------------
+
+-- A window in full screen that gets the focus (a click on it, ⌘Tab) is in front of
+-- everything on its desktop, like on a Mac: the other windows go behind it. Hyprland lets
+-- floating windows – here every window – lie above a full-screen one and, when that one is
+-- focused again, left them drawn on top while it took their clicks: seen, but dead.
+-- Lowering them takes the "above full screen" back (they fade out); picked again (⌘Tab,
+-- dock) one comes back over the full screen by itself. The app's own windows and file
+-- dialogs stay (its "Speichern unter" must not vanish behind it); pinned ones stay anyway.
+hl.on("window.active", function(w)
+    if not w or (tonumber(w.fullscreen) or 0) ~= 2 or not w.workspace then
+        return
+    end
+    for _, o in ipairs(hl.get_windows()) do
+        if o.address ~= w.address and o.mapped and o.allowed_over_fullscreen and not o.pinned
+            and o.workspace and o.workspace.id == w.workspace.id
+            and o.class ~= w.class and not (o.class or ""):match("^xdg%-desktop%-portal") then
+            hl.dispatch(hl.dsp.window.alter_zorder({ mode = "bottom", window = o }))
+        end
+    end
+end)
+
+
 ------------------
 ---- MINIMIZE ----
 ------------------
