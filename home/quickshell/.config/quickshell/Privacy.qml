@@ -20,6 +20,26 @@ Singleton {
     property var kinds: ({})   // key → { label, description, question, how, applies, … }
     property var kindList: []  // the same in their order
     property var states: ({})  // app → { kind → state }
+    // The decisions arrive from the service a moment after the shell (re)starts. Until then
+    // "not decided" only means "not known yet": a question now would ask again for what was
+    // answered long ago (kitty's notifications after every reload) – it waits instead
+    property bool loaded: false
+    property var early: []     // requests before the decisions arrived: [app, kind, done]
+    function takeEarly() {
+        const list = early;
+        early = [];
+        for (const r of list)
+            request(r[0], r[1], r[2]);
+    }
+    Timer {
+        // the service does not answer: ask as before rather than wait for ever
+        running: !root.loaded && root.early.length > 0
+        interval: 10000
+        onTriggered: {
+            root.loaded = true;
+            root.takeEarly();
+        }
+    }
     property var waiting: ({}) // "app kind" → [done callbacks] while the question is open
     // Which app a sound stream belongs to: PipeWire node id → app (desktop id), from the
     // service – for sandboxed apps a stream carries only names like "WEBRTC VoiceEngine"
@@ -33,6 +53,10 @@ Singleton {
     }
 
     function request(app, kind, done) {
+        if (!loaded) {
+            early = early.concat([[app, kind, done]]);
+            return;
+        }
         const now = state(app, kind);
         if (now !== "ask") {
             done?.(now);
@@ -100,6 +124,8 @@ Singleton {
                 byKey[k.key] = k;
             root.kinds = byKey;
             root.states = result.states;
+            root.loaded = true;
+            root.takeEarly();
         }
         function onEvent(message) {
             if (message.event === "permissions")
