@@ -24,8 +24,8 @@
 #  10. the login (greetd): at boot the session starts locked and its lock screen is the
 #      login window – one passage into the desktop; our login screen for someone else;
 #      should nothing come up, a text login takes its place
-#  11. start without waiting and the Notfallmodus: Limine boots at once and gets an entry
-#      "Notfallmodus" – the LTS kernel up to the text login only, no graphics
+#  11. the boot menu (Limine): shown for 3 s to choose riptide, Windows, the reserve kernel or
+#      the "Notfallmodus" – the LTS kernel up to the text login only, no graphics; no editor
 #  12. the mainboard's boot menu (F11 at power-on): Windows, riptide, the Notfallmodus and the
 #      reserve kernel to choose from
 set -euo pipefail
@@ -156,30 +156,34 @@ runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$(id -u "$user")" hyprctl -
 systemctl enable greetd.service
 echo "  ab dem nächsten Start (angemeldet wird: $user)"
 
-step "Start ohne Wartezeit und Notfallmodus (Limine)"
+step "Boot-Menü (Limine) und Notfallmodus"
 mode=""
+seal=no
 if ! conf="$(system/files/usr/local/sbin/limine-conf)"; then
     echo "  übersprungen"
-elif [[ -f /etc/kernel/cmdline ]] && command -v sbctl >/dev/null && [[ -x /usr/local/sbin/limine-seal ]]; then
-    # Secure Boot set up (unified kernel images, docs/secure-boot.md): the Notfallmodus is
-    # the LTS kernel as its own signed image, up to the text login only (multi-user.target:
-    # no greetd, no graphics). Its command line follows /etc/kernel/cmdline.
-    mode=uki
-    recovery_cmdline="$(sed -E 's/(^| )quiet( |$)/ /g; s/  +/ /g; s/^ //; s/ $//' /etc/kernel/cmdline | tr -d '\n') systemd.unit=multi-user.target"
-    if [[ -f /boot/EFI/Linux/arch-linux-recovery.efi ]] \
-        && [[ "$(cat /etc/kernel/cmdline-recovery 2>/dev/null)" == "$recovery_cmdline" ]] \
-        && cmp -s system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset; then
-        echo "  Notfall-Image aktuell"
-    else
-        printf '%s\n' "$recovery_cmdline" > /etc/kernel/cmdline-recovery
-        install -D -o root -g root -m 644 system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset
-        mkinitcpio -p linux-lts
-        sbctl sign -s /boot/EFI/Linux/arch-linux-recovery.efi >/dev/null # signed now and after every update
-    fi
 else
-    # before Secure Boot: kernel + initramfs entries; the Notfallmodus is a copy of the LTS
-    # entry with its own command line (after the Secure Boot stages run this again)
-    mode=linux
+    if [[ -f /etc/kernel/cmdline ]]; then
+        # kernel images (Secure Boot stage 1): the Notfallmodus is the LTS kernel as its own
+        # image, up to the text login only (multi-user.target: no greetd, no graphics); its
+        # command line follows /etc/kernel/cmdline
+        recovery_cmdline="$(sed -E 's/(^| )quiet( |$)/ /g; s/  +/ /g; s/^ //; s/ $//' /etc/kernel/cmdline | tr -d '\n') systemd.unit=multi-user.target"
+        if [[ -f /boot/EFI/Linux/arch-linux-recovery.efi ]] \
+            && [[ "$(cat /etc/kernel/cmdline-recovery 2>/dev/null)" == "$recovery_cmdline" ]] \
+            && cmp -s system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset; then
+            echo "  Notfall-Image aktuell"
+        else
+            printf '%s\n' "$recovery_cmdline" > /etc/kernel/cmdline-recovery
+            install -D -o root -g root -m 644 system/files/etc/mkinitcpio.d/linux-lts.preset /etc/mkinitcpio.d/linux-lts.preset
+            mkinitcpio -p linux-lts
+            if command -v sbctl >/dev/null; then
+                sbctl sign -s /boot/EFI/Linux/arch-linux-recovery.efi >/dev/null # signed now and after every update
+            fi
+        fi
+    fi
+    # the Notfallmodus entry: its own image when there is one, else a kernel+initramfs copy
+    if [[ -f /boot/EFI/Linux/arch-linux-recovery.efi ]]; then mode=uki; else mode=linux; fi
+    # sealed from Secure Boot stage 2 on: after a change Limine needs the new checksum
+    if command -v sbctl >/dev/null && [[ -x /usr/local/sbin/limine-seal ]]; then seal=yes; fi
 fi
 
 if [[ -n "$mode" ]]; then
@@ -191,7 +195,7 @@ if [[ -n "$mode" ]]; then
         rm -f "$backup"
         echo "  limine.conf unverändert"
     else
-        if [[ "$mode" == uki ]] && ! /usr/local/sbin/limine-seal; then
+        if [[ "$seal" == yes ]] && ! /usr/local/sbin/limine-seal; then
             # never leave a changed, unsealed config: Limine would refuse to start
             cp "$backup" "$conf"
             /usr/local/sbin/limine-seal

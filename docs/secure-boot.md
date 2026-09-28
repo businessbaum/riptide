@@ -42,15 +42,15 @@ sudo systemd-cryptenroll /dev/disk/by-uuid/YOUR-LUKS-UUID \
 The old kernel+initramfs entries (no separator) then ask for the passphrase – fine, they go in
 stage 4. Stage 3 does the same re-binding after Secure Boot is switched on.
 
-## Choosing what starts: F11
+## Choosing what starts
 
-Limine's own menu is hidden (`quiet`, 1 s – too quick to reach reliably: the screen is often
-still dark and a key held before Limine starts does not count). What starts is chosen in the
-mainboard's boot menu instead (ASRock: **F11** at power-on, the BIOS setup: F2/Del), like the
-Option key on a Mac: Windows Boot Manager, "Arch Linux" (Limine → riptide), and two entries
-straight to their kernel images – "riptide Notfallmodus" (up to the text login, no graphics)
-and "riptide Reserve (LTS)" (system/setup-os.sh step 12, efibootmgr; appended to the start order – ASRock's menu shows
-only entries that are in it, and the firmware dropped the others from it on the next boot).
+Limine's menu shows for 3 s at every start (2026-09-28: choosing right there matters more
+than starting a second earlier; a hidden 1 s menu could not be reached – the screen still dark,
+a key held before Limine starts does not count). Its editor stays off. The mainboard's own boot
+menu is a second way (ASRock: **F11** at power-on, BIOS setup: F2/Del): Windows Boot Manager,
+"Arch Linux" (Limine → riptide) and two entries straight to their kernel images – "riptide
+Notfallmodus" and "riptide Reserve (LTS)" (system/setup-os.sh step 12, efibootmgr; appended to the
+start order – ASRock's menu shows only entries that are in it).
 
 The Notfallmodus: before Secure Boot also a Limine entry copied from the LTS entry
 (system/limine-edit.py); stage 1 builds its own UKI (linux-lts.preset "recovery",

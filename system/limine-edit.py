@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Start without waiting, and the Notfallmodus entry – for system/setup-os.sh.
+"""The boot menu and its Notfallmodus entry – for system/setup-os.sh.
 
     limine-edit.py <limine.conf> <output> uki|linux
 
-Global options: timeout 1 s and quiet (the menu stays hidden; a key during that second
-shows it), no editor. Adds "/Notfallmodus (Textanmeldung)" once:
-  uki    (Secure Boot set up): chainloads /EFI/Linux/arch-linux-recovery.efi, the LTS
-         kernel image with its own command line
-  linux  (kernel + initramfs, before Secure Boot): a copy of the LTS entry (else the first
-         Linux entry) whose command line ends at the text login: systemd.unit=multi-user.target,
-         without "quiet"
+Global options: the menu shows for 3 s (2026-09-28: choose the system right there –
+a hidden menu could not be reached), no editor. Adds "/Notfallmodus (Textanmeldung)":
+  uki    (the kernel images of Secure Boot stage 1 exist): chainloads
+         /EFI/Linux/arch-linux-recovery.efi, the LTS kernel image with its own command line –
+         also replacing an older kernel+initramfs copy
+  linux  (kernel + initramfs only): a copy of the LTS entry (else the first Linux entry) whose
+         command line ends at the text login: systemd.unit=multi-user.target, without "quiet"
 Prints what it did; writes <output> in any case."""
 import re
 import sys
@@ -38,15 +38,19 @@ def main():
 
     while head and head[-1].strip() == "":
         head.pop()
-    set_option(head, "timeout", "1")
-    set_option(head, "quiet", "yes")
+    set_option(head, "timeout", "3")
+    set_option(head, "quiet", "no")
     # no editing entries at the boot menu: the TPM unlocks the disk by itself, so e.g.
     # "init=/bin/sh" added there would be a way in without any password (with Secure Boot
     # and a sealed config Limine switches it off anyway)
     set_option(head, "editor_enabled", "no")
     head.append("")
 
-    if any(b[0].startswith("/Notfallmodus") for b in blocks):
+    old = [b for b in blocks if b[0].startswith("/Notfallmodus")]
+    if mode == "uki" and old and not any("arch-linux-recovery.efi" in l for l in old[0]):
+        blocks.remove(old[0]) # the kernel+initramfs copy: now its own image
+        old = []
+    if old:
         print("  Notfallmodus: schon vorhanden")
     elif mode == "uki":
         blocks.append([TITLE, "    protocol: efi", "    path: boot():/EFI/Linux/arch-linux-recovery.efi", ""])
