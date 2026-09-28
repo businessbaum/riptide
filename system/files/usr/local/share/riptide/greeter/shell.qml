@@ -12,7 +12,7 @@ import Quickshell.Wayland
 // Emergency ways in (all ask for the password):
 //   - should this window not come up or break, a text login appears in its place
 //   - ⌃⌥F2 here ends it and gives the text login (hyprland.lua)
-//   - at power-on: hold the space bar → boot menu → "Notfallmodus" (no graphics at all)
+//   - at power-on: F11 → the mainboard's boot menu → "riptide Notfallmodus" (no graphics)
 ShellRoot {
     Variants {
         model: Quickshell.screens

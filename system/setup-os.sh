@@ -24,9 +24,10 @@
 #  10. the login (greetd): at boot the session starts locked and its lock screen is the
 #      login window – one passage into the desktop; our login screen for someone else;
 #      should nothing come up, a text login takes its place
-#  11. start without waiting and the Notfallmodus: Limine boots at once (its menu stays
-#      reachable: hold the space bar at power-on) and gets an entry "Notfallmodus" – the LTS
-#      kernel up to the text login only, no graphics
+#  11. start without waiting and the Notfallmodus: Limine boots at once and gets an entry
+#      "Notfallmodus" – the LTS kernel up to the text login only, no graphics
+#  12. the mainboard's boot menu (F11 at power-on): Windows, riptide, the Notfallmodus and the
+#      reserve kernel to choose from
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -201,6 +202,29 @@ if [[ -n "$mode" ]]; then
         sed 's/^/    /' "$conf"
     fi
 fi
+
+step "Boot-Menü des Mainboards (F11 beim Einschalten)"
+# Choosing what starts, like the Option key on a Mac: the mainboard's own boot menu reads
+# the key itself (Limine's hidden menu is too quick to reach). Windows is there already; the
+# Notfallmodus and the reserve kernel get entries of their own, straight to their kernel
+# images (built by the Secure Boot stage 1, signed from stage 2 on). The start order stays.
+esp_dev=$(findmnt -no SOURCE /boot)
+esp_disk="/dev/$(lsblk -no PKNAME "$esp_dev")"
+esp_part=$(lsblk -no PARTN "$esp_dev")
+for entry in "riptide Notfallmodus|arch-linux-recovery.efi" "riptide Reserve (LTS)|arch-linux-lts.efi"; do
+    label=${entry%%|*}
+    file=${entry##*|}
+    if [[ ! -f "/boot/EFI/Linux/$file" ]]; then
+        echo "  $label: noch kein Kernel-Image (erst Secure-Boot-Stufe 1)"
+    elif efibootmgr | grep -qF "* $label"$'\t'; then
+        echo "  $label: schon da"
+    else
+        efibootmgr --create-only --disk "$esp_disk" --part "$esp_part" --label "$label" \
+            --loader "\\EFI\\Linux\\$file" >/dev/null
+        echo "  $label: eingetragen"
+    fi
+done
+efibootmgr | grep -E '^Boot[0-9A-F]{4}' | sed -E 's/\t.*//; s/^/    /'
 
 echo
 echo "Fertig. Neu starten: der Anmeldebildschirm kommt beim nächsten Start."
