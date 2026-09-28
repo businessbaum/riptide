@@ -57,7 +57,9 @@ Page {
         command: ["python3", page.script, "discover"]
         stdout: StdioCollector {
             onStreamFinished: {
-                page.found = page.parse(text, []);
+                // (a printer looked up by its address meanwhile stays)
+                const r = page.parse(text, []);
+                page.found = r.concat(page.found.filter(f => !r.some(n => n.uri === f.uri)));
                 page.searching = false;
             }
         }
@@ -66,6 +68,29 @@ Page {
         found = [];
         searching = true;
         finder.running = true;
+    }
+    // a printer that does not show up by itself: asked at the address typed in
+    property bool lookingUp: false
+    Process {
+        id: addressFinder
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const r = page.parse(text, { error: "Keine Antwort." });
+                page.lookingUp = false;
+                if (r.error)
+                    page.error = r.error;
+                else if (!page.found.some(f => f.uri === r.uri) && !page.cups.printers.some(p => p.uri === r.uri))
+                    page.found = page.found.concat([r]);
+            }
+        }
+    }
+    function lookUp(address) {
+        if (address.trim() === "" || lookingUp)
+            return;
+        error = "";
+        lookingUp = true;
+        addressFinder.command = ["python3", script, "address", address.trim()];
+        addressFinder.running = true;
     }
     Process {
         id: scannerFinder
@@ -216,6 +241,26 @@ Page {
                 width: implicitWidth
                 text: "Erneut suchen"
                 onClicked: page.search()
+            }
+        }
+        SettingRow {
+            visible: page.adding && !page.searching
+            title: "Per IP-Adresse"
+            subtitle: "Falls ein Drucker nicht erscheint: seine Adresse, z. B. 192.168.178.20"
+            Row {
+                spacing: 8
+                Field {
+                    id: printerAddress
+                    implicitWidth: 160
+                    placeholder: "IP-Adresse"
+                    onAccepted: page.lookUp(text)
+                }
+                DialogButton {
+                    implicitWidth: 90
+                    width: implicitWidth
+                    text: page.lookingUp ? "Suche …" : "Suchen"
+                    onClicked: page.lookUp(printerAddress.text)
+                }
             }
         }
     }

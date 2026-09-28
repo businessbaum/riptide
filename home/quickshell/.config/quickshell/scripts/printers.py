@@ -6,6 +6,7 @@ AirPrint; scanners through SANE's eSCL/WSD backend). Output is JSON.
 
     printers.py list                    the printers: state, supplies, jobs waiting, default
     printers.py discover                printers in the network and on USB not added yet
+    printers.py address <host>          the printer at an IP address or name (IPP)
     printers.py add <uri> <name> [loc]  add one (IPP Everywhere: no driver needed)
     printers.py remove <printer>
     printers.py default <printer>       default printer of this user
@@ -18,13 +19,17 @@ AirPrint; scanners through SANE's eSCL/WSD backend). Output is JSON.
 Errors: {"error": "text"} and exit code 1.
 """
 
+import ipaddress
 import json
 import os
 import plistlib
 import re
+import socket
+import struct
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.parse
 
 CUPS = "ipp://localhost"
@@ -160,6 +165,133 @@ def unescape(s):
     return re.sub(r"\\(\d{3})", lambda m: chr(int(m.group(1))), s)
 
 
+# Asking each address directly. Avahi listens for the printers' multicast answers – in
+# one home network they never reach the cable (2026-09-28: sent by the printers, lost between
+# Wi-Fi and LAN), yet a printer asked directly on port 5353 answers straight back (legacy
+# unicast mDNS, RFC 6762 6.7). The URI then uses its address: ".local" names need multicast too.
+
+SERVICES = (("_ipps._tcp.local", "ipps"), ("_ipp._tcp.local", "ipp"))
+
+
+def local_networks():
+    """This computer's IPv4 networks as (own address, [other addresses]); at most a /22 each"""
+    _, out, _ = run(["ip", "-j", "-4", "addr", "show", "up", "scope", "global"])
+    try:
+        links = json.loads(out or "[]")
+    except ValueError:
+        return []
+    nets = []
+    for link in links:
+        for a in link.get("addr_info", []):
+            iface = ipaddress.ip_interface(f"{a['local']}/{a['prefixlen']}")
+            if iface.network.prefixlen >= 22 and iface.ip.is_private:
+                nets.append((str(iface.ip), [str(h) for h in iface.network.hosts() if h != iface.ip]))
+    return nets
+
+
+def dns_name(data, pos):
+    """A DNS name at pos (with compression) → (name, position after it)"""
+    labels, end, jumps = [], None, 0
+    while True:
+        if pos >= len(data):
+            raise ValueError("short name")
+        n = data[pos]
+        if n & 0xC0 == 0xC0:
+            if jumps > 20:
+                raise ValueError("pointer loop")
+            if end is None:
+                end = pos + 2
+            pos = ((n & 0x3F) << 8) | data[pos + 1]
+            jumps += 1
+        elif n == 0:
+            return ".".join(labels), (end if end is not None else pos + 1)
+        else:
+            labels.append(data[pos + 1:pos + 1 + n].decode("utf-8", "replace"))
+            pos += 1 + n
+
+
+def dns_records(data):
+    """All records of an mDNS answer: [(name, type, rdata position, rdata length)]"""
+    qd, an, ns, ar = struct.unpack(">4H", data[4:12])
+    pos = 12
+    for _ in range(qd):
+        _, pos = dns_name(data, pos)
+        pos += 4
+    records = []
+    for _ in range(an + ns + ar):
+        name, pos = dns_name(data, pos)
+        rtype, _, _, length = struct.unpack(">HHIH", data[pos:pos + 10])
+        pos += 10
+        records.append((name.lower(), rtype, pos, length))
+        pos += length
+    return records
+
+
+def ask_directly(timeout=1.5):
+    """Printers that answer an mDNS question sent to their own address (see above)"""
+    question = struct.pack(">6H", 0, 0, len(SERVICES), 0, 0, 0) + b"".join(
+        b"".join(bytes([len(p)]) + p.encode() for p in service.split(".")) + b"\0" + struct.pack(">HH", 12, 1)
+        for service, _ in SERVICES)
+    found = {}
+    for own, hosts in local_networks():
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.bind((own, 0))
+            s.setblocking(False)
+            for h in hosts:
+                try:
+                    s.sendto(question, (h, 5353))
+                except OSError:
+                    pass  # an address the kernel refuses (e.g. broadcast) – not a printer
+            end = time.time() + timeout
+            while time.time() < end:
+                try:
+                    data, (ip, port) = s.recvfrom(9000)
+                except BlockingIOError:
+                    time.sleep(0.02)
+                    continue
+                if port != 5353:
+                    continue
+                try:
+                    records = dns_records(data)
+                except (ValueError, struct.error, IndexError):
+                    continue
+                srv, txt = {}, {}
+                for name, rtype, at, length in records:
+                    if rtype == 33 and length >= 6:  # SRV: priority, weight, port, target
+                        srv[name] = struct.unpack(">H", data[at + 4:at + 6])[0]
+                    elif rtype == 16:  # TXT: length-prefixed "key=value" strings
+                        entries, p = {}, at
+                        while p < at + length:
+                            n = data[p]
+                            k, _, v = data[p + 1:p + 1 + n].decode("utf-8", "replace").partition("=")
+                            entries[k] = v
+                            p += 1 + n
+                        txt[name] = entries
+                for name, rtype, at, length in records:
+                    scheme = next((sc for service, sc in SERVICES if name == service), None)
+                    if rtype != 12 or not scheme:
+                        continue
+                    instance, _ = dns_name(data, at)
+                    key = instance.lower()
+                    t = txt.get(key, {})
+                    port = srv.get(key, 631)
+                    uri = f"{scheme}://{ip}:{port}/{t.get('rp', 'ipp/print')}"
+                    found.setdefault(ip, []).append((scheme, uri, instance.split("._")[0], t))
+        finally:
+            s.close()
+    # one printer per address: ipps (encrypted) when it offers both, the details from
+    # whichever answer carried them (a printer may send them with one service only)
+    printers = []
+    for answers in found.values():
+        answers.sort(key=lambda a: a[0] != "ipps")
+        t = next((a[3] for a in answers if a[3]), {})
+        printers.append({"name": answers[0][2], "uri": answers[0][1], "model": t.get("ty", ""),
+                         "location": t.get("note", ""), "kind": "network",
+                         "driverless": "URF" in t or "pdl" in t})
+    return printers
+
+
 def discover():
     known = {p["uri"] for p in printers()["printers"]}
     found = {}
@@ -179,6 +311,11 @@ def discover():
                 continue
             found[key] = {"name": name, "uri": uri, "model": txt.get("ty", ""), "location": txt.get("note", ""),
                           "kind": "network", "driverless": "URF" in txt or "pdl" in txt}
+    # the ones Avahi did not hear (their ".local" names stay right when the address changes)
+    heard = {p["name"] for p in found.values()}
+    for p in ask_directly():
+        if p["name"] not in heard:
+            found[p["uri"]] = p
     # USB (needs CUPS running)
     _, out, _ = run(["lpinfo", "--include-schemes", "usb", "-v"], timeout=15)
     for line in out.splitlines():
@@ -188,6 +325,31 @@ def discover():
             model = urllib.parse.unquote(uri.split("://")[1].split("?")[0]).replace("/", " ")
             found[uri] = {"name": model, "uri": uri, "model": model, "location": "USB", "kind": "usb", "driverless": True}
     return [p for p in found.values() if p["uri"] not in known]
+
+
+HOST = re.compile(r"^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?)$")
+
+
+def at_address(host):
+    """The printer at an address someone typed ("IP-Adresse" like on a Mac): asked over IPP,
+    encrypted first"""
+    host = host.strip()
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"  # a bare IPv6 address
+    if not HOST.match(host):
+        fail("Das ist keine gültige Adresse.")
+    for scheme in ("ipps", "ipp"):
+        uri = f"{scheme}://{host}:631/ipp/print"
+        groups = ipp(uri, "Get-Printer-Attributes",
+                     "printer-info,printer-make-and-model,printer-location,document-format-supported")
+        g = next((g for g in groups or [] if "printer-make-and-model" in g or "printer-info" in g), None)
+        if g:
+            formats = as_list(g.get("document-format-supported"))
+            model = g.get("printer-make-and-model") or ""
+            return {"name": g.get("printer-info") or model or host, "uri": uri, "model": model,
+                    "location": g.get("printer-location") or "", "kind": "network",
+                    "driverless": any(f in formats for f in ("image/urf", "image/pwg-raster", "application/pdf"))}
+    fail(f"Unter {host} antwortet kein Drucker (IPP).")
 
 
 def queue_name(name):
@@ -240,6 +402,8 @@ def main():
         print(json.dumps(discover(), ensure_ascii=False))
     elif a == ["scanners"]:
         print(json.dumps(scanners(), ensure_ascii=False))
+    elif len(a) == 2 and a[0] == "address":
+        print(json.dumps(at_address(a[1]), ensure_ascii=False))
     elif len(a) in (3, 4) and a[0] == "add":
         add(a[1], a[2], a[3] if len(a) == 4 else "")
     elif len(a) == 2 and NAME.match(a[1]) and a[0] in ("remove", "default", "jobs", "pause", "resume", "test"):
