@@ -4,7 +4,7 @@
     limine-edit.py <limine.conf> <output> uki|linux
 
 Global options: timeout 1 s and quiet (the menu stays hidden; a key during that second
-shows it). Adds "/Notfallmodus (Textanmeldung)" once:
+shows it), no editor. Adds "/Notfallmodus (Textanmeldung)" once:
   uki    (Secure Boot set up): chainloads /EFI/Linux/arch-linux-recovery.efi, the LTS
          kernel image with its own command line
   linux  (kernel + initramfs, before Secure Boot): a copy of the LTS entry (else the first
@@ -40,6 +40,10 @@ def main():
         head.pop()
     set_option(head, "timeout", "1")
     set_option(head, "quiet", "yes")
+    # no editing entries at the boot menu: the TPM unlocks the disk by itself, so e.g.
+    # "init=/bin/sh" added there would be a way in without any password (with Secure Boot
+    # and a sealed config Limine switches it off anyway)
+    set_option(head, "editor_enabled", "no")
     head.append("")
 
     if any(b[0].startswith("/Notfallmodus") for b in blocks):
