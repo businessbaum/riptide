@@ -279,6 +279,17 @@ function macos.maximize_request(address, on)
     return hl.dsp.no_op()
 end
 
+-- A window that window_memory.lua reopened in full screen: while it starts, it may ask
+-- to leave it – Zen restores its saved "maximized" and GTK Firefox first leaves full screen
+-- for that. That is the app setting itself up, not the user: for a few seconds it stays in
+-- full screen and hears so again.
+local reopened_full = {}
+local function hold_fullscreen(w)
+    local address = w.address
+    reopened_full[address] = true
+    hl.timer(function() reopened_full[address] = nil end, { timeout = 4000, type = "oneshot" })
+end
+
 -- An app asks for full screen or back (F11 in the browser, a video; riptide-wm
 -- window_buttons.cpp). Not left to Hyprland: once tell_app() has told an app it is zoomed,
 -- Hyprland passes such a request on to the app only and the window keeps its size.
@@ -287,6 +298,10 @@ end
 function macos.fullscreen_request(address, on)
     local w = hl.get_window("address:" .. address)
     if not w then return hl.dsp.no_op() end
+    if not on and reopened_full[w.address] then
+        hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 }))
+        return hl.dsp.no_op()
+    end
     if on then
         hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 }))
     else
@@ -406,4 +421,9 @@ return {
     end,
     -- snap a reopened window again; `old` is the size the green button brings back
     snap = function(w, kind, old) snap(w, kind, old) end,
+    -- a reopened window goes back to full screen (and stays there while it starts)
+    fullscreen = function(w)
+        hold_fullscreen(w)
+        hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 }))
+    end,
 }

@@ -178,7 +178,7 @@ local function restore(w)
             hl.dispatch(hl.dsp.window.move({ window = w, x = old.x, y = old.y }))
         end
         if r.kind == "fullscreen" then
-            hl.dispatch(hl.dsp.window.fullscreen({ window = w, mode = "fullscreen", action = "set" }))
+            snapping.fullscreen(hl.get_window("address:" .. w.address) or w)
             return true
         end
         snapping.snap(hl.get_window("address:" .. w.address) or w, r.kind, old)
