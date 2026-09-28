@@ -35,6 +35,10 @@ Item {
     signal switchUser
     signal power(string action)
     signal emergency
+    // a key typed on another screen, meant for the main one's password field: the
+    // compositor gives the keyboard to the screen with the pointer, not to the one with
+    // the field (the lock screen passes it on to takeKey)
+    signal keyElsewhere(var event)
 
     function focusField() {
         if (other && nameInput.text === "")
@@ -46,6 +50,19 @@ Item {
         passwordInput.text = "";
         focusField();
     }
+    // a key from another screen (keyElsewhere) into the password field
+    function takeKey(event) {
+        if (busy)
+            return;
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+            send();
+        else if (event.key === Qt.Key_Backspace)
+            passwordInput.remove(passwordInput.text.length - 1, passwordInput.text.length);
+        else if (event.key === Qt.Key_Escape)
+            passwordInput.text = "";
+        else if (event.text !== "" && event.text.charCodeAt(0) >= 32 && !(event.modifiers & Qt.ControlModifier))
+            passwordInput.insert(passwordInput.text.length, event.text);
+    }
 
     onFailuresChanged: {
         passwordInput.text = "";
@@ -53,11 +70,15 @@ Item {
         passwordInput.forceActiveFocus();
     }
 
-    // ⌃⌥F2 (keys the fields do not use come up here): out of this, to the text login
+    // ⌃⌥F2 (keys the fields do not use come up here): out of this, to the text login.
+    // On the other screens every other key goes to the main screen's field.
     Keys.onPressed: event => {
         if (event.key === Qt.Key_F2 && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.AltModifier)) {
             event.accepted = true;
             root.emergency();
+        } else if (!root.main) {
+            event.accepted = true;
+            root.keyElsewhere(event);
         }
     }
 

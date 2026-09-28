@@ -18,6 +18,7 @@ Scope {
     property int failures: 0
     property bool leaving: false
     property string pending: "" // the password, until PAM asks for it
+    property var mainLogin: null // the main screen's login window: keys typed elsewhere go there
 
     function submit(password) {
         if (busy)
@@ -100,8 +101,18 @@ Scope {
                 onSwitchUser: root.endSession()
                 onEmergency: root.endSession()
                 onPower: action => Quickshell.execDetached(["systemctl", action])
-                onMainChanged: if (main) focusField()
-                Component.onCompleted: if (main) focusField()
+                onKeyElsewhere: event => root.mainLogin?.takeKey(event)
+                // the main screen takes the field, the others take the keys for it
+                function follow() {
+                    if (main) {
+                        root.mainLogin = screen;
+                        focusField();
+                    } else {
+                        forceActiveFocus();
+                    }
+                }
+                onMainChanged: follow()
+                Component.onCompleted: follow()
             }
         }
     }
