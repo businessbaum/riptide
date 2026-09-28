@@ -11,8 +11,9 @@ Singleton {
     id: root
 
     readonly property var place: Config.settings.lockscreen?.place ?? null
-    property var current: null // { temperature, code, day }
-    property var days: []      // [{ date, code, max, min }], today first
+    property var current: null // { temperature, feels, code, day }
+    property var hours: []     // [{ time: "2026-09-28T19:00", temperature, code, rain (%), day }], from this hour on
+    property var days: []      // [{ date, code, max, min, rain (%), sunrise, sunset }], today first, 7 days
     property double fetchedAt: 0
 
     property int watchers: 0
@@ -24,6 +25,7 @@ Singleton {
     readonly property string placeKey: place ? `${place.lat},${place.lon}` : ""
     onPlaceKeyChanged: {
         current = null;
+        hours = [];
         days = [];
         fetchedAt = 0;
         if (active)
@@ -47,14 +49,23 @@ Singleton {
         if (!isFinite(lat) || !isFinite(lon))
             return;
         get(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}`
-            + "&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min"
-            + "&timezone=auto&forecast_days=4", d => {
-            current = { temperature: d.current.temperature_2m, code: d.current.weather_code, day: d.current.is_day === 1 };
-            const list = [];
-            for (let i = 0; i < (d.daily?.time?.length ?? 0); i++)
-                list.push({ date: d.daily.time[i], code: d.daily.weather_code[i],
-                            max: d.daily.temperature_2m_max[i], min: d.daily.temperature_2m_min[i] });
-            days = list;
+            + "&current=temperature_2m,apparent_temperature,weather_code,is_day"
+            + "&hourly=temperature_2m,weather_code,precipitation_probability,is_day&forecast_hours=26"
+            + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset"
+            + "&timezone=auto&forecast_days=7", d => {
+            current = { temperature: d.current.temperature_2m, feels: d.current.apparent_temperature,
+                        code: d.current.weather_code, day: d.current.is_day === 1 };
+            const h = d.hourly ?? {}, hourList = [];
+            for (let i = 0; i < (h.time?.length ?? 0); i++)
+                hourList.push({ time: h.time[i], temperature: h.temperature_2m[i], code: h.weather_code[i],
+                                rain: h.precipitation_probability?.[i] ?? 0, day: h.is_day?.[i] === 1 });
+            hours = hourList;
+            const dl = d.daily ?? {}, dayList = [];
+            for (let i = 0; i < (dl.time?.length ?? 0); i++)
+                dayList.push({ date: dl.time[i], code: dl.weather_code[i], max: dl.temperature_2m_max[i],
+                               min: dl.temperature_2m_min[i], rain: dl.precipitation_probability_max?.[i] ?? 0,
+                               sunrise: dl.sunrise?.[i] ?? "", sunset: dl.sunset?.[i] ?? "" });
+            days = dayList;
             fetchedAt = Date.now();
         }, () => retry.restart());
     }

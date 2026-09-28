@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Services.Mpris
 
 // What the lock screen shows on the screens that are not the main one (MainScreen.qml),
-// below the clock: the weather, this month, what is playing – each one chosen in System
+// below the clock: the weather (today, hour by hour, and the week), this month, what is playing – each one chosen in System
 // Settings → Bildschirme (settings.json lockscreen.aside). Only to look at: nothing here
 // can be clicked while the screen is locked. Shares the lock screen's look (white on the
 // wallpaper, frosted cards).
@@ -52,32 +52,66 @@ Row {
         }
     }
 
-    // ---------------------------------------------------------------- weather
+    // ---------------------------------------------------------------- weather: today
+    // now, the day's range, rain and sun; then the next 12 hours
     Card {
-        id: weather
+        id: dayCard
         visible: root.showWeather
+        width: 560
         readonly property var now: Weather.current ? Weather.describe(Weather.current.code, Weather.current.day) : null
+        readonly property var day: Weather.days[0] ?? null
+        // from this hour on (the forecast is fetched every 30 minutes)
+        readonly property var nextHours: {
+            const hour = Qt.formatDateTime(clock.date, "yyyy-MM-ddTHH:00");
+            return Weather.hours.filter(h => h.time >= hour).slice(0, 12);
+        }
 
-        Row {
-            spacing: 14
+        Item {
+            width: parent.width
+            height: 58
             Text {
+                id: nowGlyph
                 anchors.verticalCenter: parent.verticalCenter
-                text: weather.now?.glyph ?? "\u{f0590}"
+                text: dayCard.now?.glyph ?? "\u{f0590}"
                 font.family: Config.fontSymbols
                 font.pixelSize: 46
                 color: "white"
             }
             Column {
+                anchors.left: nowGlyph.right
+                anchors.leftMargin: 14
                 anchors.verticalCenter: parent.verticalCenter
                 Text {
                     text: Weather.current ? Math.round(Weather.current.temperature) + "°" : "–"
                     font.family: root.font
-                    font.pixelSize: 40
+                    font.pixelSize: 38
                     font.weight: Font.DemiBold
                     color: "white"
                 }
                 Text {
-                    text: Weather.current ? (weather.now?.text ?? "") : "Wetter wird geladen …"
+                    text: Weather.current
+                        ? (dayCard.now?.text ?? "") + " · gefühlt " + Math.round(Weather.current.feels) + "°"
+                        : "Wetter wird geladen …"
+                    font.family: root.font
+                    font.pixelSize: 13
+                    color: "#d9ffffff"
+                }
+            }
+            Column {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                Text {
+                    anchors.right: parent.right
+                    text: Weather.place?.name ?? ""
+                    font.family: root.font
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
+                    color: "white"
+                }
+                Text {
+                    anchors.right: parent.right
+                    visible: dayCard.day !== null
+                    text: dayCard.day ? `H: ${Math.round(dayCard.day.max)}°  T: ${Math.round(dayCard.day.min)}°` : ""
                     font.family: root.font
                     font.pixelSize: 13
                     color: "#d9ffffff"
@@ -85,48 +119,171 @@ Row {
             }
         }
         Text {
+            visible: dayCard.day !== null
             width: parent.width
-            text: Weather.place?.name ?? ""
-            elide: Text.ElideRight
+            text: dayCard.day
+                ? `Regenrisiko ${dayCard.day.rain} %  ·  Sonnenaufgang ${dayCard.day.sunrise.slice(11, 16)}  ·  Sonnenuntergang ${dayCard.day.sunset.slice(11, 16)}`
+                : ""
             font.family: root.font
             font.pixelSize: 13
-            font.weight: Font.DemiBold
-            color: "#e6ffffff"
+            color: "#d9ffffff"
         }
         Rectangle {
-            visible: Weather.days.length > 1
+            visible: dayCard.nextHours.length > 0
             width: parent.width
             height: 1
             color: "#33ffffff"
         }
+        Row {
+            visible: dayCard.nextHours.length > 0
+            Repeater {
+                model: dayCard.nextHours
+                Column {
+                    required property var modelData
+                    required property int index
+                    width: (560 - 40) / 12
+                    spacing: 5
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: parent.index === 0 ? "Jetzt" : modelData.time.slice(11, 13)
+                        font.family: root.font
+                        font.pixelSize: 12
+                        font.weight: parent.index === 0 ? Font.DemiBold : Font.Normal
+                        color: "#d9ffffff"
+                    }
+                    // "Jetzt": the current values, the same as above (the hour's are from its start)
+                    readonly property var shown: index === 0 && Weather.current
+                        ? { code: Weather.current.code, day: Weather.current.day, temperature: Weather.current.temperature }
+                        : modelData
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: Weather.describe(parent.shown.code, parent.shown.day).glyph
+                        font.family: Config.fontSymbols
+                        font.pixelSize: 20
+                        color: "white"
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: modelData.rain >= 20 ? modelData.rain + " %" : " "
+                        font.family: root.font
+                        font.pixelSize: 10
+                        color: "#9fd3ff"
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: Math.round(parent.shown.temperature) + "°"
+                        font.family: root.font
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                        color: "white"
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- weather: the week
+    // seven days; the bar shows each day's range within the whole week's
+    Card {
+        id: week
+        visible: root.showWeather && Weather.days.length > 0
+        width: 340
+        readonly property real low: Math.min.apply(null, Weather.days.map(d => d.min))
+        readonly property real high: Math.max.apply(null, Weather.days.map(d => d.max))
+
+        Text {
+            text: "Diese Woche"
+            font.family: root.font
+            font.pixelSize: 15
+            font.weight: Font.DemiBold
+            color: "white"
+        }
         Repeater {
-            model: Weather.days.slice(1, 4)
+            model: Weather.days
             Item {
                 required property var modelData
+                required property int index
                 width: parent.width
-                height: 24
+                height: 28
                 Text {
+                    id: dayName
+                    width: 44
                     anchors.verticalCenter: parent.verticalCenter
-                    text: new Date(modelData.date + "T12:00").toLocaleDateString(Qt.locale("de_DE"), "dddd")
+                    text: parent.index === 0 ? "Heute"
+                        : new Date(modelData.date + "T12:00").toLocaleDateString(Qt.locale("de_DE"), "ddd").replace(".", "")
                     font.family: root.font
                     font.pixelSize: 13
+                    font.weight: parent.index === 0 ? Font.DemiBold : Font.Normal
                     color: "white"
                 }
                 Text {
-                    x: parent.width * 0.5 - width / 2
+                    id: dayGlyph
+                    anchors.left: dayName.right
+                    anchors.leftMargin: 6
                     anchors.verticalCenter: parent.verticalCenter
+                    width: 24
+                    horizontalAlignment: Text.AlignHCenter
                     text: Weather.describe(modelData.code, true).glyph
                     font.family: Config.fontSymbols
                     font.pixelSize: 18
                     color: "white"
                 }
                 Text {
-                    anchors.right: parent.right
+                    id: dayRain
+                    anchors.left: dayGlyph.right
+                    anchors.leftMargin: 4
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Math.round(modelData.max) + "°  " + Math.round(modelData.min) + "°"
+                    width: 38
+                    text: modelData.rain >= 20 ? modelData.rain + " %" : ""
+                    font.family: root.font
+                    font.pixelSize: 11
+                    color: "#9fd3ff"
+                }
+                Text {
+                    id: dayMin
+                    anchors.left: dayRain.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 32
+                    horizontalAlignment: Text.AlignRight
+                    text: Math.round(modelData.min) + "°"
                     font.family: root.font
                     font.pixelSize: 13
-                    color: "#d9ffffff"
+                    color: "#b3ffffff"
+                }
+                Rectangle {
+                    id: track
+                    anchors.left: dayMin.right
+                    anchors.leftMargin: 8
+                    anchors.right: dayMax.left
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 5
+                    radius: 2.5
+                    color: "#26ffffff"
+                    Rectangle {
+                        readonly property real span: Math.max(1, week.high - week.low)
+                        x: (modelData.min - week.low) / span * track.width
+                        width: Math.max(height, (modelData.max - modelData.min) / span * track.width)
+                        height: parent.height
+                        radius: parent.radius
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0; color: "#8fd3ff" }
+                            GradientStop { position: 1; color: "#ffd479" }
+                        }
+                    }
+                }
+                Text {
+                    id: dayMax
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 32
+                    horizontalAlignment: Text.AlignRight
+                    text: Math.round(modelData.max) + "°"
+                    font.family: root.font
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                    color: "white"
                 }
             }
         }
