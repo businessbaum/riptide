@@ -4,6 +4,9 @@ packages changed:
 
     system packages   checkupdates (pacman-contrib: a copy of the package lists, no root)
     Flatpak apps      flatpak remote-ls --updates
+    archive apps      apps from their maker's release archive (archive_apps.py, e.g. Zen):
+                      a newer release is installed right away, like a browser updates
+                      itself; a running app changes at its next start
 
 and whether what runs is older than what is installed:
 
@@ -28,6 +31,7 @@ from gi.repository import Gio, GLib
 
 STATE = Path.home() / ".local/state/macos/updates.json"
 SCRIPTS = Path.home() / ".config/quickshell/scripts"
+ARCHIVE_APP = Path.home() / ".local/bin/archive-app"
 EVERY = 6 * 3600
 NOTIFY_AGAIN = 12 * 3600  # new updates are told at most this often
 
@@ -139,6 +143,28 @@ class Updates:
         if out is not None:
             self.state["flatpaks"] = [{"app": line.split("\t")[0], "to": (line.split("\t") + [""])[1]}
                                       for line in out.splitlines() if line.strip()]
+        self.spawn([str(ARCHIVE_APP), "update"], self.got_archive_apps)
+
+    def got_archive_apps(self, out):
+        from desktop_shell.archive_apps import specs
+
+        try:
+            results = json.loads(out or "[]")
+        except ValueError:
+            results = []
+        names = {app: spec.get("name", app) for app, spec in specs().items()}
+        for r in results if isinstance(results, list) else []:
+            name = names.get(r.get("app"), r.get("app"))
+            if r.get("changed"):
+                self.notify(f"„{name}“ wurde aktualisiert",
+                            f"Version {r.get('tag')} – sie gilt ab dem nächsten Start von „{name}“.", "", "")
+            elif r.get("error") and self.state.get("archive_error", {}).get(r["app"]) != r["error"]:
+                self.notify(f"„{name}“ ließ sich nicht aktualisieren", r["error"], "", "")
+            errors = self.state.setdefault("archive_error", {})
+            if r.get("error"):
+                errors[r["app"]] = r["error"]
+            else:
+                errors.pop(r.get("app"), None)
         self.checking = False
         self.state["checked"] = time.time()
         self.state.update(needs())
@@ -178,7 +204,8 @@ class Updates:
             reply = self.bus.call_sync(
                 "org.freedesktop.Notifications", "/org/freedesktop/Notifications", "org.freedesktop.Notifications",
                 "Notify", GLib.Variant("(susssasa{sv}i)", ("System", 0, "", title, text,
-                                                           ["default", button, action, button], {}, 0)),
+                                                           ["default", button, action, button] if button else [],
+                                                           {}, 0)),
                 GLib.VariantType("(u)"), Gio.DBusCallFlags.NONE, 5000, None)
             self.actions[reply.unpack()[0]] = action
         except GLib.Error as e:

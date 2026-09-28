@@ -51,7 +51,10 @@ HELPERS = HOME / ".local/lib/macos-sandbox"
 FLATPAK_SPAWN = Path(__file__).resolve().parent / "flatpak-spawn"
 CONTAINERS = HOME / ".local/share/macos/sandbox"
 PROFILES = HOME / ".config/macos/sandbox.json"
-ENTRY_DIRS = [Path("/usr/local/share/applications"), Path("/usr/share/applications"),
+# start entries of the apps from release archives (archive_apps.py): not on the desktop's
+# own search path – only their sandboxed overrides are (sync)
+ARCHIVE_ENTRIES = HOME / ".local/share/macos/apps/entries"
+ENTRY_DIRS = [Path("/usr/local/share/applications"), Path("/usr/share/applications"), ARCHIVE_ENTRIES,
               HOME / ".local/share/applications"]
 
 # The desktop's look, read-only in every sandbox
@@ -344,6 +347,11 @@ class Sandbox:
                     a += ["--bind-try", str(dirs[xdg]), str(dirs[xdg])]
         if self.allowed["removable"]:
             a += ["--bind-try", f"/run/media/{os.environ.get('USER', '')}", f"/run/media/{os.environ.get('USER', '')}"]
+        # folders it may only read: its program when it does not live in /usr (an app from a
+        # release archive, archive_apps.py – it cannot change itself)
+        for folder in self.profile.get("ro", []):
+            path = Path(folder).expanduser()
+            a += ["--ro-bind-try", str(path), str(path)]
 
         # runtime folder: Wayland, D-Bus, sound, documents chosen in file dialogs
         a += ["--tmpfs", str(RUNTIME), "--chmod", "0700", str(RUNTIME),
@@ -369,6 +377,8 @@ class Sandbox:
               # Electron/Chromium name their notifications after it (desktop-entry), else
               # they arrive without any sender and cannot be told apart
               "--setenv", "CHROME_DESKTOP", f"{self.app}.desktop", "--chdir", str(HOME)]
+        for name, value in self.profile.get("env", {}).items():  # what the app is known to need
+            a += ["--setenv", name, str(value)]
         return a
 
     # -------- start
@@ -624,7 +634,7 @@ def sync():
     profiles = load_profiles()
     me = HOME / ".local/bin/app-sandbox"
     wanted = {}
-    for folder in (Path("/usr/share/applications"), Path("/usr/local/share/applications")):
+    for folder in (Path("/usr/share/applications"), Path("/usr/local/share/applications"), ARCHIVE_ENTRIES):
         for source in sorted(folder.glob("*.desktop")):
             app = source.stem
             entry = read_entry(source)
