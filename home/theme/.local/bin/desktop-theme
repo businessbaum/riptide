@@ -280,6 +280,15 @@ def thunderbird(theme):
 ZEN_PREFS = {
     "toolkit.legacyUserProfileCustomizations.stylesheets": True,  # read chrome/userChrome.css
     "widget.gtk.overlay-scrollbars.enabled": True,  # thin scroll bars that appear on use
+    # Scrolling a little firmer, never jumping (2026-09-28). Zen turns on the spring
+    # physics (msdPhysics): speed builds up while the wheel turns and the page glides on
+    # after it stops – it felt like mouse acceleration. Now each notch is one short smooth
+    # movement that starts and stops with the wheel. (Smooth scrolling off made the page
+    # jump – tried and taken back the same day.) To undo, set Zen's own value here: a line
+    # just removed stays in the profile's prefs.js. Zen's: true, "0.15", 150.
+    "general.smoothScroll.msdPhysics.enabled": False,
+    "general.smoothScroll.currentVelocityWeighting": "0",  # a notch does not carry the last one's speed
+    "general.smoothScroll.mouseWheel.durationMaxMS": 120,  # one notch on its own: 120 ms, not 150
 }
 
 
