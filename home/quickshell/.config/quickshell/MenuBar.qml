@@ -31,23 +31,6 @@ PanelWindow {
         right: true
     }
     implicitHeight: 30
-
-    // arriving after the login at boot (Lock.qml): slides down into place once the lock
-    // screen's ripple is through
-    property real arrive: Lock.arrived ? 1 : 0
-    Behavior on arrive {
-        NumberAnimation { duration: 520; easing.type: Easing.OutCubic }
-    }
-    Translate {
-        id: arrival
-        y: (1 - bar.arrive) * -bar.implicitHeight
-    }
-    Binding {
-        target: bar.contentItem
-        property: "opacity"
-        value: bar.arrive
-    }
-    Component.onCompleted: bar.contentItem.transform = [arrival]
     exclusiveZone: implicitHeight
     color: "transparent"
 

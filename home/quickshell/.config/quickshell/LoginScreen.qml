@@ -24,16 +24,6 @@ Item {
     property bool leaving: false               // logged in: the form fades, the backdrop stays
     property bool other: false
     property bool errorHidden: false           // (going back or on: the old message goes)
-    // coming in (LockScreen.qml animates them): 0 → 1 brings the clock down from above and
-    // then the person and the field up from below; the backdrop may zoom
-    property real intro: 1
-    property real backdropScale: 1
-    readonly property real clockIn: Math.max(0, Math.min(1, intro * 1.6))
-    readonly property real formIn: Math.max(0, Math.min(1, (intro - 0.35) / 0.65))
-    // where the ripple of unlocking starts: the person on the main screen, else the middle
-    function rippleOrigin() {
-        return main ? avatar.mapToItem(root, avatar.width / 2, avatar.height / 2) : Qt.point(width / 2, height / 2);
-    }
     onErrorChanged: errorHidden = false
     readonly property string fontSans: "Inter"
     readonly property string fontSymbols: "Symbols Nerd Font"
@@ -71,7 +61,6 @@ Item {
     Loader {
         anchors.fill: parent
         sourceComponent: root.backdrop
-        scale: root.backdropScale
     }
     Component {
         id: gradient
@@ -101,8 +90,6 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             y: parent.height * 0.1
             spacing: 0
-            opacity: root.clockIn
-            transform: Translate { y: (1 - root.clockIn) * -40 }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: clock.date.toLocaleDateString(Qt.locale("de_DE"), "dddd, d. MMMM")
@@ -127,11 +114,8 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             y: Math.min(parent.height * 0.56, powerRow.y - implicitHeight - 48)
             spacing: 12
-            opacity: root.formIn
-            transform: Translate { y: (1 - root.formIn) * 44 }
 
             Rectangle {
-                id: avatar
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: 96
                 height: 96
@@ -286,7 +270,6 @@ Item {
         Row {
             id: powerRow
             visible: root.main && root.offerPower
-            opacity: root.formIn
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 48

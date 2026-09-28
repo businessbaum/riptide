@@ -14,8 +14,7 @@ import Quickshell.Io
 // it (shell.qml), no login items (xdg-desktop-autostart.target), no apps. After it the
 // marker goes, Hyprland loads its shortcuts, the login items and the apps of the last
 // session open – the desktop was there behind the login window all along.
-//   qs ipc call lock now      lock the screen, animated (⌘L, ⌃⌘Q, hot corner, idle)
-//   qs ipc call lock instant  lock at once (hypridle before sleep)
+//   qs ipc call lock now      lock the screen (⌘L, ⌃⌘Q, hot corner, hypridle)
 Singleton {
     id: root
 
@@ -36,49 +35,27 @@ Singleton {
     readonly property string user: Quickshell.env("USER") ?? ""
     property string displayName: user.charAt(0).toUpperCase() + user.slice(1)
 
-    // how the lock screen comes and goes (LockScreen.qml): animated from the desktop; at
-    // boot, after a crash and before sleep it simply is there
-    property bool animateIn: false
-    // menu bar and dock: after the login at boot they arrive once the lock screen is gone
-    property bool arrived: true
-
     function lock() {
-        if (locked)
-            return;
-        animateIn = true;
-        locked = true;
-    }
-    // before sleep: at once – no half-faded screen when waking up
-    function lockNow() {
-        animateIn = false;
         locked = true;
     }
 
-    // LockScreen.qml, the moment the password is right – before its animation, so that at
-    // boot the apps already start loading behind it
-    function passwordAccepted() {
-        if (loggedIn)
-            return;
-        loggedIn = true;
-        // in this order: the marker first, then Hyprland reloads with its shortcuts (still
-        // locked: they wait), then the login items held back (their target refuses a manual
-        // start: each one, by its name as systemd's generator wrote it)
-        Quickshell.execDetached(["sh", "-c", 'rm -f "$1" "$2"; hyprctl reload >/dev/null; '
-            + 'for f in "$XDG_RUNTIME_DIR"/systemd/generator.late/xdg-desktop-autostart.target.wants/*.service; do '
-            + '[ -e "$f" ] && systemctl --user start --no-block -- "${f##*/}"; done', "sh", marker, runtime + "/lock-shown"]);
-    }
-
-    // LockScreen.qml, after its animation
+    // LockScreen.qml, after the password (and the fade)
     function unlocked() {
-        passwordAccepted();
+        const first = !loggedIn;
+        loggedIn = true; // (before unlocking: nothing is taken down in between)
         locked = false;
-        arrived = true;
-        // drives that came in while locked are mounted now (Riptide "drives.mount", drives.py)
+        // in this order: the markers first; at boot then Hyprland reloads with its
+        // shortcuts and the login items held back start (their target refuses a manual
+        // start: each one, by its name as systemd's generator wrote it); then drives that
+        // came in while locked are mounted (Riptide "drives.mount", drives.py)
+        afterUnlock.command = ["sh", "-c", 'rm -f "$1" "$2" "$3"; [ "$4" = 1 ] || exit 0; hyprctl reload >/dev/null; '
+            + 'for f in "$XDG_RUNTIME_DIR"/systemd/generator.late/xdg-desktop-autostart.target.wants/*.service; do '
+            + '[ -e "$f" ] && systemctl --user start --no-block -- "${f##*/}"; done', "sh",
+            runtime + "/locked", marker, runtime + "/lock-shown", first ? "1" : "0"];
         afterUnlock.running = true;
     }
     Process {
         id: afterUnlock
-        command: ["rm", "-f", root.runtime + "/locked"]
         onExited: Riptide.call("drives.mount", {})
     }
 
@@ -117,10 +94,7 @@ Singleton {
         path: root.marker
         blockLoading: true
         printErrors: false
-        onLoaded: {
-            root.arrived = false;
-            root.locked = true;
-        }
+        onLoaded: root.locked = true
         onLoadFailed: {
             if (Quickshell.env("XDG_RUNTIME_DIR"))
                 root.loggedIn = true; // no marker: a normal login (with the password)
@@ -143,10 +117,6 @@ Singleton {
         target: "lock"
         function now(): void {
             root.lock();
-        }
-        // hypridle before sleep (scripts/hypridle-config.py)
-        function instant(): void {
-            root.lockNow();
         }
     }
 }
