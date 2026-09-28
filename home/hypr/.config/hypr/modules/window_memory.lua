@@ -144,8 +144,75 @@ if converted then save() end
 ---- EVENTS ----
 ----------------
 
+-- Start windows (Discord's updater, splash screens): a window of the app that closes again
+-- within seconds while another of its windows is open was only on its way – it is not
+-- remembered, and the frame goes to the window that stays (it opened while the start
+-- window was still there and was left alone then)
+local SPLASH_SECONDS = 15
+local opened = {} -- window address → when it opened
+local placed = {} -- window address → got the remembered frame
+
+-- The frame an app is remembered with, onto one of its windows; false if there is none
+local function restore(w)
+    local r = frames[key(w)]
+    local m = (r and monitor_named(r.mon)) or hl.get_monitor_at_cursor()
+    if not m then return false end
+    local k = kind_of(w)
+    if not r and k and k.default then
+        -- never resized yet: its first size, in the middle of the screen
+        local width, height = math.floor(m.width * k.default.w), math.floor(m.height * k.default.h)
+        r = { x = math.floor((m.width - width) / 2), y = math.floor((m.height - height) / 2), w = width, h = height }
+    end
+    if not r then return false end
+    if w.monitor and w.monitor.name ~= m.name then
+        -- opened on another screen (where the app was clicked): over to its own, and the
+        -- focus goes along
+        hl.dispatch(hl.dsp.window.move({ window = w, monitor = m.name }))
+        w = hl.get_window("address:" .. w.address) or w
+    end
+    if r.kind then
+        -- first its normal size (what the green button brings back), then zoomed/snapped
+        local old = r.old and { x = m.x + r.old.x, y = m.y + r.old.y, w = r.old.w, h = r.old.h }
+        if old then
+            hl.dispatch(hl.dsp.window.resize({ window = w, x = old.w, y = old.h }))
+            hl.dispatch(hl.dsp.window.move({ window = w, x = old.x, y = old.y }))
+        end
+        if r.kind == "fullscreen" then
+            hl.dispatch(hl.dsp.window.fullscreen({ window = w, mode = "fullscreen", action = "set" }))
+            return true
+        end
+        snapping.snap(hl.get_window("address:" .. w.address) or w, r.kind, old)
+        return true
+    end
+    hl.dispatch(hl.dsp.window.resize({ window = w, x = r.w, y = r.h }))
+    hl.dispatch(hl.dsp.window.move({ window = w, x = m.x + r.x, y = m.y + r.y }))
+    return true
+end
+
+-- the most recently opened other window of the same app and kind
+local function newest_other(w)
+    local best, mine = nil, key(w)
+    for _, o in ipairs(hl.get_windows()) do
+        if o.address ~= w.address and o.mapped and o.class == w.class and key(o) == mine
+            and (not best or (opened[o.address] or 0) >= (opened[best.address] or 0)) then
+            best = o
+        end
+    end
+    return best
+end
+
 hl.on("window.close", function(w)
-    if not remembers(w) or others(w) > 0 then return end
+    local born, got_frame = opened[w.address], placed[w.address]
+    opened[w.address], placed[w.address] = nil, nil
+    if not remembers(w) then return end
+    if born and os.time() - born < SPLASH_SECONDS and others(w) > 0 then
+        local o = got_frame and newest_other(w)
+        if o and not placed[o.address] and remembers(o) and restore(o) then
+            placed[o.address] = true
+        end
+        return
+    end
+    if others(w) > 0 then return end
     local m = monitor_at(w.at.x + w.size.x / 2, w.at.y + w.size.y / 2) or w.monitor
     if not m then return end
     if is_fullscreen(w) then
@@ -170,37 +237,7 @@ hl.on("window.close", function(w)
 end)
 
 hl.on("window.open", function(w)
+    if w and w.address then opened[w.address] = os.time() end
     if not remembers(w) or others(w) > 0 then return end
-    local r = frames[key(w)]
-    local m = (r and monitor_named(r.mon)) or hl.get_monitor_at_cursor()
-    if not m then return end
-    local k = kind_of(w)
-    if not r and k and k.default then
-        -- never resized yet: its first size, in the middle of the screen
-        local width, height = math.floor(m.width * k.default.w), math.floor(m.height * k.default.h)
-        r = { x = math.floor((m.width - width) / 2), y = math.floor((m.height - height) / 2), w = width, h = height }
-    end
-    if not r then return end
-    if w.monitor and w.monitor.name ~= m.name then
-        -- opened on another screen (where the app was clicked): over to its own, and the
-        -- focus goes along
-        hl.dispatch(hl.dsp.window.move({ window = w, monitor = m.name }))
-        w = hl.get_window("address:" .. w.address) or w
-    end
-    if r.kind then
-        -- first its normal size (what the green button brings back), then zoomed/snapped
-        local old = r.old and { x = m.x + r.old.x, y = m.y + r.old.y, w = r.old.w, h = r.old.h }
-        if old then
-            hl.dispatch(hl.dsp.window.resize({ window = w, x = old.w, y = old.h }))
-            hl.dispatch(hl.dsp.window.move({ window = w, x = old.x, y = old.y }))
-        end
-        if r.kind == "fullscreen" then
-            hl.dispatch(hl.dsp.window.fullscreen({ window = w, mode = "fullscreen", action = "set" }))
-            return
-        end
-        snapping.snap(hl.get_window("address:" .. w.address) or w, r.kind, old)
-        return
-    end
-    hl.dispatch(hl.dsp.window.resize({ window = w, x = r.w, y = r.h }))
-    hl.dispatch(hl.dsp.window.move({ window = w, x = m.x + r.x, y = m.y + r.y }))
+    if restore(w) then placed[w.address] = true end
 end)
