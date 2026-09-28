@@ -2,7 +2,7 @@
 
 Arch Linux on riptide: LUKS2 + TPM2, btrfs + snapper, Limine, NVIDIA,
 Hyprland + Quickshell as an own macOS-style system. See `docs/os-plan.md`, `ROADMAP.md`;
-for Claude sessions: `CLAUDE.md` (rules, map, how to work here).
+for Claude sessions: `home/claude/CLAUDE.md`, linked to `~/CLAUDE.md` (rules, map, how to work here).
 
 | Path              | Content                                                     |
 |-------------------|-------------------------------------------------------------|
