@@ -224,7 +224,16 @@ for entry in "riptide Notfallmodus|arch-linux-recovery.efi" "riptide Reserve (LT
         echo "  $label: eingetragen"
     fi
 done
-efibootmgr | grep -E '^Boot[0-9A-F]{4}' | sed -E 's/\t.*//; s/^/    /'
+# in the start order too (after the rest): the ASRock menu shows only entries that are in it
+order=$(efibootmgr | sed -n 's/^BootOrder: //p')
+for label in "riptide Notfallmodus" "riptide Reserve (LTS)"; do
+    num=$(efibootmgr | grep -F "* $label"$'\t' | sed -E 's/^Boot([0-9A-F]{4}).*/\1/' | head -1)
+    if [[ -n "$num" && ",$order," != *",$num,"* ]]; then
+        order="${order:+$order,}$num"
+    fi
+done
+efibootmgr -o "$order" >/dev/null
+efibootmgr | grep -E '^Boot[0-9A-F]{4}|^BootOrder' | sed -E 's/\t.*//; s/^/    /'
 
 echo
 echo "Fertig. Neu starten: der Anmeldebildschirm kommt beim nächsten Start."

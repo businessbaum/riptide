@@ -39,4 +39,13 @@ fi
 step "Neue limine.conf"
 cat "$CONF"
 
-printf '\nFertig. Bitte neu starten und im Limine-Menü "Arch Linux (UKI)" wählen (Standard).\n'
+cat <<'MSG'
+
+Fertig. Nächste Schritte:
+  1. Neu starten ("Arch Linux (UKI)" startet von selbst). Die Festplatte fragt EINMAL nach der
+     Passphrase: beim Start über das Kernel-Image setzt systemd vor dem Entsperren einen
+     Trennwert in die TPM-Register (systemd-pcrosseparator), Register 7 passt nicht mehr.
+  2. Den TPM neu binden (fragt nach der Passphrase), dann entsperrt er wieder von selbst:
+       sudo systemd-cryptenroll /dev/disk/by-uuid/YOUR-LUKS-UUID \
+            --wipe-slot=tpm2 --tpm2-device=auto --tpm2-pcrs=7
+MSG
