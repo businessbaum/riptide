@@ -62,6 +62,20 @@ Singleton {
             Quickshell.execDetached(["touch", runtime + "/lock-shown"]);
     }
 
+    // Hyprland that crashed while locked is started again locked (start-hyprland adds
+    // --locked): then this lock screen takes over at once – otherwise there would be a
+    // locked screen with nothing to unlock it (allow_session_lock_restore, hyprland.lua)
+    Process {
+        running: true
+        command: ["sh", "-c", 'for p in $(pgrep -u "$(id -u)" -x Hyprland); do tr "\\0" " " < "/proc/$p/cmdline"; done']
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (/(^| )--locked( |$)/.test(text))
+                    root.locked = true;
+            }
+        }
+    }
+
     // a locked start or not (without a runtime folder: locked, never open by mistake)
     Component.onCompleted: if (!Quickshell.env("XDG_RUNTIME_DIR")) locked = true
     FileView {
