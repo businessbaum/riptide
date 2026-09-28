@@ -279,6 +279,23 @@ function macos.maximize_request(address, on)
     return hl.dsp.no_op()
 end
 
+-- An app asks for full screen or back (F11 in the browser, a video; riptide-wm
+-- window_buttons.cpp). Not left to Hyprland: once tell_app() has told an app it is zoomed,
+-- Hyprland passes such a request on to the app only and the window keeps its size.
+-- Back from full screen, the window has its old frame again and the app learns whether
+-- that is a zoomed one.
+function macos.fullscreen_request(address, on)
+    local w = hl.get_window("address:" .. address)
+    if not w then return hl.dsp.no_op() end
+    if on then
+        hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 }))
+    else
+        local zoomed = before[w.address] ~= nil and before[w.address].kind == "full"
+        hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 0, client = zoomed and 1 or 0 }))
+    end
+    return hl.dsp.no_op()
+end
+
 function macos.arrange(kind)
     return function()
         local w = hl.get_active_window()

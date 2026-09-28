@@ -9,6 +9,8 @@
 //                             on release macos.drag_ended() runs (snapping)
 //   minimize button (yellow) → hidden desktop "minimized" (like ⌘M)
 //   maximize button (green)  → macos.zoom() (like our own title bars)
+//   full screen (F11 & co.)  → macos.fullscreen_request(): real full screen and back, also
+//                              for a zoomed window (Hyprland only told the app then)
 //   top edge of any window   → moves the window instead of resizing it (Hyprland's grab
 //                              zone there kept catching drags meant for the title bar)
 //   menu bar                 → a border: a dragged window never goes above it
@@ -60,11 +62,12 @@ static PHLWINDOW windowOf(CXdgToplevel* r) {
     return TL ? TL->m_window.lock() : nullptr;
 }
 
-static void maximizeRequest(CXdgToplevel* r, bool on) {
+// An app's request for its own window, handed to Lua (snapping.lua): macos.<fn>("0x…", on)
+static void requestToLua(CXdgToplevel* r, const char* fn, bool on) {
     const auto W = windowOf(r);
     if (!W)
         return;
-    runCommand(std::format("hyprctl dispatch 'macos.maximize_request(\"0x{:x}\", {})'", (uintptr_t)W.get(), on ? "true" : "false"));
+    runCommand(std::format("hyprctl dispatch 'macos.{}(\"0x{:x}\", {})'", fn, (uintptr_t)W.get(), on ? "true" : "false"));
 }
 
 // The requests arrive at the Wayland object "xdg_toplevel". Hyprland keeps it private,
@@ -120,8 +123,14 @@ static void hookWindow(PHLWINDOW w) {
 
     // An app asks to be maximized or not (its own green button, or restoring its last
     // state): that window, not the active one, and as asked – not a blind toggle
-    s.found->setSetMaximized([](CXdgToplevel* r) { maximizeRequest(r, true); });
-    s.found->setUnsetMaximized([](CXdgToplevel* r) { maximizeRequest(r, false); });
+    s.found->setSetMaximized([](CXdgToplevel* r) { requestToLua(r, "maximize_request", true); });
+    s.found->setUnsetMaximized([](CXdgToplevel* r) { requestToLua(r, "maximize_request", false); });
+
+    // An app asks for full screen or back (F11 in the browser, a video). Hyprland keeps a
+    // zoomed window's size then and only tells the app "full screen" – macos.zoom tells the
+    // app it is zoomed through the same state. So Lua decides, like for maximize.
+    s.found->setSetFullscreen([](CXdgToplevel* r, wl_resource*) { requestToLua(r, "fullscreen_request", true); });
+    s.found->setUnsetFullscreen([](CXdgToplevel* r) { requestToLua(r, "fullscreen_request", false); });
 
     // Hyprland only tells apps "fullscreen and maximize are possible". GTK then greys out
     // the minimize button and never sends the request above. Announce minimize as well;
