@@ -114,6 +114,25 @@ PanelWindow {
     anchors.bottom: true
     implicitWidth: plate.width + 200
     implicitHeight: plateHeight + headroom + bottomGap
+
+    // arriving after the login at boot (Lock.qml): rises into place just after the menu bar
+    property real arrive: Lock.arrived ? 1 : 0
+    Behavior on arrive {
+        SequentialAnimation {
+            PauseAnimation { duration: 140 }
+            NumberAnimation { duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+        }
+    }
+    Translate {
+        id: arrival
+        y: (1 - dock.arrive) * (dock.plateHeight + dock.bottomGap + 20)
+    }
+    Binding {
+        target: dock.contentItem
+        property: "opacity"
+        value: Math.min(1, dock.arrive * 1.4)
+    }
+    Component.onCompleted: dock.contentItem.transform = [arrival]
     exclusiveZone: plateHeight + bottomGap
     color: "transparent"
 

@@ -45,8 +45,11 @@ local bind = hl.bind
 if start_locked then
     hl.bind = function() end
 end
--- a lock screen that crashed is started again by its service and takes the lock back over
-hl.config({ misc = { allow_session_lock_restore = true } })
+-- a lock screen that crashed is started again by its service and takes the lock back over;
+-- the desktop stays drawn below the lock screen for its animations (LockScreen.qml): it is
+-- see-through only while it moves, black otherwise, and a missing lock screen is covered by
+-- Hyprland's own opaque picture
+hl.config({ misc = { allow_session_lock_restore = true, session_lock_xray = true } })
 
 
 ------------------
