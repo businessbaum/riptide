@@ -10,7 +10,8 @@ MenuBarPopup {
 
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var outputs: Pipewire.nodes.values.filter(n => n.isSink && !n.isStream && n.audio)
-    readonly property var streams: Pipewire.nodes.values.filter(n => n.isSink && n.isStream && n.audio)
+    // (not the system's own sounds – notifications, screenshot – played by pw-play for a moment)
+    readonly property var streams: Pipewire.nodes.values.filter(n => n.isSink && n.isStream && n.audio && n.name !== "pw-play")
 
     // Streams of one app together (Discord plays several). A sandboxed app's streams are
     // named by the service (Privacy.streams), else by what the stream says about itself

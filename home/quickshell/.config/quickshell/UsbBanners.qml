@@ -56,7 +56,9 @@ Scope {
 
     Process {
         running: true
-        command: ["udevadm", "monitor", "--udev", "--subsystem-match=usb/usb_device", "--property"]
+        // ends with the shell: stopped by systemd (KillMode=process) the shell has no time to
+        // end it, and each restart left one more running
+        command: ["setpriv", "--pdeathsig", "TERM", "--", "udevadm", "monitor", "--udev", "--subsystem-match=usb/usb_device", "--property"]
         stdout: SplitParser {
             onRead: line => {
                 if (line === "") {

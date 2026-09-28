@@ -11,6 +11,13 @@ export LIBVA_DRIVER_NAME=nvidia __GLX_VENDOR_LIBRARY_NAME=nvidia NVD_BACKEND=dir
 export XCURSOR_THEME=capitaine-cursors XCURSOR_SIZE=22 HYPRCURSOR_SIZE=22
 export QT_QPA_PLATFORM=wayland LANG=de_DE.UTF-8
 
+# No session bus: the login window needs none (greetd has its own socket, sleep and restart
+# go over the system bus). Asked there, the bus started the desktop's helpers for "greeter"
+# too – portals, a second sound server (registering with Bluetooth next to the user's),
+# accessibility bus, file services – which cost time, and whose portal crashed with
+# Hyprland at the end. Qt is told not to look for them either.
+export DBUS_SESSION_BUS_ADDRESS=disabled: QT_NO_XDG_DESKTOP_PORTAL=1 QT_QPA_PLATFORMTHEME=generic
+
 # the greeter has no home folder: everything it writes lives in its runtime folder
 export HOME="$XDG_RUNTIME_DIR/home"
 export XDG_CONFIG_HOME="$HOME/.config" XDG_CACHE_HOME="$HOME/.cache" XDG_DATA_HOME="$HOME/.local/share" XDG_STATE_HOME="$HOME/.local/state"

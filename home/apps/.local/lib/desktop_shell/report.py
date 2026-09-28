@@ -23,6 +23,7 @@ Equal messages are counted once: numbers, addresses and times are made alike fir
 import datetime
 import json
 import os
+import pwd
 import re
 import subprocess
 import sys
@@ -46,6 +47,52 @@ NOISE = [
     re.compile(r"mimeapps\.list"),
     # sandboxed GTK apps look for the drive services, which stay outside
     re.compile(r"remote volume monitor with dbus name org\.gtk\.vfs"),
+    # our sandbox replaces an app's D-Bus start file on purpose (app-sandbox --sync): the bus
+    # says it ignores the original
+    re.compile(r"Ignoring duplicate name '.*' in service file '/usr/share/+dbus-1/services/"),
+    # Chromium/Electron: its own chatter, its tray icon's name taken by a second window
+    re.compile(r"rejected by interface blink\.mojom|Failed to get the ownership of org\.freedesktop\.StatusNotifierItem"),
+    # the start without password (autologin into the locked session) cannot open the keyring
+    # – the password on the lock screen does, right after ("unlocked login keyring"); a text
+    # login on a console has no keyring at all
+    re.compile(r"(greetd|getty@tty\d+): gkr-pam: (couldn't unlock the login keyring|unable to locate daemon control file)"),
+    re.compile(r"gnome-keyring-daemon: (The Secret Service was already initialized|asked to register item .* already registered)"
+               r"|discover_other_daemon"),
+    # the shell reloaded: its bus connection had told the portal who it is before
+    re.compile(r"Failed to register with host portal .*already associated|had owner '' but we thought it was"),
+    # hardware and drivers, all working: WLAN (multicast RX), Bluetooth adapter RTL8761BU
+    # (before its firmware is loaded), DisplayPort repeaters (LTTPR), Intel TDX (this is AMD)
+    re.compile(r"multicast RX registrations are not supported|bluetooth: Failed to set mode: Failed \(0x[0-9a-f]+\)"
+               r"|LTTPR|lttpr_caps|TDX not supported|Unable to get io data for Hands-Free Voice gateway"),
+    # Bluetooth headphones switched off or out of reach: the adapter keeps trying
+    re.compile(r"Hands-Free Voice gateway SDP record: Host is down|bluetooth: No matching connection for device"),
+    # the kernel is built without audit: pam_faillock cannot send its audit note (it still counts)
+    re.compile(r"pam_faillock\(.*Error sending audit message: Address family not supported"),
+    # back in the session after the login screen: the sound server registers Bluetooth MIDI
+    # again and hears it still is
+    re.compile(r"GattManager1?\.RegisterApplication\(\) failed: .*AlreadyExists"),
+    # each crash is listed under "Abstürze" already
+    re.compile(r"of user \d+ dumped core\."),
+    # while logging out or shutting down: services report their last changes, systemd starts
+    # nothing anymore; the Hyprland crash at that moment (see Abstürze) loses its core dump
+    re.compile(r"Activation request for '(org\.freedesktop\.nm_dispatcher|org\.bluez)' failed"
+               r"|Transaction for sound\.target/start is destructive|io\.systemd\.Login\.NoSuchSession"
+               r"|signal-handler\.sh: .*printf|at-spi-dbus-bus\.service: (Main process exited|Failed with result)"
+               r"|Failed to send coredump datagram|Owner of volume monitor .* disconnected from the bus"),
+    # Claude's test runs (a second Hyprland in its scratch folder)
+    re.compile(r"/tmp/claude-\d+/"),
+]
+
+# Crashes that are known and not ours to fix (the rest shows one by one, with where it broke)
+KNOWN_CRASHES = [
+    # every end of Hyprland with two screens (logging out, restarting, the login screen after
+    # the password): after everything is closed, while tidying up – nothing is lost
+    (re.compile(r"/Hyprland$"), re.compile(r"flushAsyncCommitEvents[\s\S]*__cxa_finalize"),
+     "beim Beenden – bekannter Fehler in aquamarine bei zwei Bildschirmen, nichts geht verloren "
+     "(github.com/hyprwm/aquamarine/issues/383)"),
+    # Claude's check of a config (Hyprland --verify-config) crashes when it cleans up
+    (re.compile(r"/Hyprland$"), re.compile(r"CConfigManager11cleanTimers"),
+     "Konfigurationsprüfung (Test), nicht die Sitzung"),
 ]
 
 APP_ERRORS = re.compile(r"\b(ERROR|CRITICAL|FATAL|Traceback|Segmentation fault|segfault|core dumped|"
@@ -93,10 +140,46 @@ def journal(args, since):
         message = entry.get("MESSAGE")
         if isinstance(message, list):  # bytes
             message = bytes(message).decode(errors="replace")
+        if not message or not str(message).strip():
+            continue
         unit = entry.get("_SYSTEMD_USER_UNIT") or entry.get("_SYSTEMD_UNIT") or entry.get("SYSLOG_IDENTIFIER", "?")
         # (first line only: crash reports carry whole stack traces)
         lines.append((unit, entry.get("SYSLOG_IDENTIFIER", ""), str(message).split("\n")[0]))
     return lines
+
+
+def crashes(since):
+    """[(count, text)]: each crash with the program, who ran it and where it broke; known ones
+    (KNOWN_CRASHES) counted together with their explanation."""
+    out = run(["journalctl", "--no-pager", "-a", "-o", "json", "--since", since,
+               "--output-fields=MESSAGE,COREDUMP_EXE,COREDUMP_SIGNAL_NAME,COREDUMP_UID",
+               "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1"])  # systemd-coredump's report
+    rows, known = [], {}
+    for raw in out.splitlines():
+        try:
+            entry = json.loads(raw)
+        except ValueError:
+            continue
+        exe = entry.get("COREDUMP_EXE") or "?"
+        trace = entry.get("MESSAGE") or ""
+        if isinstance(trace, list):
+            trace = bytes(trace).decode(errors="replace")
+        when = datetime.datetime.fromtimestamp(int(entry.get("__REALTIME_TIMESTAMP", 0)) / 1e6)
+        try:
+            who = pwd.getpwuid(int(entry.get("COREDUMP_UID"))).pw_name
+        except (TypeError, ValueError, KeyError):
+            who = "?"
+        name = f"{Path(exe).name} ({entry.get('COREDUMP_SIGNAL_NAME') or 'Signal ?'}, {who})"
+        why = next((text for exe_re, trace_re, text in KNOWN_CRASHES if exe_re.search(exe) and trace_re.search(trace)), None)
+        if why:
+            n, last = known.get((name, why), (0, when))
+            known[(name, why)] = (n + 1, max(last, when))
+            continue
+        # where it broke: the first frame of the crashed thread
+        frame = re.search(r"^\s*#0\s+\S+\s+(.+)$", trace, re.M)
+        rows.append((1, f"{when:%Y-%m-%d %H:%M:%S} {name}: {frame.group(1) if frame else exe}"))
+    rows += [(n, f"{name} {why}, zuletzt {last:%Y-%m-%d %H:%M}") for (name, why), (n, last) in known.items()]
+    return rows
 
 
 def sections(since):
@@ -107,13 +190,7 @@ def sections(since):
     failed += ["(System) " + l.split()[0] for l in run(["systemctl", "--failed", "--no-legend", "--plain"]).splitlines() if l.strip()]
     out.append(("Fehlgeschlagene Dienste", [(1, f) for f in failed]))
 
-    # crashes
-    crashes = []
-    for line in run(["coredumpctl", "list", "--no-pager", "--no-legend", "--since", since]).splitlines():
-        parts = line.split()
-        if len(parts) >= 10:
-            crashes.append(f"{parts[1]} {parts[2]} {parts[8]} (Signal {parts[7]}): {' '.join(parts[9:])}")
-    out.append(("Abstürze", [(1, c) for c in crashes]))
+    out.append(("Abstürze", crashes(since)))
 
     # Hyprland
     hypr = [l for l in run(["hyprctl", "configerrors"]).splitlines() if l.strip()]

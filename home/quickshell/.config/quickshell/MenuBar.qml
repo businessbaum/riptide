@@ -77,18 +77,35 @@ PanelWindow {
     // Pictures of new notifications (image data), drawn once out of sight and kept as a
     // file for the notification centre (NotificationStore.pendingImages) – on one screen
     Repeater {
-        model: bar.screen === Quickshell.screens[0] ? NotificationStore.pendingImages : []
+        // (by key: a picture that is done does not make the others start over)
+        model: ScriptModel {
+            values: bar.screen === Quickshell.screens[0] ? NotificationStore.pendingImages : []
+            objectProp: "key"
+        }
         IconImage {
             id: keep
             required property var modelData
+            readonly property string key: modelData.key
             x: -200 // (a grab needs the item in a window, not on screen)
             implicitSize: 72
             source: modelData.url
+            // The picture is often there at once – right after the shell (re)loads even before
+            // the menu bar has its window: the grab waits until the item is in a shown window
+            readonly property bool ready: status === Image.Ready && (Window.window?.visible ?? false)
+            property bool asked: false
+            function keepIt() {
+                if (!ready || asked)
+                    return;
+                asked = true;
+                const key = keep.key;
+                if (!keep.grabToImage(result => NotificationStore.imageKept(key, result.saveToFile(NotificationStore.imagePath(key)))))
+                    NotificationStore.imageKept(key, false);
+            }
+            onReadyChanged: keepIt()
+            Component.onCompleted: keepIt()
             onStatusChanged: {
-                if (status === Image.Ready)
-                    keep.grabToImage(result => NotificationStore.imageKept(keep.modelData.key, result.saveToFile(NotificationStore.imagePath(keep.modelData.key))));
-                else if (status === Image.Error)
-                    NotificationStore.imageKept(modelData.key, false);
+                if (status === Image.Error)
+                    NotificationStore.imageKept(key, false);
             }
         }
     }

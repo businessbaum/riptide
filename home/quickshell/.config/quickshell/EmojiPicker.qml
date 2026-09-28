@@ -46,6 +46,7 @@ PanelWindow {
     FileView {
         id: recentFile
         path: Quickshell.env("HOME") + "/.local/state/macos/emoji-recent.json"
+        printErrors: false // (there is none until the first emoji is chosen)
         onLoaded: {
             try {
                 root.recent = JSON.parse(text());

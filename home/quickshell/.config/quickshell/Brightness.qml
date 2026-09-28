@@ -36,9 +36,11 @@ Singleton {
     }
 
     // "Display 1 / I2C bus: /dev/i2c-7 / DRM connector: card2-DP-2 / Monitor: BNQ:BenQ EX2710Q:K6R…"
+    // (--syslog ERROR: else every call writes its guesses about the screens to the journal;
+    // written apart: "--syslog=ERROR" is not taken – tested with ddcutil 3.0.2)
     Process {
         id: detector
-        command: ["ddcutil", "detect", "--brief"]
+        command: ["ddcutil", "detect", "--brief", "--syslog", "ERROR"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const found = [];
@@ -62,7 +64,7 @@ Singleton {
         function readNext() {
             if (next >= root.displays.length)
                 return;
-            command = ["ddcutil", "--bus", String(root.displays[next].bus), "getvcp", "10", "--brief"];
+            command = ["ddcutil", "--bus", String(root.displays[next].bus), "getvcp", "10", "--brief", "--syslog", "ERROR"];
             running = true;
         }
         stdout: StdioCollector {
@@ -114,7 +116,7 @@ Singleton {
             function send() {
                 if (wanted < 0 || !root.displays[index])
                     return;
-                command = ["ddcutil", "--bus", String(root.displays[index].bus), "setvcp", "10", String(wanted), "--noverify"];
+                command = ["ddcutil", "--bus", String(root.displays[index].bus), "setvcp", "10", String(wanted), "--noverify", "--syslog", "ERROR"];
                 wanted = -1;
                 running = true;
             }

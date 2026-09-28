@@ -51,6 +51,8 @@ hl.config({
         disable_watchdog_warning = true,
     },
     ecosystem = { no_update_news = true, no_donation_nag = true },
+    -- the cursor is not written to GNOME's settings (there is no session bus: start)
+    cursor = { sync_gsettings_theme = false },
 })
 
 -- the login window fades in, nothing else moves

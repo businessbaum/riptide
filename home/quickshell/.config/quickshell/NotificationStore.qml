@@ -333,7 +333,11 @@ Singleton {
         onNotification: n => {
             // After a reload of the shell the server hands over the notifications that
             // are still open once more: link them to their entry again, nothing new
-            // (entries saved before ids were kept: same text is enough)
+            // (entries saved before ids were kept: same text is enough). The shell being
+            // replaced hears it too, and has them already – nothing to do there (before, it
+            // took them for new ones: banners again, and its list written over the file).
+            if (root.history.some(h => h.live === n))
+                return;
             const known = root.history.find(h => !h.live && (h.id === n.id || h.id === undefined)
                 && h.appName === n.appName && h.summary === n.summary && h.body === n.body);
             if (known) {
