@@ -6,7 +6,8 @@
 //
 //   Config.qml         settings.json + theme.json (live)
 //   Apps.qml           running apps, launching, activating (via Hyprland)
-//   Wallpaper.qml      desktop background
+//   Wallpaper.qml      desktop background (WallpaperImage.qml: the picture itself)
+//   LockScreen.qml     the lock screen, at boot the login (Lock.qml, LoginScreen.qml: the window)
 //   MenuBar.qml        menu bar with Apple menu, app name, status, clock
 //   Dock.qml           dock on every screen
 //   Spotlight.qml      ⌘Space app search
@@ -47,40 +48,57 @@ ShellRoot {
         }
     }
 
+    // the wallpaper, always (the lock screen shows the same one)
     Variants {
         model: Quickshell.screens
-
-        Scope {
-            id: perScreen
+        Wallpaper {
             required property var modelData
-
-            Wallpaper {
-                screen: perScreen.modelData
-            }
-            MenuBar {
-                screen: perScreen.modelData
-            }
-            Dock {
-                screen: perScreen.modelData
-            }
+            screen: modelData
         }
     }
 
-    Spotlight {}
-    Launchpad {}
-    Clipboard {}
-    EmojiPicker {}
-    Switcher {}
-    MissionControl {}
-    HotCorners {}
-    BannerWindow {}
-    BluetoothBanners {}
-    UsbBanners {}
-    Osd {}
-    ConfirmDialog {}
-    ShareDialog {}
-    PolkitDialog {}
-    AboutWindow {}
-    AppInfoWindow {}
-    ForceQuitWindow {}
+    // the lock screen – at boot also the login (Lock.qml)
+    LockScreen {}
+
+    // Everything that can be touched: when the session starts locked (the login at boot)
+    // only once Hyprland has confirmed the lock – created under it, never before it
+    LazyLoader {
+        active: Lock.desktopAllowed
+
+        Scope {
+            Variants {
+                model: Quickshell.screens
+
+                Scope {
+                    id: perScreen
+                    required property var modelData
+
+                    MenuBar {
+                        screen: perScreen.modelData
+                    }
+                    Dock {
+                        screen: perScreen.modelData
+                    }
+                }
+            }
+
+            Spotlight {}
+            Launchpad {}
+            Clipboard {}
+            EmojiPicker {}
+            Switcher {}
+            MissionControl {}
+            HotCorners {}
+            BannerWindow {}
+            BluetoothBanners {}
+            UsbBanners {}
+            Osd {}
+            ConfirmDialog {}
+            ShareDialog {}
+            PolkitDialog {}
+            AboutWindow {}
+            AppInfoWindow {}
+            ForceQuitWindow {}
+        }
+    }
 }

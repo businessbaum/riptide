@@ -24,7 +24,7 @@ Scope {
         else if (action === "notifications")
             Quickshell.execDetached(["qs", "ipc", "call", "menubar-" + (Hyprland.focusedMonitor?.name ?? ""), "notificationCenter"]);
         else if (action === "lock")
-            Quickshell.execDetached(["sh", "-c", "pidof hyprlock || hyprlock"]);
+            Lock.lock();
         else if (action === "sleep")
             Session.sleep();
         else if (action === "screens-off")

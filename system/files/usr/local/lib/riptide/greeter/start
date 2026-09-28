@@ -19,6 +19,23 @@ mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME"
 # the console stays black: no boot messages before, none between login screen and desktop
 printf '\033c\033[?25l'
 
+# After a logout (not a crash, not "Anderer Benutzer") the next session starts locked again,
+# as at boot – its lock screen is the login window, one passage into the desktop. The
+# session wrote the moment of its logout (Session.qml); greetd starts anew for its initial
+# session (allowed by /etc/polkit-1/rules.d/50-riptide-greeter.rules). Once per logout,
+# never in a loop: a session that ends at once leaves this login screen here.
+auto=$(sed -n '/^\[initial_session\]/,/^\[/s/^user *= *"\(.*\)"/\1/p' /etc/greetd/config.toml)
+if [ -n "$auto" ]; then
+    out=$(cat "/var/lib/riptide/greeter/users/$auto/logged-out" 2>/dev/null)
+    done=$(cat /var/lib/riptide/greeter/autologin-done 2>/dev/null)
+    case "$out" in '' | *[!0-9]*) out=0 ;; esac
+    case "$done" in '' | *[!0-9]*) done=0 ;; esac
+    if [ "$out" -gt "$done" ] && [ $(($(date +%s) - out)) -lt 120 ]; then
+        echo "$out" > /var/lib/riptide/greeter/autologin-done
+        systemctl --no-block restart greetd.service && exec sleep 30
+    fi
+fi
+
 state="$XDG_RUNTIME_DIR/riptide-greeter"
 rm -rf "$state"
 mkdir -p "$state"

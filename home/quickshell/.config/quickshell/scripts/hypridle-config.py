@@ -38,7 +38,7 @@ def main():
 # Changes here are lost: change the settings instead.
 
 general {
-    lock_cmd = pidof hyprlock || hyprlock
+    lock_cmd = qs ipc call lock now || pidof hyprlock || hyprlock
     before_sleep_cmd = loginctl lock-session
     after_sleep_cmd = hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
     ignore_dbus_inhibit = false   # videos and calls keep the screen on

@@ -1,0 +1,23 @@
+#!/bin/sh
+# greetd's initial session (/etc/greetd/config.toml): the login at boot, like on a Mac.
+# The person is logged in without a password – the session starts locked: its lock screen
+# is the login window (Quickshell LockScreen.qml), and until the password nothing but
+# Hyprland and the lock screen runs (no shortcuts, apps, login items: the marker tells
+# hyprland.lua, Lock.qml and app-.service.d). No marker, no session: never unlocked.
+[ -n "$XDG_RUNTIME_DIR" ] || exit 1
+dir="$XDG_RUNTIME_DIR/riptide"
+mkdir -p "$dir" && touch "$dir/start-locked" && [ -e "$dir/start-locked" ] || exit 1
+rm -f "$dir/lock-shown"
+
+# Watchdog: a lock screen that never comes up (the shell broken) would leave a screen
+# without anything to use – after 40 s the session ends, greetd's login screen follows
+# (with its text login ⌃⌥F2). Lock.qml writes lock-shown once the lock stands.
+(
+    sleep 40
+    if [ -e "$dir/start-locked" ] && [ ! -e "$dir/lock-shown" ]; then
+        hyprctl -i 0 dispatch 'hl.dsp.exit()' >/dev/null 2>&1
+    fi
+) &
+
+# (uwsm's messages go to the journal, not onto the screen)
+exec systemd-cat -t riptide-session uwsm start -e -D Hyprland hyprland.desktop

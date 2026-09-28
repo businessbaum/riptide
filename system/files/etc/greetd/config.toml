@@ -1,8 +1,19 @@
-# greetd: riptide's login screen (installed by system/setup-os.sh, step "Anmeldebildschirm").
-# The greeter runs as the unprivileged user "greeter"; after a successful login greetd starts
-# the session (uwsm → Hyprland) as that user.
+# greetd: riptide's login (installed by system/setup-os.sh, step "Anmeldebildschirm").
+#
+# At boot: the initial session – the person below is logged in, but the session starts
+# locked; its lock screen is the login window, and after the password it goes straight on
+# into the desktop (one passage, like on a Mac). Until then nothing but Hyprland and the
+# lock screen runs (/usr/local/lib/riptide/greeter/session-locked).
+#
+# Otherwise – someone else, after "Anderer Benutzer …", when the session did not start –
+# the login screen: our window as the unprivileged user "greeter"; after a normal logout it
+# starts the locked session again by itself.
 [terminal]
 vt = 1
+
+[initial_session]
+command = "/usr/local/lib/riptide/greeter/session-locked"
+user = "@USER@"
 
 [default_session]
 command = "/usr/local/lib/riptide/greeter/start"

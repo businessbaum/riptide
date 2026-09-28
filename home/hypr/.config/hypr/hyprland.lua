@@ -34,6 +34,20 @@ require("modules.notifications")
 -- Everything the user can change in System Settings, plus the active theme
 local S = require("modules.settings")
 
+-- The session starts locked at boot: that is the login, like on a Mac (greetd logs in,
+-- the shell's lock screen asks for the password – Quickshell Lock.qml). Until then no
+-- shortcut at all, not even for the moment before the lock screen is up; the shell removes
+-- the marker after the password and reloads this config, then the shortcuts come.
+local marker = io.open((os.getenv("XDG_RUNTIME_DIR") or "") .. "/riptide/start-locked", "r")
+local start_locked = marker ~= nil
+if marker then marker:close() end
+local bind = hl.bind
+if start_locked then
+    hl.bind = function() end
+end
+-- a lock screen that crashed is started again by its service and takes the lock back over
+hl.config({ misc = { allow_session_lock_restore = true } })
+
 
 ------------------
 ---- MONITORS ----
@@ -123,3 +137,5 @@ require("modules.permissions")
 require("modules.accessibility")
 require("modules.autostart")
 require("modules.greeter")
+
+hl.bind = bind

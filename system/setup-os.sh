@@ -21,8 +21,9 @@
 #      date in System Settings; later Time Machine)
 #   9. Time Machine, local part: hourly snapshots of /home (snapper config "home": the
 #      last 24 hours, 7 days, 4 weeks, 6 months), readable for the user – "Frühere Versionen"
-#  10. the login screen: greetd with our own login window instead of the text console
-#      (from the next start); should it not come up, a text login takes its place
+#  10. the login (greetd): at boot the session starts locked and its lock screen is the
+#      login window – one passage into the desktop; our login screen for someone else;
+#      should nothing come up, a text login takes its place
 #  11. start without waiting and the Notfallmodus: Limine boots at once (its menu stays
 #      reachable: hold the space bar at power-on) and gets an entry "Notfallmodus" – the LTS
 #      kernel up to the text login only, no graphics
@@ -117,27 +118,42 @@ elif [[ -n "$user" ]]; then
     echo "  /home: stündlich (24 Std., 7 Tage, 4 Wochen, 6 Monate)"
 fi
 
-step "Anmeldebildschirm (greetd) statt Textkonsole"
-# Our login window runs as the unprivileged user "greeter" (created with the package) and
-# reads only these root-owned files. Enabled for the next start – starting it now would end
-# this session (it takes over the first console).
-install -D -o root -g root -m 644 system/files/etc/greetd/config.toml /etc/greetd/config.toml
-for f in start run; do
+step "Anmeldung (greetd): gesperrt starten, Anmeldefenster = Sperrbildschirm"
+# At boot the person is logged in and the session starts locked: its lock screen is the
+# login window, one passage into the desktop (greetd's initial session). The login screen
+# for someone else runs as the unprivileged user "greeter" and reads only these root-owned
+# files – the window itself is the shell's LoginScreen.qml, the same as the lock screen's.
+# Enabled for the next start – starting it now would end this session.
+[[ -n "$user" ]] || { echo "  bitte mit sudo als der Benutzer ausführen, der sich anmeldet" >&2; exit 1; }
+sed "s/@USER@/$user/" system/files/etc/greetd/config.toml > /etc/greetd/config.toml.new
+chmod 644 /etc/greetd/config.toml.new
+mv /etc/greetd/config.toml.new /etc/greetd/config.toml
+for f in start run session-locked; do
     install -D -o root -g root -m 755 "system/files/usr/local/lib/riptide/greeter/$f" "/usr/local/lib/riptide/greeter/$f"
 done
-for f in shell.qml Login.qml LoginScreen.qml hyprland.lua; do
+for f in shell.qml Login.qml hyprland.lua; do
     install -D -o root -g root -m 644 "system/files/usr/local/share/riptide/greeter/$f" "/usr/local/share/riptide/greeter/$f"
 done
+install -D -o root -g root -m 644 home/quickshell/.config/quickshell/LoginScreen.qml /usr/local/share/riptide/greeter/LoginScreen.qml
+# after a logout the login screen starts the next locked session: it may restart greetd
+install -D -o root -g root -m 644 system/files/etc/polkit-1/rules.d/50-riptide-greeter.rules \
+    /etc/polkit-1/rules.d/50-riptide-greeter.rules
+# the keyring: opened with the password at a login here (the lock screen does it for the
+# session at boot) – not for the user "greeter" itself
+if ! grep -q pam_gnome_keyring /etc/pam.d/greetd; then
+    sed -i -e '/^auth[[:space:]]*include[[:space:]]*system-local-login/a auth       optional     pam_gnome_keyring.so' \
+        -e '/^session[[:space:]]*include[[:space:]]*system-local-login/a session    [success=1 default=ignore] pam_succeed_if.so user = greeter quiet\nsession    optional     pam_gnome_keyring.so auto_start' \
+        /etc/pam.d/greetd
+    echo "  Schlüsselbund bei der Anmeldung"
+fi
 install -d -o greeter -g greeter -m 755 /var/lib/riptide/greeter # who logged in last
 # each person's session leaves mouse and keyboard settings for the login screen here
-# (hypr/modules/greeter.lua); written now once, then on every change
-if [[ -n "$user" ]]; then
-    install -d -o root -g root -m 755 /var/lib/riptide/greeter/users
-    install -d -o "$user" -g "$(id -gn "$user")" -m 755 "/var/lib/riptide/greeter/users/$user"
-    runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$(id -u "$user")" hyprctl -i 0 reload >/dev/null 2>&1 || true
-fi
+# (hypr/modules/greeter.lua) and the moment of a logout (Quickshell Session.qml)
+install -d -o root -g root -m 755 /var/lib/riptide/greeter/users
+install -d -o "$user" -g "$(id -gn "$user")" -m 755 "/var/lib/riptide/greeter/users/$user"
+runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$(id -u "$user")" hyprctl -i 0 reload >/dev/null 2>&1 || true
 systemctl enable greetd.service
-echo "  ab dem nächsten Start"
+echo "  ab dem nächsten Start (angemeldet wird: $user)"
 
 step "Start ohne Wartezeit und Notfallmodus (Limine)"
 mode=""

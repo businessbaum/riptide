@@ -1,0 +1,8 @@
+// riptide: the login screen (user "greeter") may restart greetd, and only that – after a
+// logout it starts the next session locked, as at boot (/usr/local/lib/riptide/greeter/start).
+polkit.addRule(function (action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" && subject.user == "greeter" &&
+        action.lookup("unit") == "greetd.service" && action.lookup("verb") == "restart") {
+        return polkit.Result.YES;
+    }
+});

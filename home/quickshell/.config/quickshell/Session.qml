@@ -78,8 +78,13 @@ Singleton {
         ending = "";
         if (Confirm.open)
             Confirm.answer(false);
-        if (kind === "logout")
-            Quickshell.execDetached([Quickshell.shellPath("scripts/logout.sh")]);
+        if (kind === "logout") {
+            // for greetd's login screen: a logout, not a crash – the next session starts
+            // locked again, as at boot (/usr/local/lib/riptide/greeter/start)
+            const marker = `/var/lib/riptide/greeter/users/${Quickshell.env("USER")}/logged-out`;
+            Quickshell.execDetached(["sh", "-c", 'date +%s > "$1" 2>/dev/null; exec "$2"', "sh", marker,
+                Quickshell.shellPath("scripts/logout.sh")]);
+        }
         else if (kind === "reboot")
             Quickshell.execDetached(["systemctl", "reboot"]);
         else if (kind === "poweroff")
@@ -113,9 +118,10 @@ Singleton {
     }
 
     // A new session: the apps of the last one open again – once (not when the shell
-    // restarts), and only apps that are not open yet (login items open themselves)
+    // restarts), and only apps that are not open yet (login items open themselves).
+    // At boot only after the password (the session starts locked, Lock.qml).
     Process {
-        running: true
+        running: Lock.loggedIn
         command: ["sh", "-c", "m=\"$XDG_RUNTIME_DIR/riptide/reopened-$HYPRLAND_INSTANCE_SIGNATURE\"; [ -e \"$m\" ] && exit 0; "
             + "mkdir -p \"${m%/*}\" && touch \"$m\"; f=\"$1\"; [ -f \"$f\" ] || exit 0; "
             + "[ $(( $(date +%s) - $(stat -c %Y \"$f\") )) -lt 604800 ] && cat \"$f\"; rm -f \"$f\"", "sh", root.reopenFile]

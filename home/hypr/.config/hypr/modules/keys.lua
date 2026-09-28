@@ -167,8 +167,10 @@ hl.bind("SUPER + CTRL + F",     hl.dsp.window.fullscreen({ mode = "fullscreen" }
 hl.bind("SUPER + ALT + F",      hl.dsp.window.float({ action = "toggle" }))        -- tile/float window
 hl.bind("SUPER + ALT + Escape", hl.dsp.exec_cmd("qs ipc call forcequit open"))     -- ⌥⌘⎋: "Sofort beenden" window
 hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("uwsm app -- io.missioncenter.MissionCenter.desktop")) -- ⌃⇧⎋: task manager (like Windows)
-hl.bind("SUPER + L",            hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))     -- lock screen
-hl.bind("SUPER + CTRL + Q",     hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))     -- ⌃⌘Q: lock screen (Mac)
+-- lock screen: ours (Quickshell LockScreen.qml, the login window); hyprlock if the shell is gone
+local lock = "qs ipc call lock now || pidof hyprlock || hyprlock"
+hl.bind("SUPER + L",            hl.dsp.exec_cmd(lock))                               -- lock screen
+hl.bind("SUPER + CTRL + Q",     hl.dsp.exec_cmd(lock))                               -- ⌃⌘Q: lock screen (Mac)
 hl.bind("SUPER + SHIFT + Q",    hl.dsp.exec_cmd("qs ipc call session logout"))     -- ⇧⌘Q: log out … (asks, like the Apple menu)
 
 -- Move windows with ⌘ + mouse (left) or resize them (right)

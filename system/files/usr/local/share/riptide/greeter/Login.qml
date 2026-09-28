@@ -7,8 +7,8 @@ import Quickshell.Services.Greetd
 
 // The login itself (greetd): who logs in, the password, what went wrong. The person who
 // logged in last is chosen (on a computer of one: always that one); "Anderer Benutzer"
-// types another name. After the login greetd starts the session – uwsm → Hyprland, as
-// before from the text console.
+// types another name (LoginScreen.qml). After the login greetd starts the session –
+// uwsm → Hyprland.
 Singleton {
     id: root
 
@@ -20,17 +20,17 @@ Singleton {
     property var users: []
     property string lastUser: ""
     readonly property var chosen: users.find(u => u.name === lastUser) ?? users[0] ?? null
-    property bool other: false // "Anderer Benutzer …": the name is typed
-    property string otherName: ""
-    readonly property string userName: other ? otherName.trim() : (chosen?.name ?? "")
-    readonly property string displayName: other ? "Anderer Benutzer" : (chosen?.display ?? "")
+    readonly property string displayName: chosen?.display ?? ""
+    property string userName: "" // who is logging in right now
 
     property bool busy: false
     property string error: ""
     property int failures: 0 // the password field shakes when it changes
     property string pending: ""
 
-    function login(password) {
+    // name: typed ("Anderer Benutzer"), or "" for the person shown
+    function login(name, password) {
+        userName = name !== "" ? name : (chosen?.name ?? "");
         if (busy || userName === "")
             return;
         error = "";

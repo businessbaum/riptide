@@ -277,7 +277,7 @@ PanelWindow {
             { text: "Neustart …", action: () => Session.ask("reboot") },
             { text: "Ausschalten …", action: () => Session.ask("poweroff") },
             { separator: true },
-            { text: "Bildschirm sperren", action: () => Quickshell.execDetached(["sh", "-c", "pidof hyprlock || hyprlock"]) },
+            { text: "Bildschirm sperren", hint: "⌃⌘Q", action: () => Lock.lock() },
             { text: "Abmelden …", action: () => Session.ask("logout") }
         ]
     }
