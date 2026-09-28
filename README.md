@@ -1,7 +1,8 @@
 # dotfiles (riptide)
 
 Arch Linux on riptide: LUKS2 + TPM2, btrfs + snapper, Limine, NVIDIA,
-Hyprland + Quickshell (planned). See `ROADMAP.md`.
+Hyprland + Quickshell as an own macOS-style system. See `docs/os-plan.md`, `ROADMAP.md`;
+for Claude sessions: `CLAUDE.md` (rules, map, how to work here).
 
 | Path              | Content                                                     |
 |-------------------|-------------------------------------------------------------|
