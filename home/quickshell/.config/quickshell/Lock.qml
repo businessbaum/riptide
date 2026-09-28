@@ -41,16 +41,28 @@ Singleton {
 
     // LockScreen.qml, after the password (and the fade)
     function unlocked() {
-        if (!loggedIn) {
-            loggedIn = true; // (before unlocking: nothing is taken down in between)
-            // in this order: the marker first, then Hyprland reloads with its shortcuts,
-            // then the login items held back (their target refuses a manual start: each one)
-            // (their names as systemd's generator wrote them: "show -p Wants" quotes and escapes)
-            Quickshell.execDetached(["sh", "-c", 'rm -f "$1" "$2"; hyprctl reload >/dev/null; '
-                + 'for f in "$XDG_RUNTIME_DIR"/systemd/generator.late/xdg-desktop-autostart.target.wants/*.service; do '
-                + '[ -e "$f" ] && systemctl --user start --no-block -- "${f##*/}"; done', "sh", marker, runtime + "/lock-shown"]);
-        }
+        const first = !loggedIn;
+        loggedIn = true; // (before unlocking: nothing is taken down in between)
         locked = false;
+        // in this order: the markers first; at boot then Hyprland reloads with its
+        // shortcuts and the login items held back start (their target refuses a manual
+        // start: each one, by its name as systemd's generator wrote it); then drives that
+        // came in while locked are mounted (Riptide "drives.mount", drives.py)
+        afterUnlock.command = ["sh", "-c", 'rm -f "$1" "$2" "$3"; [ "$4" = 1 ] || exit 0; hyprctl reload >/dev/null; '
+            + 'for f in "$XDG_RUNTIME_DIR"/systemd/generator.late/xdg-desktop-autostart.target.wants/*.service; do '
+            + '[ -e "$f" ] && systemctl --user start --no-block -- "${f##*/}"; done', "sh",
+            runtime + "/locked", marker, runtime + "/lock-shown", first ? "1" : "0"];
+        afterUnlock.running = true;
+    }
+    Process {
+        id: afterUnlock
+        onExited: Riptide.call("drives.mount", {})
+    }
+
+    // for the session service: no drives are mounted while locked (drives.py)
+    onLockedChanged: {
+        if (locked)
+            Quickshell.execDetached(["sh", "-c", 'mkdir -p "$1" && touch "$1/locked"', "sh", runtime]);
     }
 
     onSecureChanged: {

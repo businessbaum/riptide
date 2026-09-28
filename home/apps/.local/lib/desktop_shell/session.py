@@ -21,7 +21,7 @@ It owns
   health, crashes   warnings about the machine (health.py); apps that crashed (crashes.py)
   updates           looks for updates in the background (updates.py)
   local network     per app, with nftables through riptide-helper (lan.py)
-  drives            external drives: mounted by themselves, ejected on request (drives.py)
+  drives            external drives: mounted by themselves (not while locked), ejected on request (drives.py)
 
 The shell, System Settings and the command line tools talk to it through one Unix
 socket, $XDG_RUNTIME_DIR/riptide/session.sock (only this user can open it; sandboxes
@@ -43,7 +43,7 @@ never see it), one JSON object per line:
          apps.launch {app, args, run}, apps.sync,
          screen.pick {windows} (the picker), screen.picked {pick, selection} (the shell),
          access.answered {pick, granted} (the shell),
-         updates.check, drives.eject {id},
+         updates.check, drives.eject {id}, drives.mount,
          status (who is connected, what is open – for troubleshooting)
 """
 
@@ -216,6 +216,8 @@ class Service:
                     client.send({"event": "streams", "streams": self.stream_apps()})
                     client.send(self.updates.event())
                     client.send(self.drives.event())
+            elif call == "drives.mount":  # the screen was unlocked: what came in meanwhile
+                self.drives.mount_new()
             elif call == "drives.eject":
                 self.drives.eject(message["id"], lambda error: client.reply(msg_id, {"error": error}))
             elif call == "updates.check":  # look now (the App Store's "Nach Updates suchen")

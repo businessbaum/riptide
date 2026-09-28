@@ -10,8 +10,10 @@ computer's own disks (the Windows partition), which stay as they are.
   → drives.eject {id}    unmount all its file systems and power it off; error text if busy
 """
 
+import os
 import re
 import subprocess
+from pathlib import Path
 
 from gi.repository import Gio, GLib
 
@@ -20,6 +22,17 @@ BLOCK = UDISKS + ".Block"
 FS = UDISKS + ".Filesystem"
 DRIVE = UDISKS + ".Drive"
 NO_QUESTIONS = {"auth.no_user_interaction": GLib.Variant("b", True)}
+
+
+def screen_locked():
+    """While the screen is locked – and before the password at boot – nothing is mounted:
+    a stick plugged in at the lock screen must not reach the kernel's filesystem code.
+    The shell's lock leaves the files (Quickshell Lock.qml) and asks for "drives.mount"
+    once unlocked. Without a runtime folder: locked, never mounted by mistake."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR", "")
+    if not runtime:
+        return True
+    return any((Path(runtime) / "riptide" / name).exists() for name in ("locked", "start-locked"))
 
 
 def prop(proxy, name, default=None):
@@ -115,6 +128,8 @@ class Drives:
         return found
 
     def mount_new(self):
+        if screen_locked():
+            return  # after unlocking (the shell's "drives.mount")
         for obj, block, drive, fs in self.filesystems():
             if prop(fs, "MountPoints", []) or prop(block, "IdUsage", "") != "filesystem":
                 continue
