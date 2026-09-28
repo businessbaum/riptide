@@ -1,12 +1,14 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Wayland
 
 // riptide's login window (greetd). Runs as the user "greeter" in its own Hyprland
 // (hyprland.lua here), started by /usr/local/lib/riptide/greeter/start. Every screen shows
-// the wallpaper and the time; the first one the person and the password (LoginScreen.qml,
-// the login itself: Login.qml). At boot and after a logout the session's own lock screen
+// the wallpaper and the time; the main screen (chosen in the session's System Settings →
+// Bildschirme, else the first) the person and the password (LoginScreen.qml, the login
+// itself: Login.qml). At boot and after a logout the session's own lock screen
 // is the login instead – this one is for someone else, or when that did not start.
 //
 // Emergency ways in (all ask for the password):
@@ -14,13 +16,26 @@ import Quickshell.Wayland
 //   - ⌃⌥F2 here ends it and gives the text login (hyprland.lua)
 //   - at power-on: F11 → the mainboard's boot menu → "riptide Notfallmodus" (no graphics)
 ShellRoot {
+    id: root
+
+    // The session leaves Hyprland's description of its main screen here
+    // (hypr/modules/greeter.lua); it is only compared with the screens' descriptions
+    property string mainDescription: ""
+    readonly property string mainName: Hyprland.monitors.values.find(m => m.description === mainDescription)?.name ?? ""
+    FileView {
+        path: Login.chosen && /^[A-Za-z0-9._-]+$/.test(Login.chosen.name)
+            ? `/var/lib/riptide/greeter/users/${Login.chosen.name}/input.conf` : ""
+        onLoaded: root.mainDescription = (/^main_screen=(.{1,120})$/m.exec(text()) ?? [])[1] ?? ""
+        onLoadFailed: root.mainDescription = ""
+    }
+
     Variants {
         model: Quickshell.screens
 
         PanelWindow {
             id: win
             required property var modelData
-            readonly property bool main: modelData === Quickshell.screens[0]
+            readonly property bool main: root.mainName !== "" ? modelData.name === root.mainName : modelData === Quickshell.screens[0]
 
             screen: modelData
             anchors {
@@ -51,12 +66,13 @@ ShellRoot {
             }
 
             Component.onCompleted: {
-                if (!main)
-                    return;
-                screen.focusField();
                 // tells the start script that the login window came up
-                Quickshell.execDetached(["touch", Login.stateDir + "/ready"]);
+                if (modelData === Quickshell.screens[0])
+                    Quickshell.execDetached(["touch", Login.stateDir + "/ready"]);
+                if (main)
+                    screen.focusField();
             }
+            onMainChanged: if (main) screen.focusField()
         }
     }
 }

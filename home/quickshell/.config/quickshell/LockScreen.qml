@@ -5,8 +5,9 @@ import Quickshell.Services.Pam
 import Quickshell.Wayland
 
 // The lock screen (Lock.qml): the login window (LoginScreen.qml) on every screen, over your
-// own wallpaper – so unlocking goes straight on into the desktop. The form is on the screen
-// with the pointer. The password is checked by PAM ("login", which also unlocks the
+// own wallpaper – so unlocking goes straight on into the desktop. The form is on the main
+// screen (MainScreen.qml; none chosen: the one with the pointer), the others show what was
+// chosen for them (LockInfo.qml). The password is checked by PAM ("login", which also unlocks the
 // keyring). At boot it offers "Anderer Benutzer …" and sleep / restart / shut down;
 // "Anderer Benutzer …" and ⌃⌥F2 end the session – greetd's login screen follows.
 Scope {
@@ -80,9 +81,12 @@ Scope {
             LoginScreen {
                 id: screen
                 anchors.fill: parent
-                main: Hyprland.focusedMonitor?.name === surface.screen?.name
+                main: MainScreen.name === surface.screen?.name
                 backdrop: Component {
                     WallpaperImage {}
+                }
+                aside: Component {
+                    LockInfo {}
                 }
                 displayName: Lock.displayName
                 busy: root.busy

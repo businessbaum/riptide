@@ -7,13 +7,16 @@ import Quickshell
 //   greetd's login screen (system/files/usr/local/share/riptide/greeter), for someone else
 //     or when the session did not start – setup-os.sh installs this very file there
 // It shows the backdrop (the wallpaper), date and time; on the main screen the person, the
-// password field, "Anderer Benutzer …" and sleep / restart / shut down. What a password
-// does is up to the one showing it (signals). ⌃⌥F2 is the emergency way out.
+// password field, "Anderer Benutzer …" and sleep / restart / shut down; on the others what
+// the one showing it puts there (`aside`: the lock screen's weather, month, music). What a
+// password does is up to the one showing it (signals). ⌃⌥F2 is the emergency way out.
+// (Self-contained: the greeter runs this file without the shell's other parts.)
 Item {
     id: root
 
     property bool main: true
     property Component backdrop: gradient      // what lies behind (the lock screen: your wallpaper)
+    property Component aside: null             // below the clock on the other screens
     property string displayName: ""
     property bool busy: false
     property string error: ""
@@ -106,6 +109,13 @@ Item {
                 font.weight: Font.Bold
                 color: "#f2ffffff"
             }
+        }
+
+        Loader {
+            active: !root.main && root.aside !== null
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: parent.height * 0.42
+            sourceComponent: root.aside
         }
 
         // the person and the password (below the middle, never down on the buttons)

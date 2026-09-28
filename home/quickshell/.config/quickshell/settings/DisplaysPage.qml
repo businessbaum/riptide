@@ -53,9 +53,8 @@ Page {
                 requery.restart();
             }
 
-            // (make is often the maker's three-letter code: "BNQ" for "BenQ EX2710Q")
-            title: `${/^[A-Z]{3}$/.test(modelData.make ?? "") ? "" : modelData.make ?? ""} ${modelData.model ?? ""}`.trim() || name
-            description: `${name} · ${modelData.width} × ${modelData.height}`
+            title: page.monitorLabel(modelData)
+            description: `${name} · ${modelData.width} × ${modelData.height}` + (modelData.description === Config.settings.displays?.main ? " · Hauptbildschirm" : "")
 
             SettingRow {
                 first: true
@@ -75,6 +74,148 @@ Page {
                     options: [{ value: 1, text: "100 %" }, { value: 1.25, text: "125 %" }, { value: 1.5, text: "150 %" }, { value: 2, text: "200 %" }]
                     current: group.saved.scale ?? group.modelData.scale
                     onPicked: v => group.save("scale", v)
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- main screen, lock screen
+    // The main screen is kept as Hyprland's description (maker, model, serial number): the
+    // connector names change between starts (MainScreen.qml in the shell uses it)
+
+    // "BenQ EX2710Q", with left/right when two look alike (make is often the maker's
+    // three-letter code: "BNQ" for "BenQ EX2710Q")
+    function monitorLabel(m) {
+        const base = `${/^[A-Z]{3}$/.test(m.make ?? "") ? "" : m.make ?? ""} ${m.model ?? ""}`.trim() || m.name;
+        const others = monitors.filter(o => o.model === m.model && o.name !== m.name);
+        if (others.length === 0)
+            return base;
+        return base + (others.every(o => o.x > m.x) ? " – links" : others.every(o => o.x < m.x) ? " – rechts" : " – " + m.name);
+    }
+    readonly property var lock: Config.settings.lockscreen ?? ({})
+    function setLock(key, value) {
+        Config.updateSettings(s => {
+            s.lockscreen = s.lockscreen ?? {};
+            s.lockscreen[key] = value;
+        });
+    }
+    function setAside(key, on) {
+        Config.updateSettings(s => {
+            s.lockscreen = s.lockscreen ?? {};
+            s.lockscreen.aside = s.lockscreen.aside ?? {};
+            s.lockscreen.aside[key] = on;
+        });
+    }
+
+    // the place for the weather: searched by name (Weather.qml, Open-Meteo)
+    property var places: []
+    property bool placeSearching: false
+    property string placeError: ""
+    function findPlace(name) {
+        if (name.trim() === "" || placeSearching)
+            return;
+        placeSearching = true;
+        placeError = "";
+        Weather.search(name.trim(), list => {
+            placeSearching = false;
+            places = list ?? [];
+            placeError = list === null ? "Keine Verbindung zum Wetterdienst." : list.length === 0 ? "Kein Ort mit diesem Namen gefunden." : "";
+        });
+    }
+
+    Group {
+        visible: page.monitors.length > 1
+        title: "Hauptbildschirm"
+        description: "Hier erscheinen beim Sperren und Anmelden das Passwortfeld und der Anmeldebildschirm."
+        SettingRow {
+            first: true
+            title: "Hauptbildschirm"
+            Choice {
+                window: page.window
+                options: [{ value: "", text: "Der mit dem Mauszeiger" }].concat(page.monitors.map(m => ({ value: m.description, text: page.monitorLabel(m) })))
+                current: Config.settings.displays?.main ?? ""
+                onPicked: v => {
+                    Config.updateSettings(s => {
+                        s.displays = s.displays ?? {};
+                        s.displays.main = v;
+                    });
+                    HyprReload.soon(); // hypr/modules/greeter.lua leaves it for the login screen
+                }
+            }
+        }
+    }
+
+    Group {
+        visible: page.monitors.length > 1
+        title: "Sperrbildschirm auf den anderen Bildschirmen"
+        description: "Unter der Uhr, nur zum Ansehen: Solange gesperrt ist, lässt sich dort nichts bedienen."
+        SettingRow {
+            first: true
+            glyph: "\u{f0595}"
+            glyphColour: "#0a84ff"
+            title: "Wetter"
+            subtitle: page.lock.place ? page.lock.place.name + " · von Open-Meteo, übertragen wird nur der Ort" : "Wähle zuerst unten einen Ort"
+            Toggle {
+                enabled: page.lock.place !== undefined && page.lock.place !== null
+                checked: enabled && page.lock.aside?.weather !== false
+                onToggled: on => page.setAside("weather", on)
+            }
+        }
+        SettingRow {
+            glyph: "\u{f00ed}"
+            glyphColour: "#ff453a"
+            title: "Kalender"
+            subtitle: "Der aktuelle Monat"
+            Toggle {
+                checked: page.lock.aside?.calendar !== false
+                onToggled: on => page.setAside("calendar", on)
+            }
+        }
+        SettingRow {
+            glyph: "\u{f075a}"
+            glyphColour: "#ff375f"
+            title: "Musik"
+            subtitle: "Was gerade läuft oder pausiert ist"
+            Toggle {
+                checked: page.lock.aside?.media !== false
+                onToggled: on => page.setAside("media", on)
+            }
+        }
+        SettingRow {
+            title: "Ort fürs Wetter"
+            subtitle: page.placeError !== "" ? page.placeError : "Name der Stadt, dann Suchen"
+            Row {
+                spacing: 8
+                Field {
+                    id: placeField
+                    implicitWidth: 180
+                    placeholder: page.lock.place?.name ?? "z. B. München"
+                    onAccepted: page.findPlace(text)
+                }
+                DialogButton {
+                    implicitWidth: 90
+                    width: implicitWidth
+                    text: page.placeSearching ? "Suche …" : "Suchen"
+                    onClicked: page.findPlace(placeField.text)
+                }
+            }
+        }
+        Repeater {
+            model: page.places
+            SettingRow {
+                required property var modelData
+                title: modelData.name
+                subtitle: modelData.region
+                DialogButton {
+                    implicitWidth: 90
+                    width: implicitWidth
+                    primary: true
+                    text: "Wählen"
+                    onClicked: {
+                        page.setLock("place", { name: modelData.name, lat: modelData.lat, lon: modelData.lon });
+                        page.places = [];
+                        placeField.text = "";
+                    }
                 }
             }
         }
