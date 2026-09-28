@@ -16,7 +16,8 @@ pacman -Qi | awk -F': *' '/^Installed Size/ {
 
 size_of() { local s; s=$(du -sb "$1" 2>/dev/null | cut -f1); echo "${s:-0}"; }
 
-[ -d ~/.local/share/flatpak ] && echo "flatpak|$(size_of ~/.local/share/flatpak)|Programme (Flatpak)"
+# apps from their maker's release archive (archive-app: Zen …)
+[ -d ~/.local/share/macos/apps ] && echo "archive|$(size_of ~/.local/share/macos/apps)|Programme (offizielle Releases)"
 echo "pkgcache|$(size_of /var/cache/pacman/pkg)|Paket-Cache"
 echo "trash|$(size_of ~/.local/share/Trash)|Papierkorb"
 echo "cache|$(size_of ~/.cache)|Zwischenspeicher der Apps"

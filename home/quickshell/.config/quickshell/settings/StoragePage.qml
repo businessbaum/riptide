@@ -64,20 +64,20 @@ Page {
     readonly property real total: values["disk.size"] ?? 0
     readonly property real used: values["disk.used"] ?? 0
 
-    // Categories for the list (uncompressed sizes)
+    // Categories for the list and the bar (uncompressed sizes), the biggest first
     readonly property var parts: {
         const folderSum = folders.reduce((s, f) => s + f.bytes, 0);
         const home = values.home ?? 0;
-        const other = Math.max(0, home - folderSum - (values.flatpak ?? 0) - (values.cache ?? 0) - (values.trash ?? 0));
+        const other = Math.max(0, home - folderSum - (values.archive ?? 0) - (values.cache ?? 0) - (values.trash ?? 0));
         return [
             { label: "Programme (pacman)", bytes: values.apps, colour: "#0a84ff" },
-            { label: "Programme (Flatpak)", bytes: values.flatpak, colour: "#5e5ce6" },
+            { label: "Programme (offizielle Releases)", bytes: values.archive, colour: "#5e5ce6" },
             { label: "Dokumente, Bilder & Co.", bytes: folderSum, colour: "#ff9f0a" },
             { label: "Sonstiges im persönlichen Ordner", bytes: other, colour: "#30d158" },
             { label: "Zwischenspeicher der Apps", bytes: values.cache, colour: "#8e8e93" },
             { label: "Paket-Cache", bytes: values.pkgcache, colour: "#bf5af2" },
             { label: "Papierkorb", bytes: values.trash, colour: "#ff453a" }
-        ].filter(p => p.bytes !== undefined);
+        ].filter(p => p.bytes !== undefined).sort((a, b) => (b.bytes || 0) - (a.bytes || 0));
     }
     readonly property real partsSum: parts.reduce((s, p) => s + (p.bytes || 0), 0)
 
