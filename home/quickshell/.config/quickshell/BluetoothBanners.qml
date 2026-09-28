@@ -15,23 +15,6 @@ Scope {
         onTriggered: root.ready = true
     }
 
-    // Nerd Font symbol for BlueZ's device type
-    function glyph(dev) {
-        const icon = dev.icon ?? "";
-        if (icon === "audio-headphones" || icon === "audio-headset")
-            return /airpods|buds/i.test(dev.name) ? "\u{f184f}" : icon === "audio-headset" ? "\u{f02ce}" : "\u{f02cb}";
-        return {
-            "audio-card": "\u{f04c3}",
-            "input-mouse": "\u{f037d}",
-            "input-keyboard": "\u{f030c}",
-            "input-gaming": "\u{f0297}",
-            "input-tablet": "\u{f04f6}",
-            "phone": "\u{f011c}",
-            "computer": "\u{f0322}",
-            "printer": "\u{f042a}"
-        }[icon] ?? "\u{f00af}";
-    }
-
     function battery(dev) {
         return dev.batteryAvailable ? dev.battery : -1;
     }
@@ -48,8 +31,8 @@ Scope {
                 if (modelData.connected && root.ready)
                     Banners.show({
                         key: key,
-                        glyph: root.glyph(modelData),
-                        title: modelData.name,
+                        glyph: BtDevices.glyph(modelData),
+                        title: BtDevices.nameOf(modelData) || modelData.name,
                         subtitle: "Verbunden",
                         value: root.battery(modelData)
                     });

@@ -51,7 +51,10 @@ PanelWindow {
             controlCenter.toggle();
         }
         function wifi(): void {
-            controlCenter.showWifi();
+            controlCenter.showList("wifi");
+        }
+        function bluetooth(): void {
+            controlCenter.showList("bluetooth");
         }
         function notificationCenter(): void {
             notificationCenter.toggle();

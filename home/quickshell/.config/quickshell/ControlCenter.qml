@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import Quickshell.Networking
 import Quickshell.Services.Mpris
@@ -8,28 +7,43 @@ import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 
 // Control centre (icon next to the clock), laid out like macOS:
-//   Wi-Fi (its networks unfold below), Bluetooth | appearance, do not disturb
+//   Wi-Fi, Bluetooth (their networks / known devices unfold below) | appearance, do not disturb
 //   keep awake, energy mode, screens (brightness, Night Shift), sound slider, tools, now playing
 MenuBarPopup {
     id: root
 
     readonly property var sink: Pipewire.defaultAudioSink
-    // the adapter that is not blocked (see settings/BluetoothPage.qml)
-    readonly property var adapter: Bluetooth.adapters.values.find(a => a.state !== BluetoothAdapterState.Blocked) ?? Bluetooth.defaultAdapter
+    readonly property var adapter: BtDevices.adapter
     readonly property var wired: Networking.devices.values.find(d => d.type === DeviceType.Wired && d.connected) ?? null
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
     readonly property var wifiNetwork: wifi?.networks.values.find(n => n.connected) ?? null
     readonly property var player: Mpris.players.values.find(p => p.isPlaying) ?? Mpris.players.values[0] ?? null
-    readonly property var btConnected: adapter?.devices.values.filter(d => d.connected) ?? []
+    readonly property var btConnected: BtDevices.known.filter(d => d.connected)
+
+    // the list unfolded below the tiles: "wifi", "bluetooth" or none – one at a time
+    property string unfolded: ""
+    function unfold(what) {
+        unfolded = unfolded === what ? "" : what;
+    }
+    onVisibleChanged: if (!visible) unfolded = ""
+    // Wi-Fi searches only while its networks are shown
+    readonly property bool showingWifi: unfolded === "wifi"
+    onShowingWifiChanged: Wifi.watch(showingWifi)
+
+    function openSettings(page) {
+        close();
+        Quickshell.execDetached([Quickshell.shellPath("scripts/system-settings.sh"), page]);
+    }
 
     implicitWidth: 330
     panelHeight: content.implicitHeight + 24
 
-    // open with the Wi-Fi networks unfolded (menu bar IPC "wifi")
-    function showWifi() {
+    // open with the Wi-Fi networks or the Bluetooth devices unfolded (menu bar IPC "wifi",
+    // "bluetooth")
+    function showList(what) {
         if (!visible)
             open();
-        wifiBox.unfolded = root.wifi !== null;
+        unfolded = what === "wifi" && root.wifi === null ? "" : what;
     }
 
     PwObjectTracker {
@@ -61,8 +75,8 @@ MenuBarPopup {
                     width: parent.width - 20
                     spacing: 4
 
-                    // Wi-Fi: the circle switches it, the rest shows the networks (wifiBox);
-                    // without a Wi-Fi card only the cable
+                    // Wi-Fi: the circle switches it, the rest shows the networks; without a
+                    // Wi-Fi card only the cable
                     ControlTile {
                         width: parent.width
                         icon: root.wifi ? "\uf1eb" : String.fromCodePoint(0xf0200) // wifi / ethernet
@@ -72,9 +86,9 @@ MenuBarPopup {
                             ?? (root.wired ? "Ethernet" : root.wifi && !Networking.wifiEnabled ? "Aus" : "Nicht verbunden")
                         available: root.wired !== null || root.wifi !== null
                         unfolds: root.wifi !== null
-                        unfolded: wifiBox.unfolded
+                        unfolded: root.unfolded === "wifi"
                         onToggled: if (root.wifi) Networking.wifiEnabled = !Networking.wifiEnabled
-                        onUnfold: wifiBox.unfolded = !wifiBox.unfolded
+                        onUnfold: root.unfold("wifi")
                     }
                     ControlTile {
                         width: parent.width
@@ -84,8 +98,11 @@ MenuBarPopup {
                         on: root.adapter?.enabled ?? false
                         status: !root.adapter ? "Nicht verfügbar"
                               : !root.adapter.enabled ? "Aus"
-                              : root.btConnected.length > 0 ? root.btConnected.map(d => d.name).join(", ") : "Ein"
+                              : root.btConnected.length > 0 ? root.btConnected.map(d => BtDevices.nameOf(d) || d.name).join(", ") : "Ein"
+                        unfolds: root.adapter !== null
+                        unfolded: root.unfolded === "bluetooth"
                         onToggled: root.adapter.enabled = !root.adapter.enabled
+                        onUnfold: root.unfold("bluetooth")
                     }
                 }
             }
@@ -138,148 +155,63 @@ MenuBarPopup {
         }
 
         // Wi-Fi networks, unfolded from the tile above: a click joins one (a new protected one
-        // asks for its password in the system dialog, Wifi.qml). Searching only while open.
-        Rectangle {
-            id: wifiBox
-            property bool unfolded: false
-            visible: unfolded
+        // asks for its password in the system dialog, Wifi.qml)
+        ControlList {
+            visible: root.unfolded === "wifi"
             width: parent.width
-            height: wifiColumn.implicitHeight + 16
-            radius: Config.radiusTile
-            color: Config.tile
-            border.color: Config.border
-            onUnfoldedChanged: Wifi.watch(unfolded)
-            Connections {
-                target: root
-                function onVisibleChanged() {
-                    if (!root.visible)
-                        wifiBox.unfolded = false;
+            title: "WLAN"
+            switchedOn: Networking.wifiEnabled
+            onSwitched: on => Networking.wifiEnabled = on
+            emptyText: !Networking.wifiEnabled ? "WLAN ist aus."
+                : Wifi.networks.length > 0 ? ""
+                : Wifi.searchedLong ? "Keine Netzwerke gefunden. Ist die WLAN-Antenne am Computer angeschlossen?"
+                : "Suche nach Netzwerken …"
+            settingsText: "WLAN-Einstellungen …"
+            onOpenSettings: root.openSettings("network")
+            Repeater {
+                model: Networking.wifiEnabled ? Wifi.networks.slice(0, 8) : []
+                ControlListRow {
+                    required property var modelData
+                    glyph: Wifi.glyph(modelData)
+                    active: modelData.connected
+                    hoverable: !modelData.connected
+                    title: modelData.name
+                    status: modelData.stateChanging ? "Verbinde …" : modelData.connected ? "\uf00c" : ""
+                    statusIsGlyph: !modelData.stateChanging
+                    onClicked: {
+                        const n = modelData;
+                        // the password dialog comes up in the middle of the screen
+                        if (!n.connected && !n.known && !Wifi.isOpen(n))
+                            root.close();
+                        Wifi.join(n);
+                    }
                 }
             }
+        }
 
-            Column {
-                id: wifiColumn
-                x: 8
-                y: 8
-                width: parent.width - 16
-                spacing: 2
-
-                Item {
-                    width: parent.width
-                    height: 26
-                    Text {
-                        x: 4
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "WLAN"
-                        font.family: Config.fontSans
-                        font.pixelSize: 12
-                        font.weight: Font.DemiBold
-                        color: Config.text
-                    }
-                    Toggle {
-                        anchors.right: parent.right
-                        anchors.rightMargin: 4
-                        anchors.verticalCenter: parent.verticalCenter
-                        checked: Networking.wifiEnabled
-                        onToggled: on => Networking.wifiEnabled = on
-                    }
-                }
-                Repeater {
-                    model: Networking.wifiEnabled ? Wifi.networks.slice(0, 8) : []
-                    Rectangle {
-                        id: netRow
-                        required property var modelData
-                        width: wifiColumn.width
-                        height: 30
-                        radius: 7
-                        color: netMouse.containsMouse && !modelData.connected ? Config.hover : "transparent"
-                        Text {
-                            id: bars
-                            x: 6
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: Wifi.glyph(netRow.modelData)
-                            font.family: Config.fontSymbols
-                            font.pixelSize: 15
-                            color: netRow.modelData.connected ? Config.accent : Config.text
-                        }
-                        Text {
-                            anchors.left: bars.right
-                            anchors.leftMargin: 10
-                            anchors.right: netState.left
-                            anchors.rightMargin: 6
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: netRow.modelData.name
-                            elide: Text.ElideRight
-                            font.family: Config.fontSans
-                            font.pixelSize: 12
-                            font.weight: netRow.modelData.connected ? Font.DemiBold : Font.Normal
-                            color: Config.text
-                        }
-                        Text {
-                            id: netState
-                            anchors.right: parent.right
-                            anchors.rightMargin: 8
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: netRow.modelData.stateChanging ? "Verbinde …" : netRow.modelData.connected ? "\uf00c" : ""
-                            font.family: netRow.modelData.stateChanging ? Config.fontSans : Config.fontSymbols
-                            font.pixelSize: 11
-                            color: netRow.modelData.connected ? Config.accent : Config.textSecondary
-                        }
-                        MouseArea {
-                            id: netMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: {
-                                const n = netRow.modelData;
-                                // the password dialog comes up in the middle of the screen
-                                if (!n.connected && !n.known && !Wifi.isOpen(n))
-                                    root.close();
-                                Wifi.join(n);
-                            }
-                        }
-                    }
-                }
-                Text {
-                    visible: !Networking.wifiEnabled || Wifi.networks.length === 0
-                    x: 4
-                    width: parent.width - 8
-                    topPadding: 2
-                    bottomPadding: 4
-                    text: !Networking.wifiEnabled ? "WLAN ist aus."
-                        : Wifi.searchedLong ? "Keine Netzwerke gefunden. Ist die WLAN-Antenne am Computer angeschlossen?"
-                        : "Suche nach Netzwerken …"
-                    wrapMode: Text.Wrap
-                    font.family: Config.fontSans
-                    font.pixelSize: 11
-                    color: Config.textSecondary
-                }
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    color: Config.border
-                }
-                Rectangle {
-                    width: parent.width
-                    height: 28
-                    radius: 7
-                    color: settingsMouse.containsMouse ? Config.hover : "transparent"
-                    Text {
-                        x: 6
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "WLAN-Einstellungen …"
-                        font.family: Config.fontSans
-                        font.pixelSize: 12
-                        color: Config.text
-                    }
-                    MouseArea {
-                        id: settingsMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            root.close();
-                            Quickshell.execDetached([Quickshell.shellPath("scripts/system-settings.sh"), "network"]);
-                        }
-                    }
+        // Bluetooth: the known devices – connect one, or disconnect a connected one (BtDevices.qml)
+        ControlList {
+            visible: root.unfolded === "bluetooth"
+            width: parent.width
+            title: "Bluetooth"
+            switchedOn: root.adapter?.enabled ?? false
+            onSwitched: on => root.adapter.enabled = on
+            emptyText: !(root.adapter?.enabled ?? false) ? "Bluetooth ist aus."
+                : BtDevices.known.length === 0 ? "Noch keine Geräte gekoppelt – das geht in den Bluetooth-Einstellungen." : ""
+            settingsText: "Bluetooth-Einstellungen …"
+            onOpenSettings: root.openSettings("bluetooth")
+            Repeater {
+                model: (root.adapter?.enabled ?? false) ? BtDevices.known : []
+                ControlListRow {
+                    required property var modelData
+                    glyph: BtDevices.glyph(modelData)
+                    active: modelData.connected
+                    hoverable: false
+                    title: BtDevices.nameOf(modelData) || "Unbekanntes Gerät"
+                    detail: !modelData.connected ? ""
+                        : modelData.batteryAvailable ? `Verbunden · Batterie ${Math.round(modelData.battery * 100)} %` : "Verbunden"
+                    button: BtDevices.busy(modelData) ? "…" : modelData.connected ? "Trennen" : "Verbinden"
+                    onButtonClicked: BtDevices.toggle(modelData)
                 }
             }
         }
