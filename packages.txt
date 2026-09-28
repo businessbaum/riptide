@@ -24,6 +24,9 @@ zram-generator
 tpm2-tools
 tpm2-tss
 networkmanager
+# Wi-Fi: which channels and power are allowed here (without it the card may only listen
+# on most channels and found no network at all)
+wireless-regdb
 firewalld
 openssh
 sudo

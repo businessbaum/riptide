@@ -15,6 +15,8 @@ import Quickshell.Io
 //       key        names the question: Confirm.withdraw(key) takes it back unanswered
 //       option     { text, checked }: a checkbox under the question; action(checked) gets it
 //                  (Hyprland's "reagiert nicht" once the app responds again)
+//       input      { placeholder, password }: a text field; action(checked, text) gets what
+//                  was typed (a Wi-Fi password). It is forgotten as soon as the question goes.
 // From a script (tests): qs ipc call confirm cancel – there is deliberately no way to
 // confirm from outside; granting something always takes a click.
 Singleton {
@@ -25,7 +27,11 @@ Singleton {
     readonly property var current: queue.length > 0 ? queue[0] : null
     readonly property bool open: current !== null
     property bool optionChecked: false
-    onCurrentChanged: optionChecked = current?.option?.checked ?? false
+    property string inputText: ""
+    onCurrentChanged: {
+        optionChecked = current?.option?.checked ?? false;
+        inputText = "";
+    }
 
     function ask(title, text, button, action) {
         request({ title, text, button, action });
@@ -41,11 +47,12 @@ Singleton {
 
     function answer(ok) {
         const question = current;
-        // read before the queue moves on: the next question resets the checkbox
+        // read before the queue moves on: the next question resets the checkbox and field
         const checked = optionChecked;
+        const text = inputText;
         queue = queue.slice(1);
         if (ok)
-            question?.action?.(checked);
+            question?.action?.(checked, text);
         else
             question?.cancelled?.();
     }

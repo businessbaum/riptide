@@ -9,13 +9,11 @@ Page {
     id: page
     title: "WLAN & Netzwerk"
 
-    readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
-    readonly property var networks: (wifi?.networks.values ?? []).slice().sort((a, b) => b.signalStrength - a.signalStrength)
-    property string asking: "" // network waiting for its password
+    readonly property var wifi: Wifi.device
 
-    // Search for networks only while this page is open
-    Component.onCompleted: if (wifi) wifi.scannerEnabled = true
-    Component.onDestruction: if (wifi) wifi.scannerEnabled = false
+    // Search for networks only while this page is open (Wifi.qml, shared with the control centre)
+    Component.onCompleted: Wifi.watch(true)
+    Component.onDestruction: Wifi.watch(false)
 
     function stateText(d) {
         return d.state === ConnectionState.Connected ? "Verbunden"
@@ -57,72 +55,41 @@ Page {
             }
         }
         Repeater {
-            model: Networking.wifiEnabled ? page.networks : []
+            model: Networking.wifiEnabled ? Wifi.networks : []
             SettingRow {
                 id: net
                 required property var modelData
-                readonly property bool open: modelData.security === WifiSecurityType.Open
+                glyph: Wifi.glyph(modelData)
+                glyphColour: modelData.connected ? Config.accent : "#8e8e93"
                 title: modelData.name
-                subtitle: `Signal ${Math.round(modelData.signalStrength * 100)} %` + (net.open ? "" : " · geschützt")
-                         + (modelData.known ? " · bekannt" : "")
-
-                Item {
-                    implicitWidth: page.asking === modelData.name ? 250 : button.implicitWidth
-                    implicitHeight: 28
-
+                subtitle: (modelData.connected ? "Verbunden" : modelData.stateChanging ? "Verbinde …" : `Signal ${Math.round(modelData.signalStrength * 100)} %`)
+                         + (Wifi.isOpen(modelData) ? " · ungeschützt" : "") + (modelData.known && !modelData.connected ? " · bekannt" : "")
+                Row {
+                    spacing: 8
                     DialogButton {
-                        id: button
-                        visible: page.asking !== net.modelData.name
+                        visible: net.modelData.known && !net.modelData.connected
+                        implicitWidth: 90
+                        width: implicitWidth
+                        text: "Ignorieren"
+                        onClicked: {
+                            const n = net.modelData;
+                            Confirm.ask(`„${n.name}“ ignorieren?`, "Dein Computer verbindet sich nicht mehr von selbst damit und vergisst das Passwort.",
+                                "Ignorieren", () => n.forget());
+                        }
+                    }
+                    DialogButton {
                         implicitWidth: 100
                         width: implicitWidth
                         text: net.modelData.connected ? "Trennen" : net.modelData.stateChanging ? "…" : "Verbinden"
-                        onClicked: {
-                            if (net.modelData.connected)
-                                net.modelData.disconnect();
-                            else if (net.modelData.known || net.open)
-                                net.modelData.connect();
-                            else
-                                page.asking = net.modelData.name;
-                        }
-                    }
-
-                    // Password for a new network
-                    Rectangle {
-                        visible: page.asking === net.modelData.name
-                        anchors.fill: parent
-                        radius: 6
-                        color: Config.tile
-                        border.color: Config.accent
-                        TextInput {
-                            id: psk
-                            anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            verticalAlignment: TextInput.AlignVCenter
-                            echoMode: TextInput.Password
-                            passwordCharacter: "●"
-                            font.family: Config.fontSans
-                            font.pixelSize: 12
-                            color: Config.text
-                            clip: true
-                            focus: visible
-                            Keys.onReturnPressed: {
-                                net.modelData.connectWithPsk(text);
-                                text = "";
-                                page.asking = "";
-                            }
-                            Keys.onEscapePressed: page.asking = ""
-                            Text {
-                                visible: psk.text === ""
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "Passwort, dann Enter"
-                                font: psk.font
-                                color: Config.textSecondary
-                            }
-                        }
+                        onClicked: net.modelData.connected ? net.modelData.disconnect() : Wifi.join(net.modelData)
                     }
                 }
             }
+        }
+        SettingRow {
+            visible: Networking.wifiEnabled && Wifi.networks.length === 0
+            title: Wifi.searchedLong ? "Keine Netzwerke gefunden" : "Suche nach Netzwerken …"
+            subtitle: Wifi.searchedLong ? "Ist die WLAN-Antenne hinten am Computer angeschraubt? Ohne sie findet die Karte nichts." : ""
         }
     }
 

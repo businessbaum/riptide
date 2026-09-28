@@ -50,6 +50,9 @@ PanelWindow {
         function controlCenter(): void {
             controlCenter.toggle();
         }
+        function wifi(): void {
+            controlCenter.showWifi();
+        }
         function notificationCenter(): void {
             notificationCenter.toggle();
         }

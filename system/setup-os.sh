@@ -15,7 +15,8 @@
 #      System Settings follows
 #   7. printing and scanning: CUPS (started on demand) and Avahi – printers and scanners
 #      in the home network are found by themselves (driverless IPP/AirPrint, eSCL), and
-#      names like drucker.local resolve (nss-mdns before the other lookups)
+#      names like drucker.local resolve (nss-mdns before the other lookups); Wi-Fi gets the
+#      country Germany (wireless-regdb): without it the card found no network
 #   8. security: the firewall lets mDNS in (finding printers and devices) and no longer SSH
 #      (remote login is off); snapshots of the system are readable for the user (their
 #      date in System Settings; later Time Machine)
@@ -90,6 +91,18 @@ else
     sed -i 's/^\(hosts:.*\)mymachines /\1mymachines mdns_minimal [NOTFOUND=return] /' /etc/nsswitch.conf
     grep -q "mdns_minimal" /etc/nsswitch.conf || sed -i 's/^hosts: /hosts: mdns_minimal [NOTFOUND=return] /' /etc/nsswitch.conf
     grep "^hosts" /etc/nsswitch.conf
+fi
+
+step "WLAN: Land Deutschland (Kanäle und Sendeleistung)"
+# Without a country the Wi-Fi card uses the "world" rules: most channels listen only, 5 GHz
+# networks stay invisible. cfg80211 loads after the initramfs (from the real root), so the
+# option applies at the next start without rebuilding the boot images.
+conf=/etc/modprobe.d/riptide-wifi.conf
+if grep -qs "ieee80211_regdom=DE" "$conf"; then
+    echo "  schon eingerichtet"
+else
+    echo "options cfg80211 ieee80211_regdom=DE" > "$conf"
+    echo "  gilt ab dem nächsten Start"
 fi
 
 step "Sicherheit (Firewall, Snapshots)"

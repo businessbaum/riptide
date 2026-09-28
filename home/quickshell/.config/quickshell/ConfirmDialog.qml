@@ -19,7 +19,20 @@ PanelWindow {
     implicitWidth: 300
     implicitHeight: box.implicitHeight
 
-    onVisibleChanged: if (visible) box.forceActiveFocus()
+    onVisibleChanged: if (visible) focusLater.restart()
+    // the field when there is one (a password), else the dialog itself for Enter and Esc
+    Timer {
+        id: focusLater
+        interval: 0
+        onTriggered: Confirm.current?.input ? field.forceActiveFocus() : box.forceActiveFocus()
+    }
+    Connections {
+        target: Confirm
+        function onCurrentChanged() {
+            if (root.visible)
+                focusLater.restart();
+        }
+    }
 
     Glass {
         id: box
@@ -99,6 +112,43 @@ PanelWindow {
                 }
                 TapHandler {
                     onTapped: Confirm.optionChecked = !Confirm.optionChecked
+                }
+            }
+
+            // a text field when the question needs one (Confirm.qml: input)
+            Rectangle {
+                visible: Confirm.current?.input !== undefined
+                width: parent.width
+                height: 28
+                radius: 6
+                color: Config.tile
+                border.color: field.activeFocus ? Config.accent : Config.border
+                TextInput {
+                    id: field
+                    anchors.fill: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    verticalAlignment: TextInput.AlignVCenter
+                    echoMode: Confirm.current?.input?.password ? TextInput.Password : TextInput.Normal
+                    passwordCharacter: "●"
+                    font.family: Config.fontSans
+                    font.pixelSize: 13
+                    color: Config.text
+                    selectionColor: Config.accent
+                    selectedTextColor: "white"
+                    clip: true
+                    text: Confirm.inputText
+                    onTextEdited: Confirm.inputText = text
+                    Keys.onReturnPressed: if (!Confirm.current?.app) Confirm.answer(true)
+                    Keys.onEnterPressed: if (!Confirm.current?.app) Confirm.answer(true)
+                    Keys.onEscapePressed: Confirm.answer(false)
+                    Text {
+                        visible: field.text === ""
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Confirm.current?.input?.placeholder ?? ""
+                        font: field.font
+                        color: Config.textSecondary
+                    }
                 }
             }
 

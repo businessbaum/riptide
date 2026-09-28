@@ -8,7 +8,7 @@ import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 
 // Control centre (icon next to the clock), laid out like macOS:
-//   network, Bluetooth | appearance, do not disturb
+//   Wi-Fi (its networks unfold below), Bluetooth | appearance, do not disturb
 //   keep awake, energy mode, screens (brightness, Night Shift), sound slider, tools, now playing
 MenuBarPopup {
     id: root
@@ -24,6 +24,13 @@ MenuBarPopup {
 
     implicitWidth: 330
     panelHeight: content.implicitHeight + 24
+
+    // open with the Wi-Fi networks unfolded (menu bar IPC "wifi")
+    function showWifi() {
+        if (!visible)
+            open();
+        wifiBox.unfolded = root.wifi !== null;
+    }
 
     PwObjectTracker {
         objects: [root.sink]
@@ -54,16 +61,20 @@ MenuBarPopup {
                     width: parent.width - 20
                     spacing: 4
 
+                    // Wi-Fi: the circle switches it, the rest shows the networks (wifiBox);
+                    // without a Wi-Fi card only the cable
                     ControlTile {
                         width: parent.width
-                        icon: root.wired ? String.fromCodePoint(0xf0200) : "\uf1eb" // ethernet / wifi
-                        title: root.wired ? "Netzwerk" : "WLAN"
-                        on: root.wired !== null || (Networking.wifiEnabled && root.wifiNetwork !== null)
-                        status: root.wired ? "Ethernet verbunden"
-                              : !Networking.wifiEnabled ? "Aus"
-                              : root.wifiNetwork?.name ?? "Nicht verbunden"
+                        icon: root.wifi ? "\uf1eb" : String.fromCodePoint(0xf0200) // wifi / ethernet
+                        title: root.wifi ? "WLAN" : "Netzwerk"
+                        on: root.wifi ? Networking.wifiEnabled : root.wired !== null
+                        status: root.wifiNetwork?.name
+                            ?? (root.wired ? "Ethernet" : root.wifi && !Networking.wifiEnabled ? "Aus" : "Nicht verbunden")
                         available: root.wired !== null || root.wifi !== null
-                        onToggled: if (!root.wired) Networking.wifiEnabled = !Networking.wifiEnabled
+                        unfolds: root.wifi !== null
+                        unfolded: wifiBox.unfolded
+                        onToggled: if (root.wifi) Networking.wifiEnabled = !Networking.wifiEnabled
+                        onUnfold: wifiBox.unfolded = !wifiBox.unfolded
                     }
                     ControlTile {
                         width: parent.width
@@ -121,6 +132,153 @@ MenuBarPopup {
                         status: NotificationStore.dndReason
                         on: NotificationStore.doNotDisturb
                         onToggled: NotificationStore.setDoNotDisturb(!NotificationStore.doNotDisturb)
+                    }
+                }
+            }
+        }
+
+        // Wi-Fi networks, unfolded from the tile above: a click joins one (a new protected one
+        // asks for its password in the system dialog, Wifi.qml). Searching only while open.
+        Rectangle {
+            id: wifiBox
+            property bool unfolded: false
+            visible: unfolded
+            width: parent.width
+            height: wifiColumn.implicitHeight + 16
+            radius: Config.radiusTile
+            color: Config.tile
+            border.color: Config.border
+            onUnfoldedChanged: Wifi.watch(unfolded)
+            Connections {
+                target: root
+                function onVisibleChanged() {
+                    if (!root.visible)
+                        wifiBox.unfolded = false;
+                }
+            }
+
+            Column {
+                id: wifiColumn
+                x: 8
+                y: 8
+                width: parent.width - 16
+                spacing: 2
+
+                Item {
+                    width: parent.width
+                    height: 26
+                    Text {
+                        x: 4
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "WLAN"
+                        font.family: Config.fontSans
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                        color: Config.text
+                    }
+                    Toggle {
+                        anchors.right: parent.right
+                        anchors.rightMargin: 4
+                        anchors.verticalCenter: parent.verticalCenter
+                        checked: Networking.wifiEnabled
+                        onToggled: on => Networking.wifiEnabled = on
+                    }
+                }
+                Repeater {
+                    model: Networking.wifiEnabled ? Wifi.networks.slice(0, 8) : []
+                    Rectangle {
+                        id: netRow
+                        required property var modelData
+                        width: wifiColumn.width
+                        height: 30
+                        radius: 7
+                        color: netMouse.containsMouse && !modelData.connected ? Config.hover : "transparent"
+                        Text {
+                            id: bars
+                            x: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Wifi.glyph(netRow.modelData)
+                            font.family: Config.fontSymbols
+                            font.pixelSize: 15
+                            color: netRow.modelData.connected ? Config.accent : Config.text
+                        }
+                        Text {
+                            anchors.left: bars.right
+                            anchors.leftMargin: 10
+                            anchors.right: netState.left
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: netRow.modelData.name
+                            elide: Text.ElideRight
+                            font.family: Config.fontSans
+                            font.pixelSize: 12
+                            font.weight: netRow.modelData.connected ? Font.DemiBold : Font.Normal
+                            color: Config.text
+                        }
+                        Text {
+                            id: netState
+                            anchors.right: parent.right
+                            anchors.rightMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: netRow.modelData.stateChanging ? "Verbinde …" : netRow.modelData.connected ? "\uf00c" : ""
+                            font.family: netRow.modelData.stateChanging ? Config.fontSans : Config.fontSymbols
+                            font.pixelSize: 11
+                            color: netRow.modelData.connected ? Config.accent : Config.textSecondary
+                        }
+                        MouseArea {
+                            id: netMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                const n = netRow.modelData;
+                                // the password dialog comes up in the middle of the screen
+                                if (!n.connected && !n.known && !Wifi.isOpen(n))
+                                    root.close();
+                                Wifi.join(n);
+                            }
+                        }
+                    }
+                }
+                Text {
+                    visible: !Networking.wifiEnabled || Wifi.networks.length === 0
+                    x: 4
+                    width: parent.width - 8
+                    topPadding: 2
+                    bottomPadding: 4
+                    text: !Networking.wifiEnabled ? "WLAN ist aus."
+                        : Wifi.searchedLong ? "Keine Netzwerke gefunden. Ist die WLAN-Antenne am Computer angeschlossen?"
+                        : "Suche nach Netzwerken …"
+                    wrapMode: Text.Wrap
+                    font.family: Config.fontSans
+                    font.pixelSize: 11
+                    color: Config.textSecondary
+                }
+                Rectangle {
+                    width: parent.width
+                    height: 1
+                    color: Config.border
+                }
+                Rectangle {
+                    width: parent.width
+                    height: 28
+                    radius: 7
+                    color: settingsMouse.containsMouse ? Config.hover : "transparent"
+                    Text {
+                        x: 6
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "WLAN-Einstellungen …"
+                        font.family: Config.fontSans
+                        font.pixelSize: 12
+                        color: Config.text
+                    }
+                    MouseArea {
+                        id: settingsMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            root.close();
+                            Quickshell.execDetached([Quickshell.shellPath("scripts/system-settings.sh"), "network"]);
+                        }
                     }
                 }
             }
