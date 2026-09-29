@@ -150,14 +150,13 @@ PanelWindow {
         }
         x: Math.round((parent.width - width) / 2) // whole pixels keep the icons sharp
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: dock.bottomGap
+        // over a full-screen app it slides in from below and out again – by its margin, not
+        // a transform: the click mask (mask: above) follows x/y/size only; after a slide by
+        // transform it stayed where the plate had been and the dock took no clicks
+        anchors.bottomMargin: dock.bottomGap - reveal.away * (dock.plateHeight + dock.bottomGap + 2)
         width: row.width + 2 * dock.padding
         height: dock.plateHeight
         radius: Config.radiusPanel + 4
-        // over a full-screen app it slides in from below and out again
-        transform: Translate {
-            y: reveal.away * (dock.plateHeight + dock.bottomGap + 2)
-        }
         color: Config.glass
         border.color: Config.border
         border.width: 1
