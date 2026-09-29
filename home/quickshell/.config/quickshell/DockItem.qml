@@ -4,7 +4,8 @@ import Quickshell
 // One app in the dock.
 //   click:        running → in front: minimize it, else bring its last window to the
 //                 front; not running → start it (the icon bounces until it shows a window)
-//   right-click:  menu with "Neues Fenster", "Im Dock behalten"/"Aus dem Dock entfernen", "Beenden"
+//   right-click:  menu with "Neues Fenster", "Im Dock behalten"/"Aus dem Dock entfernen",
+//                 "Ausblenden"/"Einblenden" (windows gone, the app keeps running), "Beenden"
 //   hover:        the app name above the icon
 Item {
     id: root
@@ -18,6 +19,9 @@ Item {
 
     readonly property var windows: Apps.windowsOf(key)
     readonly property bool running: windows.length > 0
+    // a window of it on a desktop – not only minimized or hidden ones
+    // (workspace follows Hyprland's events; lastIpcObject only the last refresh)
+    readonly property bool shown: windows.some(w => !(w.toplevel.workspace?.name ?? w.toplevel.lastIpcObject?.workspace?.name ?? "").startsWith("special:"))
     readonly property string name: entry?.name ?? appId
     property bool launching: false
 
@@ -164,6 +168,10 @@ Item {
                 list.push({ separator: true }, { text: root.pinned ? "Aus dem Dock entfernen" : "Im Dock behalten", action: () => root.togglePinned() });
             if (root.running) {
                 list.push({ separator: true });
+                if (root.shown)
+                    list.push({ text: "Ausblenden", action: () => Apps.hide(root.windows[0].appId) });
+                else
+                    list.push({ text: "Einblenden", action: () => Apps.activate(root.windows[0].appId) });
                 list.push({ text: "Beenden", action: () => Apps.quit(root.windows[0].appId) });
             }
             return list;

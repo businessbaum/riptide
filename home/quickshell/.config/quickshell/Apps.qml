@@ -183,4 +183,10 @@ Singleton {
     function quit(appId) {
         Hyprland.dispatch(`macos.quit_app('${safe(appId)}')`);
     }
+
+    // Hide an app (⌘H): its windows go, it keeps running – messages still arrive; a dock
+    // click, ⌘Tab or "Einblenden" brings them back
+    function hide(appId) {
+        Hyprland.dispatch(`macos.hide_app('${safe(appId)}')`);
+    }
 }
