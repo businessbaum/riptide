@@ -175,6 +175,14 @@ PanelWindow {
                 barWindow: bar
             }
         }
+        // … and the ones we keep there (dock menu "In die Menüleiste ausblenden")
+        Repeater {
+            model: Background.running
+            BackgroundItem {
+                required property var modelData
+                app: modelData
+            }
+        }
 
         // External drives: eject (like the Finder's eject button)
         BarButton {

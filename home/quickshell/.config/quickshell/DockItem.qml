@@ -5,7 +5,8 @@ import Quickshell
 //   click:        running → in front: minimize it, else bring its last window to the
 //                 front; not running → start it (the icon bounces until it shows a window)
 //   right-click:  menu with "Neues Fenster", "Im Dock behalten"/"Aus dem Dock entfernen",
-//                 "Ausblenden"/"Einblenden" (windows gone, the app keeps running), "Beenden"
+//                 "In die Menüleiste ausblenden" (no window, still running, its icon in the
+//                 menu bar – Background.qml) or "Einblenden" (hidden with ⌘H), "Beenden"
 //   hover:        the app name above the icon
 Item {
     id: root
@@ -169,7 +170,7 @@ Item {
             if (root.running) {
                 list.push({ separator: true });
                 if (root.shown)
-                    list.push({ text: "Ausblenden", action: () => Apps.hide(root.windows[0].appId) });
+                    list.push({ text: "In die Menüleiste ausblenden", action: () => Background.enter(root.key, root.windows[0].appId) });
                 else
                     list.push({ text: "Einblenden", action: () => Apps.activate(root.windows[0].appId) });
                 list.push({ text: "Beenden", action: () => Apps.quit(root.windows[0].appId) });

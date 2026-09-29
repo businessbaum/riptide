@@ -153,7 +153,7 @@ Singleton {
                 }
                 if (Apps.windowsOf(entry.id).length === 0 && !Apps.isStarting(entry.id)) {
                     console.info("reopen: opening", id);
-                    Apps.launch(entry);
+                    Apps.launch(entry, true);
                 }
             }
             ids = left;

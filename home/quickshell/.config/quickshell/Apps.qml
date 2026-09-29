@@ -133,7 +133,15 @@ Singleton {
 
     // Open an app like on a Mac: never a second copy. Already running → its window comes
     // to the front; just started (still bouncing) → nothing happens.
-    function launch(entry) {
+    // `reopening`: after login (Session.qml) – an app in the background stays there;
+    // started on purpose it comes out of it
+    function launch(entry, reopening) {
+        if (!reopening && Background.has(entry.id)) {
+            const running = windowsOf(entry.id).length > 0;
+            Background.leave(entry.id);
+            if (running)
+                return;
+        }
         const key = plainId(entry.id);
         const open = windowsOf(entryById(key)?.id ?? key);
         if (open.length > 0)
@@ -182,11 +190,5 @@ Singleton {
 
     function quit(appId) {
         Hyprland.dispatch(`macos.quit_app('${safe(appId)}')`);
-    }
-
-    // Hide an app (⌘H): its windows go, it keeps running – messages still arrive; a dock
-    // click, ⌘Tab or "Einblenden" brings them back
-    function hide(appId) {
-        Hyprland.dispatch(`macos.hide_app('${safe(appId)}')`);
     }
 }

@@ -3,7 +3,8 @@ import Quickshell
 import Quickshell.Wayland
 
 // The dock at the bottom of every screen.
-//   pinned apps (settings.json → dock.pinned), then running apps that are not pinned.
+//   pinned apps (settings.json → dock.pinned), then running apps that are not pinned –
+//   not those in the background (their icon is in the menu bar, Background.qml).
 //   A dot marks running apps. The same app never appears twice.
 // The window is taller than the plate: the transparent headroom above it holds the
 // app name shown while hovering (Hyprland's snapping.lua knows this height: 40 px).
@@ -37,7 +38,7 @@ PanelWindow {
         const running = [];
         for (const w of Apps.windows) {
             const key = Apps.keyForAppId(w.appId);
-            if (seen[key])
+            if (seen[key] || Background.has(key))
                 continue;
             seen[key] = true;
             running.push({ key: key, entry: Apps.entryForAppId(w.appId), pinned: false, appId: w.appId });

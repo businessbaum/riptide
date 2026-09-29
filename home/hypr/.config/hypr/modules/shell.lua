@@ -115,6 +115,54 @@ function macos.show_all()
     return hl.dsp.no_op()
 end
 
+-- In the background (dock menu "In die Menüleiste ausblenden"): an app without windows
+-- that keeps running – for its messages – with its icon in the menu bar instead of the
+-- dock (Background.qml). Its windows live on their own hidden desktop "background", new
+-- ones go there at once (also when it is reopened after the next login), until it is
+-- opened again from its icon. Which apps: ~/.local/state/macos/background.json, written
+-- by the shell ({ app: window class }).
+local json = require("modules.json")
+local BACKGROUND = "special:background"
+local function in_background(class)
+    for _, c in pairs(json.read(os.getenv("HOME") .. "/.local/state/macos/background.json") or {}) do
+        if c == class then return true end
+    end
+    return false
+end
+
+function macos.to_background(class)
+    for _, w in ipairs(app_windows(class)) do
+        if not (w.workspace and w.workspace.name == BACKGROUND) then
+            hl.dispatch(hl.dsp.window.move({ window = w, workspace = BACKGROUND, follow = false }))
+        end
+    end
+    return hl.dsp.no_op()
+end
+
+function macos.from_background(class)
+    local windows = app_windows(class)
+    for i = #windows, 1, -1 do bring_to_front(windows[i]) end -- the last used on top
+    return hl.dsp.no_op()
+end
+
+hl.on("window.open", function(w)
+    if w and w.class and in_background(w.class) then
+        hl.dispatch(hl.dsp.window.move({ window = w, workspace = BACKGROUND, follow = false }))
+    end
+end)
+
+-- Hyprland shows the hidden desktop when a window on it asks for attention and gets it
+-- (a click on one of its notifications): the window comes to the desktop instead, and the
+-- app leaves the background (the shell hears it)
+hl.on("window.active", function(w)
+    if not w or not w.workspace or w.workspace.name ~= BACKGROUND then return end
+    local open = hl.get_active_special_workspace()
+    if open and open.name == BACKGROUND then
+        hl.dispatch(hl.dsp.window.move({ window = w, workspace = hl.get_active_workspace() }))
+        hl.dispatch(hl.dsp.event("background-left>>" .. w.class))
+    end
+end)
+
 -- Dock click on a running app, like on Windows: the app in front goes down into the
 -- dock (its windows on this desktop are minimized); an app behind or minimized comes to
 -- the front – from the minimized desktop with all its windows, the last used on top

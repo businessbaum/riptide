@@ -36,7 +36,9 @@ end
 local function windows_by_recent_use()
     local list = {}
     for _, w in ipairs(hl.get_windows()) do
-        if w.mapped and w.class and w.class ~= "" and not helper(w) then
+        -- (not apps in the background: they are in the menu bar, not in ⌘Tab – shell.lua)
+        if w.mapped and w.class and w.class ~= "" and not helper(w)
+            and not (w.workspace and w.workspace.name == "special:background") then
             list[#list + 1] = w
         end
     end

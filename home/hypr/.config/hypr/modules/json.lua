@@ -72,8 +72,9 @@ end
 
 local DIR = os.getenv("HOME") .. "/.config/macos/"
 
+-- a name in ~/.config/macos/, or an absolute path (state files in ~/.local/state/macos/)
 local function read(name)
-    local f = io.open(DIR .. name, "r")
+    local f = io.open((name:sub(1, 1) == "/" and "" or DIR) .. name, "r")
     if not f then return nil, name .. " not found" end
     local text = f:read("a"); f:close()
     local ok, data = pcall(parse_json, text)
