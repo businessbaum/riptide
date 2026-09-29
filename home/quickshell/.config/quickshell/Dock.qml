@@ -55,6 +55,11 @@ PanelWindow {
     property real dragY: 0
     property real dragStartCenter: 0
     readonly property bool dragging: dragKey !== ""
+    // (not `dragKey === key`: the separator has no key, and "" is also "nothing dragged" –
+    // it was lifted out of the plate)
+    function dragged(item) {
+        return dragging && dragKey === (item.key ?? "");
+    }
     readonly property int dragFrom: pinnedKeys.indexOf(dragKey)   // -1 = a running, unpinned app
     readonly property bool dragRemove: dragging && dragY < plate.y - 50
     readonly property var dragEntry: items.find(i => i.key === dragKey)?.entry ?? null
@@ -149,6 +154,10 @@ PanelWindow {
         width: row.width + 2 * dock.padding
         height: dock.plateHeight
         radius: Config.radiusPanel + 4
+        // over a full-screen app it slides in from below and out again
+        transform: Translate {
+            y: reveal.away * (dock.plateHeight + dock.bottomGap + 2)
+        }
         color: Config.glass
         border.color: Config.border
         border.width: 1
@@ -166,18 +175,18 @@ PanelWindow {
                     id: slot
                     required property var modelData
                     sourceComponent: modelData.separator ? separator : modelData.launchpad ? launchpad : icon
-                    z: dock.dragKey === (modelData.key ?? "") ? 1 : 0
+                    z: dock.dragged(modelData) ? 1 : 0
 
                     // moves aside (or follows the mouse) while an icon is dragged
                     transform: Translate {
                         x: dock.shiftFor(slot.modelData)
-                        y: dock.dragKey === (slot.modelData.key ?? "") ? Math.min(0, dock.dragY - plate.y - dock.padding - dock.size / 2) : 0
+                        y: dock.dragged(slot.modelData) ? Math.min(0, dock.dragY - plate.y - dock.padding - dock.size / 2) : 0
                         Behavior on x {
-                            enabled: dock.dragKey !== (slot.modelData.key ?? "")
+                            enabled: !dock.dragged(slot.modelData)
                             NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
                         }
                     }
-                    opacity: dock.dragRemove && dock.dragKey === (modelData.key ?? "") ? 0.4 : 1
+                    opacity: dock.dragRemove && dock.dragged(modelData) ? 0.4 : 1
 
                     Component {
                         id: separator

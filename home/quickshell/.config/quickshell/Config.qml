@@ -48,7 +48,12 @@ Singleton {
     // Colours of the active mode
     readonly property color glass: glassy(col(tokens.glass, "#9428282e"), 0.88)
     readonly property color glassMenu: glassy(col(tokens.glass_menu, "#cc242428"), 0.95)
-    readonly property color menubar: glassy(col(tokens.menubar, "#6b18181c"), 0.82)
+    // (Erscheinungsbild → Transparenz der Menüleiste: its own see-through amount, else the theme's)
+    readonly property real menubarOpacity: settings.appearance?.menubar_opacity ?? -1
+    readonly property color menubar: {
+        const c = col(tokens.menubar, "#6b18181c");
+        return menubarOpacity >= 0 && !highContrast ? Qt.rgba(c.r, c.g, c.b, menubarOpacity) : glassy(c, 0.82);
+    }
     readonly property color border: highContrast ? (dark ? "#80ffffff" : "#80000000") : col(tokens.border, "#24ffffff")
     readonly property color tile: col(tokens.tile, "#14ffffff")
     // a tile on the menu glass, but solid: cards that must not let what lies behind them

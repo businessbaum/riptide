@@ -113,6 +113,20 @@ Page {
             }
         }
         SettingRow {
+            title: "Transparenz der Menüleiste"
+            subtitle: "Links deckend, rechts durchsichtig"
+            Slider {
+                width: 220
+                from: 0
+                to: 100
+                stepSize: 5
+                showValue: true
+                unit: " %"
+                value: Math.round((1 - Config.menubar.a) * 100)
+                onMoved: v => Store.set("appearance", "menubar_opacity", Math.round(100 - v) / 100)
+            }
+        }
+        SettingRow {
             title: "Menüs und Panels mit Unschärfe"
             subtitle: "Kontrollzentrum, Mitteilungen und die Menüs der Menüleiste zeigen den Hintergrund verschwommen – gut lesbar auch über hellen Fenstern"
             Toggle {

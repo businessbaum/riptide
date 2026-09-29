@@ -9,7 +9,8 @@ import Quickshell.Wayland
 // them. The edge is noticed by riptide-wm (window_buttons.cpp: "fullscreen-edge") – nothing
 // of ours lies over the app's own edge.
 //   layer   for WlrLayershell.layer: above the full-screen app while it is there
-//   shown   for visible
+//   shown   for visible (also while it slides away)
+//   away    0 … 1 for sliding it in and out: 1 = out of the screen
 //   hold    while it must stay: the pointer on it, a menu open, an icon dragged
 Scope {
     id: root
@@ -20,7 +21,11 @@ Scope {
 
     readonly property bool fullscreen: Hyprland.monitorFor(screen)?.activeWorkspace?.hasFullscreen ?? false
     property bool revealed: false
-    readonly property bool shown: !fullscreen || revealed
+    property real away: fullscreen && !revealed ? 1 : 0
+    Behavior on away {
+        NumberAnimation { duration: Config.reduceMotion ? 0 : 220; easing.type: Easing.OutCubic }
+    }
+    readonly property bool shown: !fullscreen || revealed || away < 1
     readonly property int layer: fullscreen ? WlrLayer.Overlay : WlrLayer.Top
 
     onFullscreenChanged: revealed = false

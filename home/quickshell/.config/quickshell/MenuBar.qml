@@ -90,6 +90,13 @@ PanelWindow {
         anchors.fill: parent
         color: Config.menubar
     }
+    // over a full-screen app it slides down from the top and up again (a window itself
+    // cannot be moved: its content is)
+    Binding {
+        target: bar.contentItem
+        property: "y"
+        value: -reveal.away * bar.implicitHeight
+    }
 
     // Pictures of new notifications (image data), drawn once out of sight and kept as a
     // file for the notification centre (NotificationStore.pendingImages) – on one screen
