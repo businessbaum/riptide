@@ -83,8 +83,11 @@ Scope {
                 id: screen
                 anchors.fill: parent
                 main: MainScreen.name === surface.screen?.name
+                // the other screens: blurred, so their weather and month stay readable
                 backdrop: Component {
-                    WallpaperImage {}
+                    WallpaperImage {
+                        blurred: !screen.main
+                    }
                 }
                 aside: Component {
                     LockInfo {}

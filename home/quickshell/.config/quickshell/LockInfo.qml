@@ -41,8 +41,9 @@ Row {
         width: 300
         height: inner.implicitHeight + 40
         radius: 22
-        color: "#2effffff"
-        border.color: "#40ffffff"
+        // dark glass: white text stays readable on light parts of any wallpaper
+        color: "#66101014"
+        border.color: "#33ffffff"
         Column {
             id: inner
             x: 20

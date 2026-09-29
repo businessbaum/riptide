@@ -1,13 +1,16 @@
 import QtQuick
+import QtQuick.Effects
 
 // The desktop background as a picture: the image from settings.json
 // (appearance.wallpaper), otherwise a soft gradient in the spirit of macOS. The desktop
 // (Wallpaper.qml) and the lock screen (LockScreen.qml) show the same one – unlocking
-// goes straight on into the desktop.
+// goes straight on into the desktop. `blurred`: soft and a little darker, so what lies on
+// it stays readable on any picture (the lock screen's weather and month on the other screen).
 Item {
     id: root
 
     readonly property string image: Config.settings.appearance?.wallpaper ?? ""
+    property bool blurred: false
 
     Rectangle {
         anchors.fill: parent
@@ -23,9 +26,21 @@ Item {
     Image {
         id: picture
         anchors.fill: parent
+        visible: !root.blurred
         source: root.image !== "" ? "file://" + root.image : ""
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         cache: false
+    }
+    MultiEffect {
+        anchors.fill: parent
+        visible: root.blurred && picture.status === Image.Ready
+        source: picture
+        autoPaddingEnabled: false
+        blurEnabled: true
+        blur: 1
+        blurMax: 64
+        brightness: -0.22
+        saturation: -0.15
     }
 }
