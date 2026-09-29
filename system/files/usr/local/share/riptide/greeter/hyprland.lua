@@ -43,7 +43,9 @@ hl.config({
     general = { border_size = 0, gaps_in = 0, gaps_out = 0 },
     decoration = { rounding = 0, shadow = { enabled = false }, blur = { enabled = false } },
     misc = {
-        background_color = "rgb(1b2a4a)",
+        -- black like the console: after a login the window goes, then the desktop comes –
+        -- nothing (blue) shows in between
+        background_color = "rgb(000000)",
         disable_hyprland_logo = true,
         disable_splash_rendering = true,
         disable_autoreload = true,

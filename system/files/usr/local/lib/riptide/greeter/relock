@@ -1,0 +1,26 @@
+#!/bin/sh
+# Run by systemd as root before greetd starts (ExecStartPre, greetd.service.d/riptide.conf).
+#
+# After a logout the login screen starts the next session locked, as at boot (start): it
+# writes the moment of that logout to autologin-done and restarts greetd. But greetd runs its
+# initial session only while its runfile is missing – once per boot, never after a restart
+# (greetd(5)) – so it would show the login screen again. The runfile goes here, and only for
+# a request of the last seconds that matches the logout the person's session reported
+# (users/<name>/logged-out, at most 2 min ago). Anything else leaves it: the login screen.
+# The session this starts is locked (session-locked): the password is still needed.
+runfile=/run/greetd.run
+dir=/var/lib/riptide/greeter
+
+auto=$(sed -n '/^\[initial_session\]/,/^\[/s/^user *= *"\(.*\)"/\1/p' /etc/greetd/config.toml)
+case "$auto" in '' | *[!a-z0-9_-]*) exit 0 ;; esac
+# (both files belong to unprivileged users: only a plain number is taken)
+done=$(head -c 32 "$dir/autologin-done" 2>/dev/null)
+out=$(head -c 32 "$dir/users/$auto/logged-out" 2>/dev/null)
+case "$done" in '' | *[!0-9]*) exit 0 ;; esac
+case "$out" in '' | *[!0-9]*) exit 0 ;; esac
+asked=$(stat -c %Y "$dir/autologin-done" 2>/dev/null) || exit 0
+now=$(date +%s)
+if [ "$done" = "$out" ] && [ $((now - out)) -lt 120 ] && [ $((now - asked)) -lt 15 ]; then
+    rm -f "$runfile"
+fi
+exit 0

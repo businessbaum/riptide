@@ -150,9 +150,13 @@ step "Anmeldung (greetd): gesperrt starten, Anmeldefenster = Sperrbildschirm"
 sed "s/@USER@/$user/" system/files/etc/greetd/config.toml > /etc/greetd/config.toml.new
 chmod 644 /etc/greetd/config.toml.new
 mv /etc/greetd/config.toml.new /etc/greetd/config.toml
-for f in start run session-locked; do
+for f in start run session-locked relock; do
     install -D -o root -g root -m 755 "system/files/usr/local/lib/riptide/greeter/$f" "/usr/local/lib/riptide/greeter/$f"
 done
+# greetd runs its initial session once per boot; after a logout "relock" lets it run once more
+install -D -o root -g root -m 644 system/files/etc/systemd/system/greetd.service.d/riptide.conf \
+    /etc/systemd/system/greetd.service.d/riptide.conf
+systemctl daemon-reload
 for f in shell.qml Login.qml hyprland.lua; do
     install -D -o root -g root -m 644 "system/files/usr/local/share/riptide/greeter/$f" "/usr/local/share/riptide/greeter/$f"
 done
