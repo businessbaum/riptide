@@ -194,7 +194,10 @@ Singleton {
         };
         // closed by the app or expired: the entry stays, only the link to the app goes
         n.closed.connect(() => entry.live = null);
-        if (n.image && !n.image.startsWith("/") && !n.image.startsWith("file:"))
+        // (an icon named by the system – image://icon/dialog-information – is no picture:
+        // its messages show the gear, NotificationCard.qml)
+        if (n.image && !n.image.startsWith("/") && !n.image.startsWith("file:")
+            && !(isSystem(app ?? "") && n.image.startsWith("image://icon/")))
             pendingImages = pendingImages.concat([{ key: entry.key, url: n.image }]);
         history = [entry].concat(history).slice(0, 50);
         save();

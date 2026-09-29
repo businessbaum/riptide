@@ -6,9 +6,10 @@ Type=Application
 Name=WhatsApp
 GenericName=Messenger
 Comment=Nachrichten mit WhatsApp Web
-Exec=chromium --app=https://web.whatsapp.com --class=WhatsApp
+Exec=chromium --app=https://web.whatsapp.com
 Icon=whatsapp
-StartupWMClass=WhatsApp
+# Chromium names the window after the site (--class does nothing on Wayland)
+StartupWMClass=chrome-web.whatsapp.com__-Default
 Terminal=false
 Categories=Network;InstantMessaging;Chat;
 Keywords=Chat;Messenger;Nachrichten;

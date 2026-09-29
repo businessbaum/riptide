@@ -33,15 +33,20 @@ Banner {
         if (!n)
             return "";
         const image = n.image || (n.live?.image ?? "");
-        if (image)
+        // (notify-send -i names an icon as the picture too – Quickshell hands it over as
+        // image://icon/dialog-information: for the system only real pictures count, like a
+        // screenshot's preview)
+        if (image && !(fromSystem && image.startsWith("image://icon/")))
             return image;
         if (n.appIcon?.startsWith("/"))
             return "file://" + n.appIcon;
         return "";
     }
-    // (the system's own messages carry the System Settings icon, as on a Mac)
-    readonly property var appEntry: !n ? null : NotificationStore.entryOf(n) ?? Apps.entryById(n.app ?? "")
-        ?? (NotificationStore.systemApps.includes(n.appName ?? n.app) ? Apps.entryById("org.riptide.SystemSettings") : null)
+    // The system's own messages carry the System Settings icon (the gear), as on a Mac –
+    // whatever icon their sender named (it was "dialog-information": a light bulb)
+    readonly property bool fromSystem: !!n && NotificationStore.systemApps.includes(n.appName ?? n.app)
+    readonly property var appEntry: !n ? null : fromSystem ? Apps.entryById("org.riptide.SystemSettings")
+        : NotificationStore.entryOf(n) ?? Apps.entryById(n.app ?? "")
 
     // "jetzt", "vor 5 Min.", "14:02"
     readonly property date arrived: banner ? new Date() : NotificationStore.timeOf(n)
@@ -112,7 +117,7 @@ Banner {
                 visible: card.picture === ""
                 size: 36
                 entry: card.appEntry
-                appId: card.n?.appIcon || card.n?.app || "dialog-information"
+                appId: card.fromSystem ? "org.riptide.SystemSettings" : card.n?.appIcon || card.n?.app || "dialog-information"
             }
         }
 
