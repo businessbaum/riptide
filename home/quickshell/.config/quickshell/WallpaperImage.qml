@@ -12,9 +12,11 @@ Item {
     readonly property string image: Config.settings.appearance?.wallpaper ?? ""
     property bool blurred: false
 
+    // only without a picture (none chosen, or it cannot be read) – never while it loads:
+    // a gradient flashing up before the picture looks like a wrong wallpaper
     Rectangle {
         anchors.fill: parent
-        visible: picture.status !== Image.Ready
+        visible: root.image === "" || picture.status === Image.Error
         gradient: Gradient {
             orientation: Gradient.Vertical
             GradientStop { position: 0.0; color: Config.dark ? "#1b2a4a" : "#8fb3e6" }
@@ -30,7 +32,9 @@ Item {
         source: root.image !== "" ? "file://" + root.image : ""
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        cache: false
+        // shared: the desktop has it in memory already, so the lock screen (and Mission
+        // Control) show it in their very first frame, not a moment later
+        cache: true
     }
     MultiEffect {
         anchors.fill: parent
