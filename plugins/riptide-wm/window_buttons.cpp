@@ -15,7 +15,9 @@
 //                              zone there kept catching drags meant for the title bar)
 //   menu bar                 → a border: a dragged window never goes above it
 //
-// It also tells the window switcher (⌥Tab / ⌘Tab) when ⌥ or ⌘ is released.
+// It also tells the window switcher (⌥Tab / ⌘Tab) when ⌥ or ⌘ is released, and the shell
+// when the pointer reaches the top or bottom edge of a screen in full screen (menu bar and
+// dock come over the app there, like on a Mac: Quickshell FullscreenReveal.qml).
 
 #include <wayland-server.h>
 #include <cstring>
@@ -42,6 +44,7 @@
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/event/EventBus.hpp>
+#include <hyprland/src/managers/EventManager.hpp>
 #include <hyprland/src/config/supplementary/executor/Executor.hpp>
 #include <hyprland/protocols/xdg-shell.hpp>
 
@@ -239,6 +242,30 @@ void windowButtonsInit() {
         }
     });
 
+    // Full screen: the pointer pushed against a screen's top or bottom edge →
+    // "custom>>fullscreen-edge>>top|bottom>>DP-2" for the shell, once per arrival. Nothing
+    // is taken from the app: it still gets the pointer there (Zen's own F11 toolbar at the
+    // top keeps working – a strip of our own over the edge would have caught it). Every
+    // motion passes here: two comparisons per screen, text only on an edge.
+    static std::string lastEdge;
+    static auto MOVE = Event::bus()->m_events.input.mouse.move.listen([](Vector2D pos, Event::SCallbackInfo&) {
+        std::string edge;
+        for (auto& m : State::monitorState()->monitors()) {
+            if (pos.x < m->m_position.x || pos.x >= m->m_position.x + m->m_size.x || pos.y < m->m_position.y ||
+                pos.y >= m->m_position.y + m->m_size.y)
+                continue;
+            const bool top = pos.y < m->m_position.y + 1, bottom = pos.y >= m->m_position.y + m->m_size.y - 1;
+            if ((top || bottom) && Fullscreen::controller()->hasFullscreen(m))
+                edge = std::string(top ? "top" : "bottom") + ">>" + m->m_name;
+            break;
+        }
+        if (edge == lastEdge)
+            return;
+        lastEdge = edge;
+        if (!edge.empty())
+            g_pEventManager->postEvent(SHyprIPCEvent{"custom", "fullscreen-edge>>" + edge});
+    });
+
     // Windows that are already open
     for (auto& w : Desktop::windowState()->windows())
         if (w->m_isMapped)
@@ -257,5 +284,7 @@ void windowButtonsExit() {
         s.found->setSetMinimized(nullptr);
         s.found->setSetMaximized(nullptr);
         s.found->setUnsetMaximized(nullptr);
+        s.found->setSetFullscreen(nullptr);
+        s.found->setUnsetFullscreen(nullptr);
     }
 }

@@ -23,7 +23,18 @@ PanelWindow {
     readonly property var activeEntry: activeKey !== "" ? Apps.entryById(activeKey) : null
     readonly property string appName: activeKey !== "" ? Apps.name(activeKey) : "Finder"
 
-    WlrLayershell.layer: WlrLayer.Top
+    // over an app in full screen: hidden, shown while the pointer is at the top edge
+    FullscreenReveal {
+        id: reveal
+        screen: bar.screen
+        edge: "top"
+        hold: barHover.hovered || OpenMenus.count > 0
+    }
+    HoverHandler {
+        id: barHover
+    }
+    visible: reveal.shown
+    WlrLayershell.layer: reveal.layer
     WlrLayershell.namespace: "menubar"
     anchors {
         top: true

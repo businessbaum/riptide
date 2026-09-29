@@ -109,7 +109,15 @@ PanelWindow {
         return (j - natural) * slot;
     }
 
-    WlrLayershell.layer: WlrLayer.Top
+    // over an app in full screen: hidden, shown while the pointer is at the bottom edge
+    FullscreenReveal {
+        id: reveal
+        screen: dock.screen
+        edge: "bottom"
+        hold: plateHover.hovered || dock.dragging || OpenMenus.count > 0
+    }
+    visible: reveal.shown
+    WlrLayershell.layer: reveal.layer
     WlrLayershell.namespace: "dock"
     anchors.bottom: true
     implicitWidth: plate.width + 200
@@ -132,6 +140,9 @@ PanelWindow {
 
     Rectangle {
         id: plate
+        HoverHandler {
+            id: plateHover
+        }
         x: Math.round((parent.width - width) / 2) // whole pixels keep the icons sharp
         anchors.bottom: parent.bottom
         anchors.bottomMargin: dock.bottomGap

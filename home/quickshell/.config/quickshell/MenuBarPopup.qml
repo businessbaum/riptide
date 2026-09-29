@@ -12,6 +12,10 @@ import Quickshell.Hyprland
 PopupWindow {
     id: root
 
+    // (counted while open: the menu bar and dock over a full-screen app stay, OpenMenus.qml)
+    onVisibleChanged: OpenMenus.count += visible ? 1 : -1
+    Component.onDestruction: if (visible) OpenMenus.count -= 1
+
     property Item anchorItem
     default property alias content: surface.data
     // the screen of the menu bar it hangs from: frosted glass (the bar sits at the
