@@ -21,6 +21,13 @@ Scope {
     property string appKey: ""
     property bool arranged: false // false: windows where they are, true: in the grid
     property bool closing: false  // gliding back before it goes
+    property string front: ""     // the window clicked: it lands on top of the others
+    // how the windows lie on top of each other: address → rank, higher lies above
+    property var stacking: ({})
+
+    function plainAddress(address) {
+        return (address ?? "").replace(/^0x/, "");
+    }
 
     function open(m) {
         Hyprland.refreshToplevels();
@@ -31,6 +38,9 @@ Scope {
             return;
         hideLater.stop();
         closing = false;
+        front = "";
+        stackingProc.running = false;
+        stackingProc.running = true;
         mode = m;
         arranged = false;
         glide.restart();
@@ -42,6 +52,33 @@ Scope {
         glide.stop();
         arranged = false; // back to where they are, then it goes
         hideLater.restart();
+    }
+    // Hyprland's window list is its stacking order, bottom first; tiled windows lie below
+    // floating ones, a fullscreen window above both, and windows allowed over it above
+    // that. The pictures lie the same way, so they glide back into exactly what the
+    // screen shows underneath – no other window comes up in between.
+    Process {
+        id: stackingProc
+        command: ["hyprctl", "clients", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const list = JSON.parse(text);
+                    const fullscreenOn = {};
+                    for (const c of list)
+                        if (c.fullscreen > 0)
+                            fullscreenOn[c.workspace?.id] = true;
+                    const rank = {};
+                    list.forEach((c, i) => {
+                        const level = c.fullscreen > 0 ? 2
+                            : c.allowedOverFullscreen && fullscreenOn[c.workspace?.id] ? 3
+                            : c.floating ? 1 : 0;
+                        rank[root.plainAddress(c.address)] = level * 1000 + i;
+                    });
+                    root.stacking = rank;
+                } catch (e) {}
+            }
+        }
     }
     function toggle(m) {
         mode === m && !closing ? close() : open(m);
@@ -61,6 +98,7 @@ Scope {
         }
     }
     function focus(w) {
+        front = plainAddress(w.address);
         close();
         Hyprland.dispatch(`macos.focus_window('${w.address.replace(/[^0-9a-fx]/gi, "")}')`);
     }
@@ -107,6 +145,15 @@ Scope {
                             && (minimized ? panel.focusedScreen : o.monitor === panel.monitorId);
                     return o.monitor === panel.monitorId && o.workspace?.id === panel.monitor?.activeWorkspace?.id;
                 });
+            }
+            // the desktop this screen shows once it closes: the clicked window's, else the
+            // one shown now – its windows glide back to where they are, the rest fade
+            readonly property int shownWorkspace: {
+                const w = Apps.windows.find(w => root.plainAddress(w.address) === root.front);
+                const o = w?.toplevel.lastIpcObject ?? {};
+                if (w && o.monitor === monitorId && (o.workspace?.id ?? 0) > 0)
+                    return o.workspace.id;
+                return monitor?.activeWorkspace?.id ?? -1;
             }
             // the desktops of this screen (normal ones)
             readonly property var desktops: Hyprland.workspaces.values
@@ -159,12 +206,16 @@ Scope {
 
             // the desktop's own picture behind the windows, a little darker – the real
             // windows disappear under it while their pictures glide into the grid; a click
-            // on it closes
+            // on it closes. Closing, it stays until the pictures have (nearly) landed and
+            // only then gives way to the real windows, so none shows up twice.
             WallpaperImage {
                 anchors.fill: parent
                 opacity: root.arranged ? 1 : 0
                 Behavior on opacity {
-                    NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic }
+                    NumberAnimation {
+                        duration: Config.reduceMotion ? 0 : 260
+                        easing.type: root.closing ? Easing.InCubic : Easing.OutCubic
+                    }
                 }
             }
             Rectangle {
@@ -172,7 +223,10 @@ Scope {
                 color: "#000000"
                 opacity: root.arranged ? 0.2 : 0
                 Behavior on opacity {
-                    NumberAnimation { duration: Config.reduceMotion ? 0 : 260 }
+                    NumberAnimation {
+                        duration: Config.reduceMotion ? 0 : 260
+                        easing.type: root.closing ? Easing.InCubic : Easing.Linear
+                    }
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -310,22 +364,31 @@ Scope {
                         + (panel.area.height - panel.layout.rows * (panel.layout.cellH + 28) - (panel.layout.rows - 1) * panel.layout.gap) / 2
                         + (panel.layout.cellH - gh) / 2
                     readonly property bool minimized: ["special:minimized", "special:hidden"].includes(o.workspace?.name ?? "")
+                    readonly property bool isFront: root.plainAddress(modelData.address) === root.front
+                    // shown on the screen when closed: glides between there and the grid;
+                    // the others (minimized, other desktops) fade in and out in the grid
+                    readonly property bool home: !minimized && o.workspace?.id === panel.shownWorkspace
                     readonly property bool hot: mouse.containsMouse || panel.chosen === index
 
-                    x: root.arranged || minimized ? gx : x0
-                    y: root.arranged || minimized ? gy : y0
-                    width: root.arranged || minimized ? gw : w0
-                    height: root.arranged || minimized ? gh : h0
+                    // stacked like the real windows, the clicked one on top
+                    z: isFront ? 100000 : (root.stacking[root.plainAddress(modelData.address)] ?? index)
+                    x: root.arranged || !home ? gx : x0
+                    y: root.arranged || !home ? gy : y0
+                    width: root.arranged || !home ? gw : w0
+                    height: root.arranged || !home ? gh : h0
+                    opacity: root.arranged || home ? 1 : 0
                     Behavior on x { NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic } }
                     Behavior on y { NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic } }
                     Behavior on width { NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic } }
                     Behavior on height { NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic } }
+                    Behavior on opacity { NumberAnimation { duration: Config.reduceMotion ? 0 : 200 } }
 
                     ClippingRectangle {
                         anchors.fill: parent
-                        radius: 10
+                        // in place the window's own corners, so the picture matches it
+                        radius: root.arranged ? 10 : (Config.settings.windows?.corner_radius ?? 12)
                         color: "#303036"
-                        border.width: tile.hot ? 3 : 0
+                        border.width: tile.hot && root.arranged ? 3 : 0
                         border.color: Config.accent
                         opacity: tile.minimized ? 0.7 : 1
 
@@ -337,8 +400,9 @@ Scope {
                             Component.onCompleted: captureFrame()
                             // sharp when small: drawn at twice its size in the grid, then scaled
                             // down smoothly – compared side by side (2026-09-29): mipmaps made
-                            // the text soft, plain scaling grainy
-                            layer.enabled: true
+                            // the text soft, plain scaling grainy. Only in the grid: in place the
+                            // picture is drawn 1:1, as sharp as the window it lands on.
+                            layer.enabled: root.arranged
                             layer.smooth: true
                             layer.textureSize: Qt.size(Math.max(1, Math.round(tile.gw * 2)), Math.max(1, Math.round(tile.gh * 2)))
                             // asked before the capture is ready, it gets no picture: once more
@@ -350,6 +414,14 @@ Scope {
                                 onTriggered: {
                                     tries++;
                                     picture.captureFrame();
+                                }
+                            }
+                            // closing: what the window shows now, so it lands without a jump
+                            Connections {
+                                target: root
+                                function onClosingChanged() {
+                                    if (root.closing && tile.home)
+                                        picture.captureFrame();
                                 }
                             }
                         }
