@@ -102,7 +102,8 @@ ttf-nerd-fonts-symbols
 capitaine-cursors
 
 ## Apps
-# WhatsApp: WhatsApp Web in Chromium's app mode (no WhatsApp app for Linux; whatsapp.desktop)
+# WhatsApp: WhatsApp Web in Chromium's app mode (no WhatsApp app for Linux; whatsapp.desktop);
+# links in it open in the default browser (/etc/chromium/policies/managed/riptide.json)
 chromium
 libnotify
 archlinux-appstream-data

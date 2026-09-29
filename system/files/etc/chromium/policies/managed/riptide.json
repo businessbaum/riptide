@@ -1,0 +1,8 @@
+{
+  "BrowserSwitcherEnabled": true,
+  "BrowserSwitcherUrlList": ["*"],
+  "BrowserSwitcherUrlGreylist": ["whatsapp.com", "whatsapp.net"],
+  "AlternativeBrowserPath": "xdg-open",
+  "AlternativeBrowserParameters": ["${url}"],
+  "BrowserSwitcherKeepLastChromeTab": false
+}

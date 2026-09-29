@@ -83,6 +83,15 @@ step "Portal-Backend (riptide.portal)"
 install -D -o root -g root -m 644 system/files/usr/share/xdg-desktop-portal/portals/riptide.portal \
     /usr/share/xdg-desktop-portal/portals/riptide.portal
 
+step "Chromium: Links öffnen im Standardbrowser"
+# Chromium runs web apps only (WhatsApp in app mode, whatsapp.desktop). A link clicked in
+# one opened in a Chromium window of its own; with Chromium's browser switcher every page
+# outside the app's sites goes to xdg-open – in the app's sandbox the portal, so the default
+# browser (Zen). Root-owned on purpose: a policy file the user could write would let any
+# program force an extension into WhatsApp. A new web app adds its sites to the greylist.
+install -D -o root -g root -m 644 system/files/etc/chromium/policies/managed/riptide.json \
+    /etc/chromium/policies/managed/riptide.json
+
 step "Entfernte Anmeldung (SSH) aus"
 if systemctl is-enabled --quiet sshd.service 2>/dev/null || systemctl is-active --quiet sshd.service; then
     systemctl disable --now sshd.service
