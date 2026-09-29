@@ -63,11 +63,12 @@ LOOK = [".config/gtk-3.0", ".config/gtk-4.0", ".gtkrc-2.0", ".config/fontconfig"
         ".config/qt5ct", ".config/qt6ct", ".config/Kvantum", ".local/share/icons", ".icons",
         ".config/user-dirs.dirs", ".config/user-dirs.locale"]
 
-# Links inside a sandbox. The default apps live outside it (zen.desktop is our sandbox of
-# Zen), so an app that asked GIO for "the browser" found none there and started whatever
-# program knows the scheme – Chromium, inside Thunderbird's sandbox with Thunderbird's
-# rights. In every sandbox the link schemes point to this entry instead: xdg-open, the
-# portal's, so the desktop opens them in its default app, in that app's own sandbox.
+# Links and files opened from a sandbox. The default apps live outside it (zen.desktop is
+# our sandbox of Zen), so an app that asked GIO for "the browser" found none there and
+# started whatever program knows the scheme – Chromium, inside Thunderbird's sandbox with
+# Thunderbird's rights. In every sandbox every link and file type points to this entry
+# instead: xdg-open, the portal's, so the desktop opens it in its default app, in that
+# app's own sandbox (which app: our portal backend, session.py – no question asked).
 LINK_SCHEMES = ("http", "https", "mailto")
 FORWARDER = "riptide-open.desktop"
 
@@ -113,8 +114,9 @@ def read_entry(path):
 
 def sandbox_defaults(app):
     """The default apps as a sandboxed app sees them (mimeapps.list, read-only, so it knows
-    whether it is the default) and the entry that hands its links out. Schemes the app
-    handles itself stay its own (Thunderbird asks whether it is the one for mailto)."""
+    whether it is the default) and the entry that hands its links and files out: every
+    type an installed app opens. What the desktop gives to this app stays its own, and so
+    do the schemes it handles itself (Thunderbird asks whether it is the one for mailto)."""
     parser = configparser.RawConfigParser(strict=False, interpolation=None)
     parser.optionxform = str
     try:
@@ -122,18 +124,20 @@ def sandbox_defaults(app):
     except (OSError, configparser.Error):
         pass
     defaults = dict(parser["Default Applications"]) if parser.has_section("Default Applications") else {}
+    kinds = {f"x-scheme-handler/{s}" for s in LINK_SCHEMES} | set(defaults)
     own = {k for k, v in defaults.items() if v.split(";")[0] == f"{app}.desktop"}
     for folder in ENTRY_DIRS:
-        if (folder / f"{app}.desktop").is_file():
-            own |= {m for m in read_entry(folder / f"{app}.desktop").get("MimeType", "").split(";") if m}
-            break
-    links = {f"x-scheme-handler/{s}" for s in LINK_SCHEMES} | {k for k in defaults if k.startswith("x-scheme-handler/")}
-    links -= own
-    for kind in links:
+        for path in folder.glob("*.desktop") if folder.is_dir() else []:
+            types = {m for m in read_entry(path).get("MimeType", "").split(";") if m}
+            kinds |= types
+            if path.stem == app:
+                own |= {m for m in types if m.startswith("x-scheme-handler/")}
+    kinds -= own
+    for kind in kinds:
         defaults[kind] = FORWARDER
     mimeapps = "[Default Applications]\n" + "".join(f"{k}={v}\n" for k, v in sorted(defaults.items()))
     entry = ("[Desktop Entry]\nType=Application\nName=Standard-App\nNoDisplay=true\nExec=xdg-open %u\n"
-             f"MimeType={';'.join(sorted(links))};\n")
+             f"MimeType={';'.join(sorted(kinds))};\n")
     return mimeapps, entry
 
 
@@ -382,7 +386,7 @@ class Sandbox:
                     a += ["--bind-try", str(dirs[xdg]), str(dirs[xdg])]
         if self.allowed["removable"]:
             a += ["--bind-try", f"/run/media/{os.environ.get('USER', '')}", f"/run/media/{os.environ.get('USER', '')}"]
-        # the default apps, links handed out (sandbox_defaults)
+        # the default apps, links and files handed out (sandbox_defaults)
         mimeapps, forwarder = sandbox_defaults(self.app)
         a += ["--ro-bind-data", str(self.data_fd(mimeapps)), str(HOME / ".config/mimeapps.list")]
         # folders it may only read: its program when it does not live in /usr (an app from a
@@ -397,7 +401,7 @@ class Sandbox:
               "--bind", str(bus), str(RUNTIME / "bus"),
               "--bind", str(system_bus), "/run/dbus/system_bus_socket",
               "--bind-try", str(RUNTIME / "doc/by-app" / self.id), str(RUNTIME / "doc"),
-              # the entry that hands links out (sandbox_defaults), on its own data path
+              # the entry that hands links and files out (sandbox_defaults), on its own data path
               "--ro-bind-data", str(self.data_fd(forwarder)), str(RUNTIME / "riptide/applications" / FORWARDER)]
         if self.sound():
             a += ["--bind", str(RUNTIME / "pipewire-0"), str(RUNTIME / "pipewire-0"),

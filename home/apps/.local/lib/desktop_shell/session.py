@@ -589,16 +589,48 @@ PORTAL_XML = """
     </method>
     <signal name="RunningApplicationsChanged"/>
   </interface>
+  <interface name="org.freedesktop.impl.portal.AppChooser">
+    <method name="ChooseApplication">
+      <arg type="o" name="handle" direction="in"/>
+      <arg type="s" name="app_id" direction="in"/>
+      <arg type="s" name="parent_window" direction="in"/>
+      <arg type="as" name="choices" direction="in"/>
+      <arg type="a{sv}" name="options" direction="in"/>
+      <arg type="u" name="response" direction="out"/>
+      <arg type="a{sv}" name="results" direction="out"/>
+    </method>
+    <method name="UpdateChoices">
+      <arg type="o" name="handle" direction="in"/>
+      <arg type="as" name="choices" direction="in"/>
+    </method>
+  </interface>
 </node>
 """
 AUTOSTART = HOME / ".config/autostart"
 
 
+def default_choice(choices, options):
+    """Which app opens what a (sandboxed) app hands out – a file, a link: the default app
+    for it, like on a Mac; the portal offers the apps that can (choices, desktop ids
+    without .desktop). No default among them: the one chosen last time, else the first."""
+    def plain(info):
+        return info.get_id().removesuffix(".desktop") if info else ""
+    wanted = []
+    if options.get("content_type"):
+        wanted.append(plain(Gio.AppInfo.get_default_for_type(options["content_type"], False)))
+    uri = options.get("uri", "")
+    if ":" in uri:
+        wanted.append(plain(Gio.AppInfo.get_default_for_uri_scheme(uri.split(":", 1)[0])))
+    wanted.append(options.get("last_choice", ""))
+    return next((w for w in wanted if w and w in choices), choices[0] if choices else "")
+
+
 class PortalBackend:
     """Our backend of xdg-desktop-portal (registered by riptide.portal and
     xdg-desktop-portal/hyprland-portals.conf): the questions the portal asks – camera,
-    running in the background, … – come to our dialog instead of GTK's, and apps that
-    want to start at login get an autostart entry that starts them in their sandbox."""
+    running in the background, … – come to our dialog instead of GTK's, apps that want to
+    start at login get an autostart entry that starts them in their sandbox, and what an
+    app opens (a file, a link) opens in the default app, without a question (AppChooser)."""
 
     NAME = "org.freedesktop.impl.portal.desktop.riptide"
     PATH = "/org/freedesktop/portal/desktop"
@@ -629,6 +661,12 @@ class PortalBackend:
             elif method == "NotifyBackground":
                 # the permission "background" was already decided by the portal: allow this time
                 invocation.return_value(GLib.Variant("(ua{sv})", (0, {"result": GLib.Variant("u", 2)})))
+            elif method == "ChooseApplication":
+                _handle, _app_id, _parent, choices, options = params.unpack()
+                choice = default_choice(choices, options)
+                invocation.return_value(GLib.Variant("(ua{sv})", (0, {"choice": GLib.Variant("s", choice)}) if choice else (2, {})))
+            elif method == "UpdateChoices":
+                invocation.return_value(None)
             elif method == "EnableAutostart":
                 app_id, enable, commandline, _flags = params.unpack()
                 invocation.return_value(GLib.Variant("(b)", (self.autostart(permissions.desktop_id(app_id), enable, commandline),)))

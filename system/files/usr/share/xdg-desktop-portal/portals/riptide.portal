@@ -1,6 +1,6 @@
 [portal]
 DBusName=org.freedesktop.impl.portal.desktop.riptide
-Interfaces=org.freedesktop.impl.portal.Access;org.freedesktop.impl.portal.Background;
+Interfaces=org.freedesktop.impl.portal.Access;org.freedesktop.impl.portal.Background;org.freedesktop.impl.portal.AppChooser;
 # (only for older readers such as flatpak-portal; the choice is made in
 # ~/.config/xdg-desktop-portal/hyprland-portals.conf)
 UseIn=Hyprland;
