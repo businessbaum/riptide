@@ -395,7 +395,9 @@ Scope {
                         ScreencopyView {
                             id: picture
                             anchors.fill: parent
-                            live: false
+                            // live, like on a Mac: a video keeps playing in the overview
+                            // (captured only while Mission Control is open)
+                            live: true
                             captureSource: tile.modelData.toplevel.wayland ?? null
                             Component.onCompleted: captureFrame()
                             // sharp when small: drawn at twice its size in the grid, then scaled
@@ -414,14 +416,6 @@ Scope {
                                 onTriggered: {
                                     tries++;
                                     picture.captureFrame();
-                                }
-                            }
-                            // closing: what the window shows now, so it lands without a jump
-                            Connections {
-                                target: root
-                                function onClosingChanged() {
-                                    if (root.closing && tile.home)
-                                        picture.captureFrame();
                                 }
                             }
                         }
