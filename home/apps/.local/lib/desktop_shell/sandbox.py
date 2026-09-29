@@ -51,8 +51,9 @@ HELPERS = HOME / ".local/lib/macos-sandbox"
 FLATPAK_SPAWN = Path(__file__).resolve().parent / "flatpak-spawn"
 CONTAINERS = HOME / ".local/share/macos/sandbox"
 PROFILES = HOME / ".config/macos/sandbox.json"
-# start entries of the apps from release archives (archive_apps.py): not on the desktop's
-# own search path – only their sandboxed overrides are (sync)
+# start entries of apps that are no packages – from release archives (archive_apps.py)
+# and web apps (WhatsApp, in git): not on the desktop's own search path – only their
+# sandboxed overrides are (sync)
 ARCHIVE_ENTRIES = HOME / ".local/share/macos/apps/entries"
 ENTRY_DIRS = [Path("/usr/local/share/applications"), Path("/usr/share/applications"), ARCHIVE_ENTRIES,
               HOME / ".local/share/applications"]
@@ -144,6 +145,8 @@ def data_folders(app, argv, profile):
     after it in ~/.config, ~/.local/share, ~/.local/state and ~/.cache. A name that is
     also another program (e.g. `claude`) is only used when the profile lists it."""
     folders = [Path(p).expanduser() for p in profile.get("data", []) if Path(p).expanduser().exists()]
+    if profile.get("data_auto") is False:
+        return sorted(set(folders))  # (WhatsApp runs chromium: not the browser's ~/.config/chromium)
     names = {app.lower(), app.rsplit(".", 1)[-1].lower(), Path(argv[0]).name.lower()}
     for name in sorted(names):
         other = shutil.which(name)

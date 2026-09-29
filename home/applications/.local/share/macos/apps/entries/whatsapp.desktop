@@ -1,0 +1,15 @@
+# WhatsApp Web as an app of its own: Chromium (official Arch package) in app mode – a
+# window without the browser around it. No WhatsApp app exists for Linux (2026-09-29).
+# A source entry: app-sandbox --sync makes the sandboxed entry the desktop uses from it.
+[Desktop Entry]
+Type=Application
+Name=WhatsApp
+GenericName=Messenger
+Comment=Nachrichten mit WhatsApp Web
+Exec=chromium --app=https://web.whatsapp.com --class=WhatsApp
+Icon=whatsapp
+StartupWMClass=WhatsApp
+Terminal=false
+Categories=Network;InstantMessaging;Chat;
+Keywords=Chat;Messenger;Nachrichten;
+StartupNotify=true
