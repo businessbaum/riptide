@@ -6,7 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Widgets
 
 // Mission Control and App Exposé, like on a Mac:
-//   all  (⌃↑, hot corner)  every window of the desktop on each screen side by side, the
+//   all  (⌃↑, ⌘ alone, hot corner)  every window of the desktop on each screen side by side, the
 //                          desktops (Spaces) above – switch, or "+" for a new one
 //   app  (⌃↓)              every window of the app in front, also minimized ones
 // The windows glide from where they are into a grid; a click (or Enter) brings one to
@@ -46,6 +46,16 @@ Scope {
     function focus(w) {
         close();
         Hyprland.dispatch(`macos.focus_window('${w.address.replace(/[^0-9a-fx]/gi, "")}')`);
+    }
+
+    // ⌘ (the Windows key) tapped on its own – told by riptide-wm (window_buttons.cpp),
+    // like three fingers up on a Mac's trackpad; tapped again it closes
+    Connections {
+        target: Hyprland
+        function onRawEvent(event) {
+            if (event.name === "custom" && event.data === "super-tap" && !Lock.locked)
+                root.toggle("all");
+        }
     }
 
     IpcHandler {

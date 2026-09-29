@@ -17,9 +17,11 @@
 //
 // It also tells the window switcher (⌥Tab / ⌘Tab) when ⌥ or ⌘ is released, and the shell
 // when the pointer reaches the top or bottom edge of a screen in full screen (menu bar and
-// dock come over the app there, like on a Mac: Quickshell FullscreenReveal.qml).
+// dock come over the app there, like on a Mac: Quickshell FullscreenReveal.qml) and when ⌘
+// (the Windows key) is tapped on its own (Mission Control, like three fingers up).
 
 #include <wayland-server.h>
+#include <chrono>
 #include <cstring>
 #include <format>
 #include <linux/input-event-codes.h>
@@ -55,6 +57,10 @@ static bool g_buttonDown = false; // is the left mouse button pressed right now?
 
 // ⌥Tab / ⌘Tab: which modifier keys are held, and did Tab come while one of them was
 static bool g_altHeld = false, g_superHeld = false, g_switching = false;
+// ⌘ tapped on its own: pressed and let go within half a second, nothing else in between –
+// no key (⌘C), no click (⌘-drag), no scrolling (⌘-scroll changes the desktop)
+static bool                                  g_superAlone = false;
+static std::chrono::steady_clock::time_point g_superDownAt;
 
 static void runCommand(const std::string& cmd) {
     Config::Supplementary::executor()->spawn(cmd);
@@ -210,6 +216,7 @@ void windowButtonsInit() {
 
     // Mouse button released → end the drag and check snapping
     static auto MOUSE = Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent e, Event::SCallbackInfo& info) {
+        g_superAlone = false; // ⌘-click, ⌘-drag
         if (e.button == BTN_LEFT)
             g_buttonDown = e.state == WL_POINTER_BUTTON_STATE_PRESSED;
         if (e.button == BTN_LEFT && e.state == WL_POINTER_BUTTON_STATE_PRESSED && !g_dragging && !dialogOpen() && moveInsteadOfTopResize(info))
@@ -227,19 +234,40 @@ void windowButtonsInit() {
     static auto KEY = Event::bus()->m_events.input.keyboard.key.listen([](IKeyboard::SKeyEvent e, Event::SCallbackInfo&) {
         const bool down = e.state == WL_KEYBOARD_KEY_STATE_PRESSED;
         switch (e.keycode) {
-            case KEY_LEFTALT: g_altHeld = down; break;
+            case KEY_LEFTALT:
+                g_altHeld = down;
+                g_superAlone = false;
+                break;
             case KEY_LEFTMETA:
-            case KEY_RIGHTMETA: g_superHeld = down; break;
+            case KEY_RIGHTMETA:
+                g_superHeld = down;
+                if (down) {
+                    g_superAlone  = true;
+                    g_superDownAt = std::chrono::steady_clock::now();
+                } else if (g_superAlone && std::chrono::steady_clock::now() - g_superDownAt < std::chrono::milliseconds(500)) {
+                    g_superAlone = false;
+                    g_pEventManager->postEvent(SHyprIPCEvent{"custom", "super-tap"});
+                }
+                break;
             case KEY_TAB:
                 if (down && (g_altHeld || g_superHeld))
                     g_switching = true;
+                if (down)
+                    g_superAlone = false;
                 return;
-            default: return;
+            default:
+                if (down)
+                    g_superAlone = false;
+                return;
         }
         if (!down && g_switching && !g_altHeld && !g_superHeld) {
             g_switching = false;
             runCommand("hyprctl dispatch 'macos.switcher_release()'");
         }
+    });
+
+    static auto AXIS = Event::bus()->m_events.input.mouse.axis.listen([](IPointer::SAxisEvent, Event::SCallbackInfo&) {
+        g_superAlone = false; // ⌘-scroll
     });
 
     // Full screen: the pointer pushed against a screen's top or bottom edge →
