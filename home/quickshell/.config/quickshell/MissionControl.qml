@@ -9,8 +9,10 @@ import Quickshell.Widgets
 //   all  (⌃↑, ⌘ alone, hot corner)  every window of the desktop on each screen side by side, the
 //                          desktops (Spaces) above – switch, or "+" for a new one
 //   app  (⌃↓)              every window of the app in front, also minimized ones
-// The windows glide from where they are into a grid; a click (or Enter) brings one to
-// the front, Esc or a click on the free space closes. Pictures: screencopy of each window.
+// The windows glide from where they are into a grid while the desktop's picture comes up
+// behind them (the real windows are hidden by it), and back when it closes; a click (or
+// Enter) brings one to the front, Esc or a click on the free space closes. Pictures:
+// screencopy of each window.
 //   qs ipc call mission all | app
 Scope {
     id: root
@@ -18,6 +20,7 @@ Scope {
     property string mode: "" // "", "all", "app"
     property string appKey: ""
     property bool arranged: false // false: windows where they are, true: in the grid
+    property bool closing: false  // gliding back before it goes
 
     function open(m) {
         Hyprland.refreshToplevels();
@@ -26,22 +29,36 @@ Scope {
         appKey = Apps.keyForAppId(active?.wayland?.appId ?? active?.lastIpcObject?.class ?? "");
         if (m === "app" && appKey === "")
             return;
+        hideLater.stop();
+        closing = false;
         mode = m;
         arranged = false;
         glide.restart();
     }
     function close() {
-        mode = "";
-        arranged = false;
+        if (mode === "" || closing)
+            return;
+        closing = true;
+        glide.stop();
+        arranged = false; // back to where they are, then it goes
+        hideLater.restart();
     }
     function toggle(m) {
-        mode === m ? close() : open(m);
+        mode === m && !closing ? close() : open(m);
     }
-    // the first frame shows the windows in place, then they glide
+    // the windows in place first – a moment for their pictures – then they glide
     Timer {
         id: glide
-        interval: 16
+        interval: 90
         onTriggered: root.arranged = true
+    }
+    Timer {
+        id: hideLater
+        interval: Config.reduceMotion ? 0 : 280
+        onTriggered: {
+            root.mode = "";
+            root.closing = false;
+        }
     }
     function focus(w) {
         close();
@@ -140,13 +157,22 @@ Scope {
                     keys.forceActiveFocus();
             }
 
-            // darkened desktop; a click on it closes
+            // the desktop's own picture behind the windows, a little darker – the real
+            // windows disappear under it while their pictures glide into the grid; a click
+            // on it closes
+            WallpaperImage {
+                anchors.fill: parent
+                opacity: root.arranged ? 1 : 0
+                Behavior on opacity {
+                    NumberAnimation { duration: Config.reduceMotion ? 0 : 260; easing.type: Easing.OutCubic }
+                }
+            }
             Rectangle {
                 anchors.fill: parent
                 color: "#000000"
-                opacity: root.arranged ? 0.55 : 0
+                opacity: root.arranged ? 0.2 : 0
                 Behavior on opacity {
-                    NumberAnimation { duration: 220 }
+                    NumberAnimation { duration: Config.reduceMotion ? 0 : 260 }
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -309,12 +335,23 @@ Scope {
                             live: false
                             captureSource: tile.modelData.toplevel.wayland ?? null
                             Component.onCompleted: captureFrame()
-                            // sharp when small: drawn at the window's own size, then scaled
-                            // down with mipmaps (plain scaling made the text grainy)
+                            // sharp when small: drawn at twice its size in the grid, then scaled
+                            // down smoothly – compared side by side (2026-09-29): mipmaps made
+                            // the text soft, plain scaling grainy
                             layer.enabled: true
                             layer.smooth: true
-                            layer.mipmap: true
-                            layer.textureSize: Qt.size(tile.w0, tile.h0)
+                            layer.textureSize: Qt.size(Math.max(1, Math.round(tile.gw * 2)), Math.max(1, Math.round(tile.gh * 2)))
+                            // asked before the capture is ready, it gets no picture: once more
+                            Timer {
+                                property int tries: 0
+                                interval: 80
+                                repeat: true
+                                running: !picture.hasContent && tries < 12
+                                onTriggered: {
+                                    tries++;
+                                    picture.captureFrame();
+                                }
+                            }
                         }
                         AppIcon {
                             visible: !picture.hasContent
