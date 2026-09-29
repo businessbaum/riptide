@@ -1,36 +1,74 @@
--- Apps that draw their own title bar ("client-side decorations"): GNOME/GTK4 apps
--- like Finder, our Vorschau, browsers, Electron apps like Claude and Discord. They get no
--- second bar from riptide-wm. Their traffic lights come from our theme (GTK: gtk.css from
--- desktop-theme); Claude and Discord draw their own buttons, which cannot be restyled.
--- Not here: System Settings (Quickshell, no title bar of its own), kitty. Dragging/minimizing/zooming is done by our plugin
--- riptide-wm (plugins/riptide-wm/window_buttons.cpp).
--- Add more such apps here (class name: hyprctl clients).
+-- Apps that draw their own title bar ("client-side decorations") get no second bar with
+-- traffic lights from riptide-wm. Which ones – data, not code:
+--   ~/.config/macos/titlebars.json   what we know: GNOME apps like Finder, browsers,
+--                                    Electron apps with their own frame (Discord, Obsidian)
+--   settings.json → titlebars        the user's choice per app, wins (System Settings →
+--                                    Erscheinungsbild → Titelleisten): class → "app" (its
+--                                    own bar) or "ours" (our bar with the traffic lights)
+-- Their traffic lights come from our theme (GTK: gtk.css from desktop-theme); Electron apps
+-- draw their own buttons. Dragging/minimizing/zooming: riptide-wm (window_buttons.cpp).
+-- Used by titlebars.lua (window rules) and snapping.lua (is there a bar of ours above?).
+
+local json = require("modules.json")
+local S = require("modules.settings")
+
+local data = json.read("titlebars.json") or {}
+local choice = type(S.titlebars) == "table" and S.titlebars or {}
+
+-- "org.gnome.*" → a regular expression (window rules) and a Lua pattern (matches)
+local function to_regex(glob)
+    local escaped = glob:gsub("[%.%+%?%^%$%(%)%[%]%{%}|\\]", "\\%0")
+    return (escaped:gsub("%*", ".*"))
+end
+local function to_lua(glob)
+    local escaped = glob:gsub("[%.%+%-%?%^%$%(%)%[%]%%]", "%%%0")
+    return "^" .. escaped:gsub("%*", ".*") .. "$"
+end
+
+local own, ours = {}, {}
+for _, glob in ipairs(type(data.own) == "table" and data.own or {}) do
+    if type(glob) == "string" then own[#own + 1] = glob end
+end
+for class, how in pairs(choice) do
+    if type(class) == "string" and class:match("^[%w%.%-_]+$") then
+        if how == "app" then own[#own + 1] = class elseif how == "ours" then ours[#ours + 1] = class end
+    end
+end
+
+local function alternatives(globs)
+    local parts = {}
+    for _, g in ipairs(globs) do parts[#parts + 1] = to_regex(g) end
+    return "^(" .. table.concat(parts, "|") .. ")$"
+end
 
 local M = {}
 
--- As a regular expression for Hyprland's window rules
-M.regex = "^(org\\.gnome\\..*|io\\.missioncenter\\..*|org\\.riptide\\.Preview|firefox|zen|chromium-browser|google-chrome|discord|[Cc]laude|com\\.anthropic\\.Claude)$"
+-- For Hyprland's window rules: no bar for these, and ours again for those the user chose
+M.regex = #own > 0 and alternatives(own) or nil
+M.ours_regex = #ours > 0 and alternatives(ours) or nil
 
--- Apps where only the main window draws its own bar: Thunderbird's compose window,
--- message windows and dialogs have none (they need ours, or they cannot be closed).
--- The main window is told apart by its title when it opens.
-M.main_only = {
-    { class = "^(thunderbird|org\\.mozilla\\.[Tt]hunderbird)$", initial_title = "^Mozilla Thunderbird$",
-      class_lua = { "^thunderbird$", "^org%.mozilla%.[Tt]hunderbird$" }, initial_title_lua = "^Mozilla Thunderbird$" },
-}
-
--- The same as a check function for Lua
-local patterns = { "^org%.gnome%.", "^io%.missioncenter%.", "^org%.riptide%.Preview$", "^firefox$", "^zen$",
-                   "^chromium%-browser$", "^google%-chrome$", "^discord$", "^[Cc]laude$", "^com%.anthropic%.Claude$" }
+-- Apps where only the main window draws its own bar (Thunderbird: its compose window,
+-- message windows and dialogs have none). The main window is told apart by its title.
+M.main_only = {}
+for _, app in ipairs(type(data.main_only) == "table" and data.main_only or {}) do
+    if type(app.classes) == "table" and type(app.initial_title) == "string" then
+        M.main_only[#M.main_only + 1] = {
+            class = alternatives(app.classes), initial_title = "^" .. to_regex(app.initial_title) .. "$",
+            classes = app.classes, title = app.initial_title,
+        }
+    end
+end
 
 function M.matches(w)
     if not w or not w.class then return false end
-    for _, p in ipairs(patterns) do
-        if w.class:match(p) then return true end
+    if choice[w.class] == "ours" then return false end
+    if choice[w.class] == "app" then return true end
+    for _, glob in ipairs(own) do
+        if w.class:match(to_lua(glob)) then return true end
     end
     for _, app in ipairs(M.main_only) do
-        for _, p in ipairs(app.class_lua) do
-            if w.class:match(p) and (w.initial_title or ""):match(app.initial_title_lua) then return true end
+        for _, c in ipairs(app.classes) do
+            if w.class == c and (w.initial_title or "") == app.title then return true end
         end
     end
     return false

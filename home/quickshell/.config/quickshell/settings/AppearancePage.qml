@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import qs
 
@@ -207,6 +208,68 @@ Page {
                                 s.appearance.wallpaper = tile.modelData;
                         })
                     }
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- title bars
+    // Which apps get riptide's bar with the traffic lights (hypr/modules/csd_apps.lua): what
+    // is known (titlebars.json: apps that draw their own) and the user's choice per app, which
+    // wins (settings.json titlebars: class → "app" | "ours"). The same rules as Hyprland's.
+    property var titlebarData: ({})
+    FileView {
+        path: Quickshell.env("HOME") + "/.config/macos/titlebars.json"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                page.titlebarData = JSON.parse(text());
+            } catch (e) {}
+        }
+    }
+    function globMatches(glob, text) {
+        return new RegExp("^" + glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$").test(text);
+    }
+    function drawsOwnBar(cls) {
+        const chosen = Config.settings.titlebars?.[cls];
+        if (chosen)
+            return chosen === "app";
+        return (titlebarData.own ?? []).some(g => globMatches(g, cls))
+            || (titlebarData.main_only ?? []).some(a => (a.classes ?? []).includes(cls));
+    }
+    // the apps with a window open now, and those with a choice
+    readonly property var titlebarApps: {
+        const seen = {};
+        for (const t of Hyprland.toplevels.values) {
+            const cls = t.wayland?.appId ?? t.lastIpcObject?.class ?? "";
+            if (cls !== "" && cls !== "org.quickshell")
+                seen[cls] = true;
+        }
+        for (const cls in (Config.settings.titlebars ?? {}))
+            seen[cls] = true;
+        const list = [];
+        for (const cls in seen)
+            list.push({ cls: cls, name: Apps.name(Apps.keyForAppId(cls)), entry: Apps.entryForAppId(cls) });
+        return list.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    Group {
+        title: "Titelleisten"
+        description: "Die Leiste mit den Ampel-Knöpfen von riptide. Apps, die ihre eigene Leiste zeichnen (Discord, Obsidian, der Finder), bekommen sie nicht – sonst wäre sie doppelt. Hier stehen die Apps mit offenen Fenstern; eine Änderung gilt für neu geöffnete Fenster."
+        Repeater {
+            model: page.titlebarApps
+            SettingRow {
+                required property var modelData
+                required property int index
+                first: index === 0
+                iconEntry: modelData.entry
+                iconAppId: modelData.cls
+                title: modelData.name
+                subtitle: page.drawsOwnBar(modelData.cls) ? "Eigene Leiste der App" : "Leiste mit Ampel von riptide"
+                Toggle {
+                    checked: !page.drawsOwnBar(modelData.cls)
+                    onToggled: on => Store.set("titlebars", modelData.cls, on ? "ours" : "app", true)
                 }
             }
         }

@@ -77,21 +77,34 @@ local ok, err = pcall(function()
         action   = dispatch .. [['macos.zoom("button")']],
     })
 
-    -- Apps with their own title bar (GNOME apps like Finder) get no second one.
+    -- Apps with their own title bar (GNOME apps like Finder, Discord, Obsidian) get no
+    -- second one; the user may choose per app (csd_apps.lua: titlebars.json + settings.json).
     -- Their bar has the traffic lights itself (desktop-theme); dragging, minimizing
-    -- and zooming is done by riptide-wm (window_buttons.cpp). List: csd_apps.lua.
-    hl.window_rule({
-        name  = "own-titlebar",
-        match = { class = require("modules.csd_apps").regex },
+    -- and zooming is done by riptide-wm (window_buttons.cpp).
+    local csd = require("modules.csd_apps")
+    if csd.regex then
+        hl.window_rule({
+            name  = "own-titlebar",
+            match = { class = csd.regex },
 
-        ["hyprbars:no_bar"] = true,
-    })
-    for i, app in ipairs(require("modules.csd_apps").main_only) do
+            ["hyprbars:no_bar"] = true,
+        })
+    end
+    for i, app in ipairs(csd.main_only) do
         hl.window_rule({
             name  = "own-titlebar-main-" .. i,
             match = { class = app.class, initial_title = app.initial_title },
 
             ["hyprbars:no_bar"] = true,
+        })
+    end
+    -- apps the user gave our bar although they are known to draw their own (last: it wins)
+    if csd.ours_regex then
+        hl.window_rule({
+            name  = "our-titlebar",
+            match = { class = csd.ours_regex },
+
+            ["hyprbars:no_bar"] = false,
         })
     end
 end)
