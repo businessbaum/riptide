@@ -70,10 +70,11 @@ Item {
         }
     }
 
-    // Badge: new notifications since the app was last in front (NotificationStore); on the
-    // App Store: the updates waiting (Updates.qml)
+    // Badge: new notifications since the app was last in front (NotificationStore), only
+    // while the app is open (2026-09-30); on the App Store: the updates waiting
+    // (Updates.qml), open or not
     Rectangle {
-        readonly property int count: NotificationStore.badgeOf(root.key)
+        readonly property int count: (root.running ? NotificationStore.badgeOf(root.key) : 0)
             + (Apps.plainId(root.key) === "org.riptide.AppStore" ? Updates.count : 0)
         visible: count > 0
         anchors.right: parent.right
