@@ -3,7 +3,7 @@
 --   ~/.config/macos/settings.json   user choices (written by the System Settings app)
 --   ~/.config/macos/theme.json      design tokens (colours, radii, fonts) for light and dark
 --
--- Both live in ~/dotfiles/home/macos. The dock, control center, system settings,
+-- settings.json lives in ~/dotfiles/home/macos, theme.json in ~/dotfiles/data. The dock, control center, system settings,
 -- menu bar, notifications, Spotlight and kitty read the same files (theme generator, stage 2),
 -- so a change such as light/dark mode reaches every part of the desktop at once.
 --

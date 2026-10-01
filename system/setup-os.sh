@@ -169,7 +169,7 @@ systemctl daemon-reload
 for f in shell.qml Login.qml hyprland.lua; do
     install -D -o root -g root -m 644 "system/files/usr/local/share/riptide/greeter/$f" "/usr/local/share/riptide/greeter/$f"
 done
-install -D -o root -g root -m 644 home/quickshell/.config/quickshell/LoginScreen.qml /usr/local/share/riptide/greeter/LoginScreen.qml
+install -D -o root -g root -m 644 shell/LoginScreen.qml /usr/local/share/riptide/greeter/LoginScreen.qml
 # after a logout the login screen starts the next locked session: it may restart greetd
 install -D -o root -g root -m 644 system/files/etc/polkit-1/rules.d/50-riptide-greeter.rules \
     /etc/polkit-1/rules.d/50-riptide-greeter.rules

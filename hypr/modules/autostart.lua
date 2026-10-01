@@ -17,12 +17,12 @@ hl.on("hyprland.start", function()
     -- Our one plugin, riptide-wm (plugins/riptide-wm): title bars with traffic lights
     -- (titlebars.lua) and the macOS window behaviour. Loaded here and never from the
     -- config: loading triggers a config reload.
-    -- Built by ~/dotfiles/plugins/build.sh for one Hyprland version; after a Hyprland update
+    -- Built by ~/dotfiles/plugin/build.sh for one Hyprland version; after a Hyprland update
     -- it is rebuilt here first (a few seconds, the old build would crash).
     hl.exec_cmd([[dir=~/.local/lib/hyprland-plugins
         running=$(hyprctl version -j | jq -r .tag | sed 's/^v//; s/-.*//')
         if [ "$(cat "$dir/built-for" 2>/dev/null)" != "$running" ]; then
-            ~/dotfiles/plugins/build.sh > ~/.local/state/macos/plugin-build.log 2>&1
+            ~/dotfiles/plugin/build.sh > ~/.local/state/macos/plugin-build.log 2>&1
             if [ "$(cat "$dir/built-for" 2>/dev/null)" != "$running" ]; then
                 sleep 3
                 notify-send -a System -i dialog-warning -u critical "Titelleisten fehlen" "Das Plugin ließ sich für Hyprland $running nicht bauen (~/.local/state/macos/plugin-build.log)."

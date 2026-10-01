@@ -1,6 +1,6 @@
 -- Title bars with the three traffic-light buttons (close, minimize, zoom).
 -- They come from our plugin riptide-wm (its title bar part is based on hyprbars and keeps
--- its names: plugin.hyprbars.*, hl.plugin.hyprbars), built by ~/dotfiles/plugins/build.sh
+-- its names: plugin.hyprbars.*, hl.plugin.hyprbars), built by ~/dotfiles/plugin/build.sh
 -- into ~/.local/lib/hyprland-plugins/.
 --
 -- It is NOT loaded here but once at startup (autostart.lua): loading a plugin

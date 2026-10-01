@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build our one Hyprland plugin against the installed Hyprland (run after every Hyprland
-# update): plugins/riptide-wm – title bars with traffic lights (based on hyprbars) and
+# update): plugin/riptide-wm – title bars with traffic lights (based on hyprbars) and
 # the macOS window behaviour (see riptide-wm/plugin.hpp).
 # Result: ~/.local/lib/hyprland-plugins/riptide-wm.so, loaded at login (hypr/modules/autostart.lua).
 set -euo pipefail

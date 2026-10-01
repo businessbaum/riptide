@@ -1,0 +1,71 @@
+{
+  "_comment": "App sandbox (docs/os-plan.md). system_apps start without a sandbox, like Finder and Terminal on a Mac. apps: what a sandboxed app needs beyond the automatic rules – data: its own folders in the home folder, args: extra start arguments, devices: device files it needs (e.g. /dev/kvm for Claude's Cowork VM), dbus_own: D-Bus names it owns and talks to (e.g. to hand a link to its running window), ro: folders it may only read (its program, when it comes from a release archive: archive-apps.json), env: environment it needs, data_auto: false keeps out folders found by name (an app run by a general program such as chromium must not get that program's own folders). Entries of one package that run the same program become one app by themselves; part_of {entry: {app?, name?}} names a part (or adds one not found), separate [entries] keeps entries apps of their own.",
+  "system_apps": [
+    "org.gnome.Nautilus",
+    "kitty",
+    "io.missioncenter.MissionCenter",
+    "org.gnome.baobab",
+    "org.gnome.FileRoller",
+    "org.gnome.DiskUtility",
+    "org.gnome.seahorse.Application",
+    "org.gnome.Zenity",
+    "org.riptide.*"
+  ],
+  "apps": {
+    "com.anthropic.Claude": {
+      "data": [
+        "~/.config/Claude"
+      ],
+      "devices": [
+        "/dev/kvm"
+      ]
+    },
+    "org.mozilla.Thunderbird": {
+      "data": [
+        "~/.thunderbird",
+        "~/.config/thunderbird",
+        "~/.cache/thunderbird"
+      ],
+      "dbus_own": [
+        "org.mozilla.thunderbird.*",
+        "org.mozilla.thunderbird_default.*"
+      ]
+    },
+    "spotify-launcher": {
+      "data": [
+        "~/.local/share/spotify-launcher",
+        "~/.config/spotify",
+        "~/.cache/spotify",
+        "~/.config/spotify-launcher.conf"
+      ]
+    },
+    "discord": {
+      "args": [
+        "--disable-accelerated-video-decode"
+      ]
+    },
+    "zen": {
+      "data": [
+        "~/.zen"
+      ],
+      "ro": [
+        "~/.local/share/macos/apps/zen"
+      ],
+      "env": {
+        "MOZ_LEGACY_PROFILES": "1"
+      },
+      "dbus_own": [
+        "org.mozilla.zen.*"
+      ]
+    },
+    "whatsapp": {
+      "data_auto": false
+    }
+  },
+  "part_of": {
+    "org.torproject.torbrowser-launcher.settings": {
+      "name": "Einstellungen des Starters"
+    }
+  },
+  "separate": []
+}

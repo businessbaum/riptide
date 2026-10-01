@@ -1,5 +1,5 @@
 -- riptide's Hyprland config, styled and behaving like macOS.
--- This folder lives in ~/dotfiles/home/hypr and is linked to ~/.config/hypr (GNU stow).
+-- This folder lives in ~/dotfiles/hypr and is linked to ~/.config/hypr (install.sh link).
 -- Hyprland reloads it on every save. Errors appear as a notification (modules/notifications.lua).
 --
 -- Keys like on a Mac:  ⌘ = SUPER (Windows key)   ⌥ = ALT   ⌃ = CTRL   ⇧ = SHIFT
