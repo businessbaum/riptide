@@ -9,7 +9,8 @@ import Quickshell.Wayland
 // screen (MainScreen.qml; none chosen: the one with the pointer), the others show what was
 // chosen for them (LockInfo.qml). The password is checked by PAM ("login", which also unlocks the
 // keyring). At boot it offers "Anderer Benutzer …" and sleep / restart / shut down;
-// "Anderer Benutzer …" and ⌃⌥F2 end the session – greetd's login screen follows.
+// "Anderer Benutzer …" and ⌃⌥F2 end the session – greetd's login screen follows. After the
+// password at boot it stays with a progress bar while the desktop is made ready (Lock.qml).
 Scope {
     id: root
 
@@ -47,8 +48,7 @@ Scope {
             root.busy = false;
             root.pending = "";
             if (result === PamResult.Success) {
-                root.leaving = true; // the form fades, the wallpaper stays
-                fade.restart();
+                Lock.prepare(); // at boot: the desktop first (progress bar), then ready()
             } else {
                 root.error = "Falsches Passwort.";
                 root.failures++;
@@ -59,6 +59,13 @@ Scope {
             root.pending = "";
             root.error = "Das Passwort ließ sich nicht prüfen.";
             console.warn("lock: pam error", error);
+        }
+    }
+    Connections {
+        target: Lock
+        function onReady() {
+            root.leaving = true; // the form fades, the wallpaper stays
+            fade.restart();
         }
     }
     Timer {
@@ -97,6 +104,8 @@ Scope {
                 error: root.error
                 failures: root.failures
                 leaving: root.leaving
+                preparing: Lock.preparing
+                progress: Lock.progress
                 offerOther: !Lock.loggedIn
                 typeOther: false
                 offerPower: !Lock.loggedIn

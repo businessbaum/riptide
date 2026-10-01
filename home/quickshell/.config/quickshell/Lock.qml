@@ -13,7 +13,10 @@ import Quickshell.Io
 // any shortcut (hyprland.lua), menu bar and dock only once the lock is confirmed and under
 // it (shell.qml), no login items (xdg-desktop-autostart.target), no apps. After it the
 // marker goes, Hyprland loads its shortcuts, the login items and the apps of the last
-// session open – the desktop was there behind the login window all along.
+// session open – the desktop was there behind the login window all along. Like on a Mac
+// the login window stays a moment longer for that, with a progress bar: until every one
+// of those apps shows a window, at most 15 s (an app that never opens must not keep
+// anyone out), then it fades into the finished desktop.
 //   qs ipc call lock now      lock the screen (⌘L, ⌃⌘Q, hot corner, hypridle)
 Singleton {
     id: root
@@ -31,6 +34,27 @@ Singleton {
     property bool desktopAllowed: false
     onLoggedInChanged: if (loggedIn) desktopAllowed = true
 
+    // After the password at a locked start: the desktop is prepared under the lock
+    // (LockScreen.qml shows `progress`, fades out on ready())
+    property bool preparing: false
+    property real progress: 0
+    signal ready
+    property double allOpenSince: 0
+    // the login items (~/.config/autostart, without hidden ones): they open themselves,
+    // the apps of the last session through Session.qml
+    property var loginItems: []
+    property bool loginItemsRead: false
+    // the apps waited for: login items and the apps of the last session that exist
+    function awaited() {
+        const keys = [];
+        for (const id of loginItems.concat(Session.reopenIds)) {
+            const entry = Apps.entryById(id);
+            if (entry && !keys.includes(entry.id))
+                keys.push(entry.id);
+        }
+        return keys;
+    }
+
     // the person, for the login window: the name from /etc/passwd, else the login name
     readonly property string user: Quickshell.env("USER") ?? ""
     property string displayName: user.charAt(0).toUpperCase() + user.slice(1)
@@ -39,24 +63,98 @@ Singleton {
         locked = true;
     }
 
-    // LockScreen.qml, after the password (and the fade)
-    function unlocked() {
-        const first = !loggedIn;
-        loggedIn = true; // (before unlocking: nothing is taken down in between)
-        locked = false;
-        // in this order: the markers first; at boot then Hyprland reloads with its
-        // shortcuts and the login items held back start (their target refuses a manual
-        // start: each one, by its name as systemd's generator wrote it); then drives that
-        // came in while locked are mounted (Riptide "drives.mount", drives.py)
-        afterUnlock.command = ["sh", "-c", 'rm -f "$1" "$2" "$3"; [ "$4" = 1 ] || exit 0; hyprctl reload >/dev/null; '
+    // LockScreen.qml, after the password at a locked start: still locked, the desktop is
+    // made ready behind the login window. In this order: the markers first, then Hyprland
+    // reloads with its shortcuts (they work only once the lock is gone) and the login
+    // items held back start (their target refuses a manual start: each one, by its name
+    // as systemd's generator wrote it); the apps of the last session follow (Session.qml,
+    // on loggedIn). Drives stay unmounted until the lock is gone (the marker "locked").
+    function prepare() {
+        if (loggedIn)
+            return ready();
+        loggedIn = true;
+        preparing = true;
+        progress = 0;
+        allOpenSince = 0;
+        startDesktop.running = true;
+        prepareTick.start();
+        prepareLimit.start();
+    }
+    function finishPreparing() {
+        if (!preparing || (!prepareTick.running && !prepareLimit.running))
+            return; // (once)
+        prepareTick.stop();
+        prepareLimit.stop();
+        progress = 1;
+        ready();
+    }
+    // the limit on its own, without the counting: whatever happens, after 15 s it opens
+    Timer {
+        id: prepareLimit
+        interval: 15000
+        onTriggered: {
+            let waiting = "?";
+            try {
+                waiting = root.awaited().filter(k => Apps.windowsOf(k).length === 0).join(", ");
+            } catch (e) {}
+            console.warn("lock: desktop not ready after 15 s, unlocking; without a window:", waiting);
+            root.finishPreparing();
+        }
+    }
+    Process {
+        id: startDesktop
+        command: ["sh", "-c", 'rm -f "$1" "$2"; hyprctl reload >/dev/null; '
             + 'for f in "$XDG_RUNTIME_DIR"/systemd/generator.late/xdg-desktop-autostart.target.wants/*.service; do '
             + '[ -e "$f" ] && systemctl --user start --no-block -- "${f##*/}"; done', "sh",
-            runtime + "/locked", marker, runtime + "/lock-shown", first ? "1" : "0"];
+            root.marker, root.runtime + "/lock-shown"]
+    }
+    Timer {
+        id: prepareTick
+        interval: 250
+        repeat: true
+        onTriggered: {
+            const keys = root.awaited();
+            const waiting = keys.filter(k => Apps.windowsOf(k).length === 0);
+            const known = root.loginItemsRead && Session.reopenRead;
+            root.progress = keys.length > 0 ? (keys.length - waiting.length) / keys.length : (known ? 1 : 0);
+            if (!known || waiting.length > 0) {
+                root.allOpenSince = 0;
+                return;
+            }
+            // every app open: a moment more for their first picture and their place
+            // (window memory), then into the desktop
+            if (root.allOpenSince === 0)
+                root.allOpenSince = Date.now();
+            else if (Date.now() - root.allOpenSince >= 700)
+                root.finishPreparing();
+        }
+    }
+
+    // LockScreen.qml, after the fade: the lock goes; then drives that came in while
+    // locked are mounted (Riptide "drives.mount", drives.py)
+    function unlocked() {
+        if (!loggedIn) { // (never without prepare(); if it happens, the desktop starts now)
+            loggedIn = true;
+            startDesktop.running = true;
+        }
+        preparing = false;
+        locked = false;
+        afterUnlock.command = ["rm", "-f", runtime + "/locked"];
         afterUnlock.running = true;
     }
     Process {
         id: afterUnlock
         onExited: Riptide.call("drives.mount", {})
+    }
+    Process {
+        running: true
+        command: ["sh", "-c", 'for f in "$HOME"/.config/autostart/*.desktop; do [ -f "$f" ] && ! grep -qx "Hidden=true" "$f" && basename "$f" .desktop; done; true']
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.loginItems = text.split("\n").filter(l => l !== "");
+                root.loginItemsRead = true;
+            }
+        }
     }
 
     // for the session service: no drives are mounted while locked (drives.py)
@@ -90,6 +188,14 @@ Singleton {
 
     // a locked start or not (without a runtime folder: locked, never open by mistake)
     Component.onCompleted: if (!Quickshell.env("XDG_RUNTIME_DIR")) locked = true
+    // locked when the shell restarted or reloaded: stays locked (the new lock takes over
+    // the old one – unlocked, it would open the screen)
+    FileView {
+        path: root.runtime + "/locked"
+        blockLoading: true
+        printErrors: false
+        onLoaded: root.locked = true
+    }
     FileView {
         path: root.marker
         blockLoading: true

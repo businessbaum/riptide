@@ -25,6 +25,8 @@ Item {
     property bool typeOther: true              // … typed here (greeter) or elsewhere (switchUser)
     property bool offerPower: true             // sleep, restart, shut down
     property bool leaving: false               // logged in: the form fades, the backdrop stays
+    property bool preparing: false             // logged in, the desktop is made ready: a progress bar
+    property real progress: 0                  // … how far (0–1)
     property bool other: false
     property bool errorHidden: false           // (going back or on: the old message goes)
     onErrorChanged: errorHidden = false
@@ -63,6 +65,9 @@ Item {
         else if (event.text !== "" && event.text.charCodeAt(0) >= 32 && !(event.modifiers & Qt.ControlModifier))
             passwordInput.insert(passwordInput.text.length, event.text);
     }
+
+    // the field goes for the progress bar: the keys stay here (⌃⌥F2)
+    onPreparingChanged: if (preparing) forceActiveFocus()
 
     onFailuresChanged: {
         passwordInput.text = "";
@@ -183,9 +188,34 @@ Item {
                 color: "white"
             }
 
+            // after the password, like on a Mac: the field becomes a progress bar while the
+            // desktop is made ready behind the window
+            Item {
+                visible: root.preparing
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 200
+                height: 36
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width
+                    height: 6
+                    radius: 3
+                    color: "#40ffffff"
+                    Rectangle {
+                        width: Math.max(parent.height, parent.width * Math.min(1, root.progress))
+                        height: parent.height
+                        radius: parent.radius
+                        color: "white"
+                        Behavior on width {
+                            NumberAnimation { duration: 350; easing.type: Easing.OutCubic }
+                        }
+                    }
+                }
+            }
+
             // "Anderer Benutzer": the name first
             Field {
-                visible: root.other
+                visible: root.other && !root.preparing
                 anchors.horizontalCenter: parent.horizontalCenter
                 placeholder: "Name"
                 empty: nameInput.text === ""
@@ -207,6 +237,7 @@ Item {
 
             Field {
                 id: passwordField
+                visible: !root.preparing
                 anchors.horizontalCenter: parent.horizontalCenter
                 placeholder: "Passwort eingeben"
                 empty: passwordInput.text === ""
@@ -274,14 +305,14 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 height: 18
-                text: root.errorHidden ? "" : root.error
+                text: root.errorHidden || root.preparing ? "" : root.error
                 font.family: root.fontSans
                 font.pixelSize: 13
                 color: "#ffd6d6"
             }
 
             Text {
-                visible: root.offerOther
+                visible: root.offerOther && !root.preparing
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.other ? "Zurück" : "Anderer Benutzer …"
                 font.family: root.fontSans
@@ -300,7 +331,7 @@ Item {
         // sleep, restart, shut down
         Row {
             id: powerRow
-            visible: root.main && root.offerPower
+            visible: root.main && root.offerPower && !root.preparing
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 48

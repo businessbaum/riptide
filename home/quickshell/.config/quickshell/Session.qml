@@ -119,7 +119,10 @@ Singleton {
 
     // A new session: the apps of the last one open again – once (not when the shell
     // restarts), and only apps that are not open yet (login items open themselves).
-    // At boot only after the password (the session starts locked, Lock.qml).
+    // At boot right after the password, while the login window still stands (Lock.qml
+    // waits for them: reopenIds, once reopenRead).
+    property var reopenIds: []
+    property bool reopenRead: false
     Process {
         running: Lock.loggedIn
         command: ["sh", "-c", "m=\"$XDG_RUNTIME_DIR/riptide/reopened-$HYPRLAND_INSTANCE_SIGNATURE\"; [ -e \"$m\" ] && exit 0; "
@@ -128,24 +131,31 @@ Singleton {
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
-                    reopen.ids = JSON.parse(text);
-                    console.info("reopen: after login", reopen.ids.join(", "));
+                    const ids = JSON.parse(text);
+                    console.info("reopen: after login", ids.join(", "));
+                    // (login items open themselves: started twice they might come twice)
+                    reopen.ids = ids.filter(id => !Lock.loginItems.includes(Apps.plainId(id)));
+                    root.reopenIds = reopen.ids;
                     reopen.start();
                 } catch (e) {}
+                root.reopenRead = true;
             }
         }
     }
-    // (tried every 2 s for up to 30 s: right after login the list of apps may not be read yet)
+    // (tried every second for up to 15 s: right after login the list of apps may not be
+    // read yet)
     Timer {
         id: reopen
         property var ids: []
         property int attempts: 0
-        interval: 2000
+        interval: 1000
         repeat: true
         onTriggered: {
             attempts++;
             const left = [];
             for (const id of ids) {
+                if (Lock.loginItems.includes(Apps.plainId(id)))
+                    continue; // (a login item: opens itself)
                 const entry = Apps.entryById(id);
                 if (!entry) {
                     left.push(id);
