@@ -143,6 +143,13 @@ class PdfDocument:
     # A selection runs from one character to another in reading order – across lines –
     # not over a rectangle. Characters are indexes into chars(n).
 
+    @staticmethod
+    def _beside(top0, bottom0, top1, bottom1):
+        """Two lines side by side – the cells of a table row: their heights overlap by more
+        than half (the lines of a paragraph overlap a little at most)."""
+        overlap = min(bottom0, bottom1) - max(top0, top1)
+        return overlap > 0.5 * min(bottom0 - top0, bottom1 - top1)
+
     def chars(self, n):
         """The characters of page n in reading order: [(char, display rect, line)], where
         line is (number, display rect of the whole line)."""
@@ -160,13 +167,17 @@ class PdfDocument:
 
     def char_at(self, n, x, y):
         """The character nearest to (x, y): on the line at that height (else the nearest
-        line), the one under x (else the nearest). None if the page has no text."""
+        line) – of several at that height (the cells of a table row are lines of their own)
+        the one under x, else the nearest –, the character under x (else the nearest).
+        None if the page has no text."""
         chars = self.chars(n)
         if not chars:
             return None
         def line_distance(item):
-            _, (_, (lx0, ly0, lx1, ly1)) = item[0], item[1][2]
-            return 0 if ly0 <= y <= ly1 else min(abs(y - ly0), abs(y - ly1))
+            lx0, ly0, lx1, ly1 = item[1][2][1]
+            dy = 0 if ly0 <= y <= ly1 else min(abs(y - ly0), abs(y - ly1))
+            dx = 0 if lx0 <= x <= lx1 else min(abs(x - lx0), abs(x - lx1))
+            return dy, dx
         best_line = min(enumerate(chars), key=line_distance)[1][2][0]
         on_line = [(i, c) for i, c in enumerate(chars) if c[2][0] == best_line]
         for i, (_, (cx0, _, cx1, _), _) in on_line:
@@ -180,9 +191,18 @@ class PdfDocument:
         for ch, (x0, y0, x1, y1), (number, (_, ly0, _, ly1)) in self.chars(n)[min(a, b):max(a, b) + 1]:
             r = lines.get(number)
             lines[number] = (min(r[0], x0), ly0, max(r[2], x1), ly1) if r else (x0, ly0, x1, ly1)
+        # the cells of a table row: one band over the row, as in a text editor
+        rows = []
+        for r in sorted(lines.values(), key=lambda r: (r[1], r[0])):
+            row = next((i for i, o in enumerate(rows) if self._beside(o[1], o[3], r[1], r[3])), None)
+            if row is None:
+                rows.append(r)
+            else:
+                o = rows[row]
+                rows[row] = (min(o[0], r[0]), min(o[1], r[1]), max(o[2], r[2]), max(o[3], r[3]))
         # lines of a paragraph overlap a little: cut each at the one above, so no strip
         # is marked twice (it would look darker)
-        rects = sorted(lines.values(), key=lambda r: r[1])
+        rects = sorted(rows, key=lambda r: r[1])
         for i in range(1, len(rects)):
             x0, y0, x1, y1 = rects[i]
             above = rects[i - 1]
@@ -191,13 +211,17 @@ class PdfDocument:
         return rects
 
     def selection_text(self, n, a, b):
-        """The text of the characters a…b, a line break between lines."""
+        """The text of the characters a…b, a line break between lines – a space between
+        lines side by side (the cells of a table row)."""
         out, last = [], None
-        for ch, _, (number, _) in self.chars(n)[min(a, b):max(a, b) + 1]:
-            if last is not None and number != last:
-                out.append("\n")
+        for ch, _, (number, (_, ly0, _, ly1)) in self.chars(n)[min(a, b):max(a, b) + 1]:
+            if last is not None and number != last[0]:
+                if not self._beside(last[1], last[2], ly0, ly1):
+                    out.append("\n")
+                elif not (out and out[-1].isspace()) and not ch.isspace():
+                    out.append(" ")
             out.append(ch)
-            last = number
+            last = (number, ly0, ly1)
         return "".join(out).strip()
 
     def word_range(self, n, i):
@@ -212,13 +236,17 @@ class PdfDocument:
         return a, b
 
     def line_range(self, n, i):
-        """The line around character i: (first, last)."""
+        """The line around character i: (first, last) – with the lines beside it (a table
+        row's cells) that come next to it in reading order."""
         chars = self.chars(n)
-        line = chars[i][2][0]
+        _, (_, top, _, bottom) = chars[i][2]
+        def same_row(j):
+            _, (_, t, _, b) = chars[j][2]
+            return chars[j][2][0] == chars[i][2][0] or self._beside(top, bottom, t, b)
         a = b = i
-        while a > 0 and chars[a - 1][2][0] == line:
+        while a > 0 and same_row(a - 1):
             a -= 1
-        while b < len(chars) - 1 and chars[b + 1][2][0] == line:
+        while b < len(chars) - 1 and same_row(b + 1):
             b += 1
         return a, b
 
