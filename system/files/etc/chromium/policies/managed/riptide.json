@@ -1,7 +1,12 @@
 {
   "BrowserSwitcherEnabled": true,
   "BrowserSwitcherUrlList": ["*"],
-  "BrowserSwitcherUrlGreylist": ["whatsapp.com", "whatsapp.net"],
+  "BrowserSwitcherUrlGreylist": [
+    "whatsapp.com", "whatsapp.net",
+    "cloud.microsoft", "microsoft.com", "microsoftonline.com", "microsoft365.com",
+    "office.com", "office.net", "office365.com", "live.com", "live.net",
+    "sharepoint.com", "onedrive.com", "1drv.ms", "msauth.net", "msftauth.net", "svc.ms"
+  ],
   "AlternativeBrowserPath": "xdg-open",
   "AlternativeBrowserParameters": ["${url}"],
   "BrowserSwitcherKeepLastChromeTab": false

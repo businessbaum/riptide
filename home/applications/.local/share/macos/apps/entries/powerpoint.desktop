@@ -1,0 +1,17 @@
+# Microsoft PowerPoint for the web as an app of its own: Chromium (official Arch package) in
+# app mode – a window without the browser around it. No PowerPoint exists for Linux
+# (2026-09-30). A source entry: app-sandbox --sync makes the sandboxed entry the
+# desktop uses from it.
+[Desktop Entry]
+Type=Application
+Name=PowerPoint
+GenericName=Präsentation
+Comment=Präsentationen mit Microsoft PowerPoint für das Web
+Exec=chromium --app=https://powerpoint.cloud.microsoft/
+Icon=powerpoint
+# Chromium names the window after the site (--class does nothing on Wayland)
+StartupWMClass=chrome-powerpoint.cloud.microsoft__-Default
+Terminal=false
+Categories=Office;Presentation;
+Keywords=Microsoft;Office;Präsentation;Folien;pptx;
+StartupNotify=true

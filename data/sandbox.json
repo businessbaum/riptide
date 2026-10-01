@@ -60,6 +60,12 @@
     },
     "whatsapp": {
       "data_auto": false
+    },
+    "word": {
+      "data_auto": false
+    },
+    "powerpoint": {
+      "data_auto": false
     }
   },
   "part_of": {

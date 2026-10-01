@@ -84,7 +84,7 @@ install -D -o root -g root -m 644 system/files/usr/share/xdg-desktop-portal/port
     /usr/share/xdg-desktop-portal/portals/riptide.portal
 
 step "Chromium: Links öffnen im Standardbrowser"
-# Chromium runs web apps only (WhatsApp in app mode, whatsapp.desktop). A link clicked in
+# Chromium runs web apps only (WhatsApp, Word, PowerPoint in app mode). A link clicked in
 # one opened in a Chromium window of its own; with Chromium's browser switcher every page
 # outside the app's sites goes to xdg-open – in the app's sandbox the portal, so the default
 # browser (Zen). Root-owned on purpose: a policy file the user could write would let any

@@ -1,0 +1,16 @@
+# Microsoft Word for the web as an app of its own: Chromium (official Arch package) in app
+# mode – a window without the browser around it. No Word exists for Linux (2026-09-30).
+# A source entry: app-sandbox --sync makes the sandboxed entry the desktop uses from it.
+[Desktop Entry]
+Type=Application
+Name=Word
+GenericName=Textverarbeitung
+Comment=Dokumente mit Microsoft Word für das Web
+Exec=chromium --app=https://word.cloud.microsoft/
+Icon=word
+# Chromium names the window after the site (--class does nothing on Wayland)
+StartupWMClass=chrome-word.cloud.microsoft__-Default
+Terminal=false
+Categories=Office;WordProcessor;
+Keywords=Microsoft;Office;Text;Dokument;docx;
+StartupNotify=true
