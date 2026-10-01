@@ -1,6 +1,6 @@
 -- Apps that draw their own title bar ("client-side decorations") get no second bar with
 -- traffic lights from riptide-wm. Which ones – data, not code:
---   ~/.config/macos/titlebars.json   what we know: GNOME apps like Finder, browsers,
+--   data/titlebars.json             what we know: GNOME apps like Finder, browsers,
 --                                    Electron apps with their own frame (Discord, Obsidian)
 --   settings.json → titlebars        the user's choice per app, wins (System Settings →
 --                                    Erscheinungsbild → Titelleisten): class → "app" (its
@@ -12,7 +12,7 @@
 local json = require("modules.json")
 local S = require("modules.settings")
 
-local data = json.read("titlebars.json") or {}
+local data = json.read_data("titlebars.json") or {}
 local choice = type(S.titlebars) == "table" and S.titlebars or {}
 
 -- "org.gnome.*" → a regular expression (window rules) and a Lua pattern (matches)

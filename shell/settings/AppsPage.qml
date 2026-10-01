@@ -129,7 +129,7 @@ Page {
         removing = "";
         if (a.source === "archive") {
             archiveRemove.trash = trash;
-            archiveRemove.command = [Quickshell.env("HOME") + "/.local/bin/archive-app", "remove", a.desktop.replace(/\.desktop$/, "")];
+            archiveRemove.command = [Config.bin + "archive-app", "remove", a.desktop.replace(/\.desktop$/, "")];
             archiveRemove.name = a.names[0];
             archiveRemove.running = true;
         } else {

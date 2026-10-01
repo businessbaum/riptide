@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Open the printer app "Drucker" (the print queue); if it is already open, bring it to the front.
 #   printers-app.sh [printer]   show this printer's queue
-app="$HOME/.config/quickshell/printers.qml"
+app="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)/printers.qml"
 if hyprctl clients -j | grep -q '"class": "org.riptide.Printers"'; then
     hyprctl dispatch "macos.activate_app('org.riptide.Printers')" >/dev/null
 elif [ -z "${1:-}" ]; then

@@ -37,7 +37,7 @@ FloatingWindow {
     minimumSize: Qt.size(820, 480)
     color: Config.windowBg
 
-    // Open a page from outside:  qs ipc -p ~/.config/quickshell/appstore.qml call appstore page updates
+    // Open a page from outside:  qs ipc -p <shell folder>/appstore.qml call appstore page updates
     IpcHandler {
         target: "appstore"
         function page(key: string): void {

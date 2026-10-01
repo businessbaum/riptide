@@ -11,7 +11,7 @@ Singleton {
     id: root
 
     function screenshot(kind) {
-        Quickshell.execDetached([Quickshell.env("HOME") + "/.config/hypr/scripts/screenshot.sh", kind]);
+        Quickshell.execDetached([Config.root + "/hypr/scripts/screenshot.sh", kind]);
     }
 
     function pickColour() {

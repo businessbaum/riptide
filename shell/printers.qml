@@ -7,7 +7,7 @@
 // A separate Quickshell instance (own app id → own dock icon), data from
 // scripts/printers.py.
 //   Start:  scripts/printers-app.sh [printer]   (org.riptide.Printers.desktop)
-//   Show a printer:  qs ipc -p ~/.config/quickshell/printers.qml call printers select <name>
+//   Show a printer:  qs ipc -p <shell folder>/printers.qml call printers select <name>
 
 import QtQuick
 import QtQuick.Layouts

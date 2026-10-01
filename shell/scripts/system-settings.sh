@@ -2,7 +2,7 @@
 # Open System Settings; if it is already open, bring its window to the front.
 #   system-settings.sh [page]   e.g. privacy, privacy/microphone, sound
 # (qs -n cannot be used: it treats the main shell in the same folder as a duplicate.)
-settings="$HOME/.config/quickshell/settings.qml"
+settings="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)/settings.qml"
 if hyprctl clients -j | grep -q '"class": "org.riptide.SystemSettings"'; then
     hyprctl dispatch "macos.activate_app('org.riptide.SystemSettings')" >/dev/null
 else

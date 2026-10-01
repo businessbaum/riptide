@@ -94,8 +94,9 @@ Page {
     Process {
         id: pluginBuilder
         // build; load it if it is not loaded yet (a loaded one is replaced at the next login)
-        command: ["sh", "-c", "~/dotfiles/plugin/build.sh > ~/.local/state/macos/plugin-build.log 2>&1 || exit 1; "
-            + "hyprctl plugin list -j | grep -q '\"riptide-wm\"' || hyprctl plugin load ~/.local/lib/hyprland-plugins/riptide-wm.so"]
+        command: ["sh", "-c", "\"$1\" > ~/.local/state/macos/plugin-build.log 2>&1 || exit 1; "
+            + "hyprctl plugin list -j | grep -q '\"riptide-wm\"' || hyprctl plugin load ~/.local/lib/hyprland-plugins/riptide-wm.so",
+            "sh", Config.root + "/plugin/build.sh"]
         onExited: code => {
             page.pluginBuild = code === 0 ? "ok" : "failed";
             pluginReader.running = true;

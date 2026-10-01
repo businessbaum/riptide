@@ -5,7 +5,7 @@ import Quickshell
 import Quickshell.Io
 
 // The one connection to the session's system services (riptide-session, see
-// ~/.local/lib/desktop_shell/session.py): permissions, app sandboxes, … Every part of the
+// session/desktop_shell/session.py): permissions, app sandboxes, … Every part of the
 // shell and of System Settings talks to the system through here.
 //
 //   Riptide.call("permissions.set", { app, kind, state }, result => …)

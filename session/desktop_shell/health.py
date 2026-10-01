@@ -20,9 +20,11 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib
 
+from desktop_shell import paths
+
 STATE = Path.home() / ".local/state/macos/health.json"
 AGAIN_AFTER = 24 * 3600  # seconds until a warning that still holds comes again
-SETTINGS = str(Path.home() / ".config/quickshell/scripts/system-settings.sh")
+SETTINGS = str(paths.SHELL / "scripts/system-settings.sh")
 
 
 def run(argv):

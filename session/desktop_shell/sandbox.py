@@ -42,15 +42,15 @@ import sys
 import time
 from pathlib import Path
 
-from desktop_shell import permissions
+from desktop_shell import paths, permissions
 
 HOME = Path.home()
 RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
-HELPERS = HOME / ".local/lib/macos-sandbox"
+HELPERS = paths.SANDBOX
 # our flatpak-spawn, bound over the real one in every sandbox (see that file)
 FLATPAK_SPAWN = Path(__file__).resolve().parent / "flatpak-spawn"
 CONTAINERS = HOME / ".local/share/macos/sandbox"
-PROFILES = HOME / ".config/macos/sandbox.json"
+PROFILES = paths.DATA / "sandbox.json"
 # start entries of apps that are no packages – from release archives (archive_apps.py)
 # and web apps (WhatsApp, in git): not on the desktop's own search path – only their
 # sandboxed overrides are (sync)
@@ -677,7 +677,7 @@ def sync():
     apps that are gone or became system apps are removed. Runs at login and whenever apps
     are installed or removed (app-sandbox-sync.path)."""
     profiles = load_profiles()
-    me = HOME / ".local/bin/app-sandbox"
+    me = paths.BIN / "app-sandbox"
     wanted = {}
     for folder in (Path("/usr/share/applications"), Path("/usr/local/share/applications"), ARCHIVE_ENTRIES):
         for source in sorted(folder.glob("*.desktop")):

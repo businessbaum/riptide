@@ -58,7 +58,7 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib
 
-from desktop_shell import crashes, drives, health, lan, permissions, sandbox, trash, updates
+from desktop_shell import crashes, drives, health, lan, paths, permissions, sandbox, trash, updates
 
 SOCKET = sandbox.SERVICE_SOCKET
 HOME = Path.home()
@@ -685,7 +685,7 @@ class PortalBackend:
         if not commandline or not re.fullmatch(r"[A-Za-z0-9_.+-]+", app):
             return False
         import shlex
-        me = HOME / ".local/bin/app-sandbox"
+        me = paths.BIN / "app-sandbox"
         AUTOSTART.mkdir(parents=True, exist_ok=True)
         path.write_text("[Desktop Entry]\nType=Application\n"
                         f"Name={sandbox.app_name(app)}\n"

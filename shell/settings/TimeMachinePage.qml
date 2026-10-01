@@ -19,7 +19,7 @@ Page {
     property bool choosing: false  // picking a backup disk
     property string chosenUuid: ""
     property string error: ""
-    readonly property string cli: Quickshell.env("HOME") + "/.local/bin/riptide-timemachine"
+    readonly property string cli: Config.bin + "riptide-timemachine"
 
     function load(withBackups) {
         reader.command = [page.cli, "status"].concat(withBackups ? ["--with-backups"] : []);
@@ -113,7 +113,7 @@ Page {
     }
     function backupNow() {
         Quickshell.execDetached(["systemd-run", "--user", "--collect", "--quiet", "--unit=riptide-backup-now",
-            "-p", "Nice=19", "-p", "IOSchedulingClass=idle", Quickshell.env("HOME") + "/.local/bin/riptide-timemachine", "backup"]);
+            "-p", "Nice=19", "-p", "IOSchedulingClass=idle", page.cli, "backup"]);
     }
 
     // "vor 5 Min.", "heute, 14:02", "12.09.2026, 09:00"

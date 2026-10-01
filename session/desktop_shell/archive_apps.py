@@ -1,6 +1,6 @@
 """Apps that are not in the Arch repositories, from their maker's official release archive
 (docs/os-plan.md) – not Flatpak: we install them, we keep them up to date, and they run
-in our sandbox like every other app. Which apps and how: ~/.config/macos/archive-apps.json.
+in our sandbox like every other app. Which apps and how: data/archive-apps.json.
 
     archive-app list            the apps with the installed and the newest release (JSON)
     archive-app install <app>   install it, or update it to the newest release
@@ -33,8 +33,10 @@ import time
 import urllib.request
 from pathlib import Path
 
+from desktop_shell import paths
+
 HOME = Path.home()
-CONFIG = HOME / ".config/macos/archive-apps.json"
+CONFIG = paths.DATA / "archive-apps.json"
 APPS = HOME / ".local/share/macos/apps"
 ENTRIES = APPS / "entries"
 RELEASE = ".riptide-release"

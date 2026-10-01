@@ -46,7 +46,7 @@ FloatingWindow {
         { key: "printers", title: "Drucker & Scanner", icon: "\uf02f", colour: "#8e8e93" }
     ]
 
-    // Open a page from outside:  qs ipc -p ~/.config/quickshell/settings.qml call settings page sound
+    // Open a page from outside:  qs ipc -p <shell folder>/settings.qml call settings page sound
     // or a part of it:                                                        … page privacy/microphone
     IpcHandler {
         target: "settings"

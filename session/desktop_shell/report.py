@@ -246,7 +246,7 @@ def render(since, parts):
     total = sum(sum(n for n, _ in rows) for _, rows in parts)
     lines = [f"# Bericht {now} (seit {since})", "",
              f"{total} Meldungen, gleiche zusammengefasst. Bekanntes Rauschen ist ausgeblendet "
-             "(Liste NOISE in ~/.local/lib/desktop_shell/report.py).", ""]
+             "(Liste NOISE in session/desktop_shell/report.py).", ""]
     for title, rows in parts:
         lines.append(f"## {title} ({sum(n for n, _ in rows)})")
         lines.append("")

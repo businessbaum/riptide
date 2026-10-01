@@ -8,7 +8,7 @@ again; the permission itself is remembered."""
 import os
 import sys
 
-sys.path.insert(0, os.path.expanduser("~/.local/lib"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "session"))
 from desktop_shell.sandbox import SandboxError, call_service  # noqa: E402
 
 

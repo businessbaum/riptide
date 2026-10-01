@@ -82,7 +82,7 @@ def apps():
 
     # Apps from their maker's release archive (archive_apps.py: Zen …)
     try:
-        archives = json.loads((HOME / ".config/macos/archive-apps.json").read_text())
+        archives = json.loads((Path(__file__).resolve().parents[1] / "data/archive-apps.json").read_text())
     except (OSError, ValueError):
         archives = {}
     for app_id, spec in archives.items():

@@ -34,7 +34,7 @@ def main():
         energy = {}
     lock, off, sleep = (minutes(energy, k) for k in ("lock", "display_off", "sleep"))
 
-    parts = ["""# Written by ~/.config/quickshell/scripts/hypridle-config.py from System Settings → Energie.
+    parts = ["""# Written by shell/scripts/hypridle-config.py from System Settings → Energie.
 # Changes here are lost: change the settings instead.
 
 general {

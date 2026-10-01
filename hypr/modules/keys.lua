@@ -9,9 +9,10 @@ local S = require("modules.settings")
 
 -- Apps are started through uwsm, so each one runs in its own systemd scope
 -- (clean environment, survives a Hyprland reload, visible in the task manager).
+local json      = require("modules.json")
 local terminal  = "uwsm app -- kitty"
 local finder    = "uwsm app -- nautilus --new-window"
-local scripts   = "~/.config/hypr/scripts/"
+local scripts   = json.config_dir .. "/scripts/"
 
 -- Apps that understand ⌘ shortcuts themselves. They receive the ⌘ shortcut unchanged,
 -- because in a terminal ⌃C would interrupt the running program.

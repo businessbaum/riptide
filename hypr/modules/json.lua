@@ -1,6 +1,7 @@
--- Reading our JSON files (~/.config/macos/: settings.json, theme.json, titlebars.json …)
+-- Reading our JSON files (the user's settings in ~/.config/macos/, the software's data in data/)
 -- in the Lua config. Minimal, but enough for our files.
 --   json.read("settings.json")  → table, or nil and the reason
+--   json.read_data("theme.json") → the same, from the software's data/
 --   json.parse(text)            → value (errors on bad input)
 
 local function parse_json(text)
@@ -71,10 +72,13 @@ local function parse_json(text)
 end
 
 local DIR = os.getenv("HOME") .. "/.config/macos/"
+-- the software's own data (knowledge about apps, design tokens): data/ next to this config
+-- folder in riptide's tree (hypr/data links to ../data) – wherever the tree is
+local CONFIG = debug.getinfo(1, "S").source:match("^@(.*)/modules/[^/]+$") or (os.getenv("HOME") .. "/.config/hypr")
+local DATA = CONFIG .. "/data/"
 
--- a name in ~/.config/macos/, or an absolute path (state files in ~/.local/state/macos/)
-local function read(name)
-    local f = io.open((name:sub(1, 1) == "/" and "" or DIR) .. name, "r")
+local function read_file(path, name)
+    local f = io.open(path, "r")
     if not f then return nil, name .. " not found" end
     local text = f:read("a"); f:close()
     local ok, data = pcall(parse_json, text)
@@ -82,4 +86,15 @@ local function read(name)
     return data
 end
 
-return { parse = parse_json, read = read }
+-- The user's settings: a name in ~/.config/macos/, or an absolute path (state files in
+-- ~/.local/state/macos/)
+local function read(name)
+    return read_file((name:sub(1, 1) == "/" and "" or DIR) .. name, name)
+end
+
+-- the software's data: a name in data/ (titlebars.json, theme.json …)
+local function read_data(name)
+    return read_file(DATA .. name, name)
+end
+
+return { parse = parse_json, read = read, read_data = read_data, config_dir = CONFIG }

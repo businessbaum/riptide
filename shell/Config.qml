@@ -6,12 +6,17 @@ import Quickshell.Io
 
 // The single source of truth for the shell, read live from
 //   ~/.config/macos/settings.json   user choices
-//   ~/.config/macos/theme.json      design tokens for light and dark
+//   data/theme.json                 design tokens for light and dark (the software's)
 // Both files are watched: saving either one updates every component at once.
 Singleton {
     id: root
 
     readonly property string dir: Quickshell.env("HOME") + "/.config/macos/"
+    // riptide's software tree (docs/os-plan.md; this repo today, /usr/lib/riptide one day):
+    // found from the shell's own folder, wherever it is – data/ is linked next to it
+    readonly property string root: Quickshell.shellDir + "/.."
+    readonly property string data: Quickshell.shellDir + "/data/"
+    readonly property string bin: Quickshell.shellDir + "/../bin/"
 
     property var settings: ({})
     property var theme: ({})
@@ -133,7 +138,7 @@ Singleton {
 
     FileView {
         id: themeFile
-        path: root.dir + "theme.json"
+        path: root.data + "theme.json"
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {

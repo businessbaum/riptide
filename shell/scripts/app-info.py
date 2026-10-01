@@ -76,7 +76,7 @@ def main():
             tag = ""
         spec = {}
         try:
-            spec = json.loads((Path.home() / ".config/macos/archive-apps.json").read_text()).get(app, {})
+            spec = json.loads((Path(__file__).resolve().parents[1] / "data/archive-apps.json").read_text()).get(app, {})
         except (OSError, ValueError):
             pass
         info.update(source="archive", package=spec.get("repo", app), version=tag,

@@ -20,7 +20,7 @@ Page {
     // System apps run without a sandbox (sandbox.json)
     property var systemPatterns: []
     FileView {
-        path: Quickshell.env("HOME") + "/.config/macos/sandbox.json"
+        path: Config.data + "sandbox.json"
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {

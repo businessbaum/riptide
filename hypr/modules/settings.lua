@@ -1,7 +1,7 @@
 -- The single source of truth for everything the user can change.
 --
 --   ~/.config/macos/settings.json   user choices (written by the System Settings app)
---   ~/.config/macos/theme.json      design tokens (colours, radii, fonts) for light and dark
+--   data/theme.json                 design tokens (colours, radii, fonts) for light and dark
 --
 -- settings.json lives in ~/dotfiles/home/macos, theme.json in ~/dotfiles/data. The dock, control center, system settings,
 -- menu bar, notifications, Spotlight and kitty read the same files (theme generator, stage 2),
@@ -43,7 +43,7 @@ if not settings then
 end
 fill_defaults(settings, DEFAULTS)
 
-local theme = read("theme.json") or { modes = { dark = {}, light = {} } }
+local theme = json.read_data("theme.json") or { modes = { dark = {}, light = {} } }
 local active = {}
 for k, v in pairs(theme.modes[settings.appearance.mode] or theme.modes.dark or {}) do active[k] = v end
 active.font, active.radius = theme.font, theme.radius

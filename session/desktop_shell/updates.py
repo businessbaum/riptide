@@ -28,9 +28,11 @@ from pathlib import Path
 
 from gi.repository import Gio, GLib
 
+from desktop_shell import paths
+
 STATE = Path.home() / ".local/state/macos/updates.json"
-SCRIPTS = Path.home() / ".config/quickshell/scripts"
-ARCHIVE_APP = Path.home() / ".local/bin/archive-app"
+SCRIPTS = paths.SHELL / "scripts"
+ARCHIVE_APP = paths.BIN / "archive-app"
 EVERY = 6 * 3600
 NOTIFY_AGAIN = 12 * 3600  # new updates are told at most this often
 

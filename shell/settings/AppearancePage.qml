@@ -219,7 +219,7 @@ Page {
     // wins (settings.json titlebars: class → "app" | "ours"). The same rules as Hyprland's.
     property var titlebarData: ({})
     FileView {
-        path: Quickshell.env("HOME") + "/.config/macos/titlebars.json"
+        path: Config.data + "titlebars.json"
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {
