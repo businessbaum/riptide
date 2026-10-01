@@ -96,7 +96,9 @@ hl.layer_rule({
 ---- FULL SCREEN IN FRONT ----
 -----------------------------
 
--- A window in full screen that gets the focus (a click on it, ⌘Tab) is in front of
+-- A window in full screen has a desktop of its own (spaces.lua); what can still lie over
+-- it there – its app's own windows, dialogs, a window moved over – follows this:
+-- a window in full screen that gets the focus (a click on it, ⌘Tab) is in front of
 -- everything on its desktop, like on a Mac: the other windows go behind it. Hyprland lets
 -- floating windows – here every window – lie above a full-screen one and, when that one is
 -- focused again, left them drawn on top while it took their clicks: seen, but dead.

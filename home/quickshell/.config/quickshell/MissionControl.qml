@@ -262,6 +262,9 @@ Scope {
                         id: desk
                         required property var modelData
                         readonly property bool current: modelData.id === panel.monitor?.activeWorkspace?.id
+                        // a desktop of a window in full screen (spaces.lua): named after the app
+                        readonly property var fullWindow: Apps.windows.find(w => w.toplevel.lastIpcObject?.workspace?.id === modelData.id
+                            && (w.toplevel.lastIpcObject?.fullscreen ?? 0) >= 2) ?? null
                         width: 150
                         height: 90
                         radius: 10
@@ -286,7 +289,7 @@ Scope {
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.top: parent.bottom
                             anchors.topMargin: 6
-                            text: "Schreibtisch " + desk.modelData.id
+                            text: desk.fullWindow ? Apps.name(Apps.keyForAppId(desk.fullWindow.appId)) : "Schreibtisch " + desk.modelData.id
                             font.family: Config.fontSans
                             font.pixelSize: 12
                             color: "white"
