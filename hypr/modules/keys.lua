@@ -164,7 +164,10 @@ hl.bind("SUPER + SHIFT + M", hl.dsp.workspace.toggle_special("minimized")) -- sh
 
 -- ⌘Tab / ⌥Tab: switch between apps / windows – see switcher.lua
 
-hl.bind("SUPER + CTRL + F",     hl.dsp.window.fullscreen({ mode = "fullscreen" })) -- ⌃⌘F: full screen
+hl.bind("SUPER + CTRL + F", function() -- ⌃⌘F: full screen (on a desktop of its own, spaces.lua) and back
+    local w = hl.get_active_window()
+    if w then macos.fullscreen_request(w.address, (tonumber(w.fullscreen) or 0) < 2) end
+end)
 hl.bind("SUPER + ALT + F",      hl.dsp.window.float({ action = "toggle" }))        -- tile/float window
 hl.bind("SUPER + ALT + Escape", hl.dsp.exec_cmd("qs ipc call forcequit open"))     -- ⌥⌘⎋: "Sofort beenden" window
 hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("uwsm app -- io.missioncenter.MissionCenter.desktop")) -- ⌃⇧⎋: task manager (like Windows)

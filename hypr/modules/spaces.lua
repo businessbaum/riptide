@@ -125,6 +125,31 @@ local function enter(w)
     move_to(w, id, m, follow)
 end
 
+-- Into full screen the right way round – F11 and videos (snapping's fullscreen_request),
+-- ⌃⌘F, window memory: first onto a desktop of its own, then full screen, so the app never
+-- sees full screen taken away and given back. Moving a window that is in full screen
+-- already does that (Hyprland drops it for the move): Firefox/Zen take the moment for
+-- "full screen is over" and leave it – F11 did nothing (2026-10-01). Full screen that
+-- comes another way is still caught by the handler below (moved afterwards).
+function macos.fullscreen_on(w)
+    if not w then return end
+    if not is_fullscreen(w) and not spaces[w.address] then
+        local ws, m = w.workspace, w.monitor
+        if ws and ws.id > 0 and m then
+            local id = free_id(ws.id)
+            local active = hl.get_active_window()
+            local follow = shown(ws.id, m) and active ~= nil and active.address == w.address
+            spaces[w.address] = { space = id, origin = ws.id }
+            save()
+            move_to(w, id, m, follow) -- (not in full screen yet: nothing to drop)
+            w = hl.get_window("address:" .. w.address) or w
+        end
+    end
+    moving = moving + 1
+    pcall(function() hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 })) end)
+    moving = moving - 1
+end
+
 -- out of full screen: back to its desktop, and the windows that stayed with it too
 local function leave(w)
     local s = spaces[w.address]

@@ -303,7 +303,9 @@ function macos.fullscreen_request(address, on)
         return hl.dsp.no_op()
     end
     if on then
-        hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 }))
+        -- onto a desktop of its own first, then full screen (spaces.lua)
+        if macos.fullscreen_on then macos.fullscreen_on(w)
+        else hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 })) end
     else
         local zoomed = before[w.address] ~= nil and before[w.address].kind == "full"
         hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 0, client = zoomed and 1 or 0 }))
@@ -424,6 +426,7 @@ return {
     -- a reopened window goes back to full screen (and stays there while it starts)
     fullscreen = function(w)
         hold_fullscreen(w)
-        hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 }))
+        if macos.fullscreen_on then macos.fullscreen_on(w)
+        else hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 })) end
     end,
 }
