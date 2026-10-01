@@ -42,7 +42,7 @@ import sys
 import time
 from pathlib import Path
 
-from desktop_shell import paths, permissions
+from desktop_shell import login_items, paths, permissions
 
 HOME = Path.home()
 RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
@@ -746,6 +746,8 @@ def sync():
         if path.stem not in wanted and MARK in path.read_text(encoding="utf-8").split("\n", 1)[0]:
             path.unlink()
     subprocess.run(["update-desktop-database", str(OVERRIDES)], capture_output=True)
+    # login items are copies of these entries: brought up to date with them
+    login_items.refresh([OVERRIDES, Path("/usr/local/share/applications"), Path("/usr/share/applications")])
 
 
 def find_parts(wanted, profiles):

@@ -8,7 +8,7 @@
 
 "Beim Anmelden öffnen": apps chosen here – a copy of their start entry in
 ~/.config/autostart, marked X-Riptide-Login-Item (sandboxed apps keep their sandbox: the
-copy starts them the same way the dock does).
+copy starts them the same way the dock does; app-sandbox --sync keeps it current).
 "Im Hintergrund": what else starts at login without a window – system services from
 /etc/xdg/autostart (off = a user entry of the same name with Hidden=true, the XDG way)
 and apps that asked for it through the Background portal (<app>.riptide.desktop).
@@ -22,12 +22,15 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "session"))
+from desktop_shell import login_items  # noqa: E402
+
 HOME = Path.home()
 USER = HOME / ".config/autostart"
 SYSTEM = Path("/etc/xdg/autostart")
 APP_DIRS = [HOME / ".local/share/applications", Path("/usr/local/share/applications"),
             Path("/usr/share/applications")]
-MARK = "X-Riptide-Login-Item"
+MARK = login_items.MARK
 VALID = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
@@ -92,22 +95,9 @@ def add(app):
     source = app_entry(app)
     if not source:
         sys.exit(f"unknown app: {app}")
-    lines = source.read_text(encoding="utf-8").splitlines()
-    out, in_main = [], False
-    for line in lines:
-        if line.startswith("["):
-            if in_main:
-                out.append(f"{MARK}=true")
-            in_main = line.strip() == "[Desktop Entry]"
-            if not in_main:
-                break  # actions etc. are not needed to start it
-        elif in_main and re.match(r"^(Hidden|X-GNOME-Autostart-enabled|OnlyShowIn|NotShowIn|" + MARK + r")\s*=", line):
-            continue
-        out.append(line)
-    if in_main:
-        out.append(f"{MARK}=true")
     USER.mkdir(parents=True, exist_ok=True)
-    (USER / f"{app}.desktop").write_text("\n".join(out) + "\n", encoding="utf-8")
+    (USER / f"{app}.desktop").write_text(login_items.as_login_item(source.read_text(encoding="utf-8")),
+                                         encoding="utf-8")
 
 
 def remove(app):
