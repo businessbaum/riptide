@@ -7,7 +7,9 @@ Type=Application
 Name=PowerPoint
 GenericName=Präsentation
 Comment=Präsentationen mit Microsoft PowerPoint für das Web
-Exec=chromium --app=https://powerpoint.cloud.microsoft/
+# The real program, not Arch's launcher /usr/bin/chromium: that one sets
+# CHROME_DESKTOP=chromium.desktop over ours, and notifications came as "Chromium".
+Exec=/usr/lib/chromium/chromium --app=https://powerpoint.cloud.microsoft/
 Icon=powerpoint
 # Chromium names the window after the site (--class does nothing on Wayland)
 StartupWMClass=chrome-powerpoint.cloud.microsoft__-Default

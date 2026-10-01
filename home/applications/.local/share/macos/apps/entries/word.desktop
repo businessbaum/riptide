@@ -6,7 +6,9 @@ Type=Application
 Name=Word
 GenericName=Textverarbeitung
 Comment=Dokumente mit Microsoft Word für das Web
-Exec=chromium --app=https://word.cloud.microsoft/
+# The real program, not Arch's launcher /usr/bin/chromium: that one sets
+# CHROME_DESKTOP=chromium.desktop over ours, and notifications came as "Chromium".
+Exec=/usr/lib/chromium/chromium --app=https://word.cloud.microsoft/
 Icon=word
 # Chromium names the window after the site (--class does nothing on Wayland)
 StartupWMClass=chrome-word.cloud.microsoft__-Default

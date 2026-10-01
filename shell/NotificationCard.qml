@@ -32,7 +32,9 @@ Banner {
     readonly property string picture: {
         if (!n)
             return "";
-        const image = n.image || (n.live?.image ?? "");
+        // (a picture copied out of an app's sandbox wins: its own path does not exist here)
+        const kept = NotificationStore.sandboxPictureOf(n);
+        const image = kept !== null ? kept : n.image || (n.live?.image ?? "");
         // (notify-send -i names an icon as the picture too – Quickshell hands it over as
         // image://icon/dialog-information: for the system only real pictures count, like a
         // screenshot's preview)

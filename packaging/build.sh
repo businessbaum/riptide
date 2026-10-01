@@ -10,7 +10,8 @@ fi
 mkdir -p "$here/out"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-cd "$here/riptide"
-BUILDDIR="$work" PKGDEST="$here/out" SRCDEST="$work" LOGDEST="$work" \
+cp -r "$here/riptide" "$work/riptide"   # (makepkg writes the version into its PKGBUILD)
+cd "$work/riptide"
+RIPTIDE_REPO="$(cd "$here/.." && pwd)" BUILDDIR="$work" PKGDEST="$here/out" SRCDEST="$work" LOGDEST="$work" \
     makepkg --force --clean --cleanbuild --noconfirm
 ls -t "$here"/out/riptide-*.pkg.tar.zst | head -1

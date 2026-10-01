@@ -169,8 +169,15 @@ Singleton {
     // The app's name: what it sent, else the name of its start entry (Discord sends none).
     // History entries keep the name found when they came (`name`); older ones find it by
     // their app key.
+    // A start entry the notification names itself (desktop-entry) wins over the name it
+    // sends: Chromium sends "Chromium" for WhatsApp, Word …; the dock shows the entry's name.
     function nameOf(n) {
-        return n ? n.name || n.appName || senders[entryOf(n)?.id ?? ""]?.name || senders[n.app ?? ""]?.name || "" : "";
+        if (!n)
+            return "";
+        const raw = n.desktopEntry ?? "";
+        const id = raw.startsWith("org.riptide.sandbox.") ? raw.slice("org.riptide.sandbox.".length) : raw;
+        const named = id && !id.includes("/") ? Apps.entryById(id) : null;
+        return n.name || named?.name || n.appName || senders[entryOf(n)?.id ?? ""]?.name || senders[n.app ?? ""]?.name || "";
     }
 
     // [{ key, appName, summary, body, appIcon, image, urgency, time, live }] newest first;
@@ -186,17 +193,22 @@ Singleton {
     }
 
     function add(n, app) {
+        const fromSandbox = sandboxPicturePath(n, app);
         const entry = {
             key: `${Date.now()}-${counter++}`, id: n.id, app: app ?? "",
             appName: n.appName, name: nameOf(n), summary: n.summary, body: n.body,
-            appIcon: n.appIcon, image: n.image.startsWith("/") || n.image.startsWith("file:") ? n.image : "",
+            appIcon: n.appIcon,
+            image: !fromSandbox && (n.image.startsWith("/") || n.image.startsWith("file:")) ? n.image : "",
+            pictureFromSandbox: !!fromSandbox,
             urgency: n.urgency, time: Date.now(), live: n
         };
         // closed by the app or expired: the entry stays, only the link to the app goes
         n.closed.connect(() => entry.live = null);
         // (an icon named by the system – image://icon/dialog-information – is no picture:
         // its messages show the gear, NotificationCard.qml)
-        if (n.image && !n.image.startsWith("/") && !n.image.startsWith("file:")
+        if (fromSandbox)
+            pictureCopy.createObject(root, { key: entry.key, command: ["python3", Quickshell.shellPath("scripts/sandbox-picture.py"), app, fromSandbox, imagePath(entry.key)] });
+        else if (n.image && !n.image.startsWith("/") && !n.image.startsWith("file:")
             && !(isSystem(app ?? "") && n.image.startsWith("image://icon/")))
             pendingImages = pendingImages.concat([{ key: entry.key, url: n.image }]);
         history = [entry].concat(history).slice(0, 50);
@@ -263,6 +275,35 @@ Singleton {
     property var pendingImages: [] // [{ key, url }]
     function imagePath(key) {
         return `${imageDir}/${key}.png`;
+    }
+    // A picture an app in our sandbox names by a path in its own /tmp – Chromium (WhatsApp,
+    // Word) writes the sender's profile picture there. That /tmp is the sandbox's: on this
+    // side it is $XDG_RUNTIME_DIR/macos-sandbox/<app>/tmp, and the file goes with the
+    // notification. Copied from there at once (scripts/sandbox-picture.py: nothing outside
+    // that /tmp, no links followed); until then the card shows the app's icon. Returns the
+    // path inside that /tmp, or "".
+    function sandboxPicturePath(n, app) {
+        const raw = (n.image ?? "").replace(/^image:\/\/icon\//, "").replace(/^file:\/\//, "");
+        if (!raw.startsWith("/tmp/") || !app || isSystem(app) || !/^[A-Za-z0-9._-]+$/.test(app))
+            return "";
+        return raw.slice("/tmp/".length);
+    }
+    Component {
+        id: pictureCopy
+        Process {
+            property string key
+            running: true
+            onExited: code => {
+                root.imageKept(key, code === 0);
+                destroy();
+            }
+        }
+    }
+    // For the card: the picture of a notification whose picture came from a sandbox's /tmp
+    // ("" while it is copied or when it could not be), null for every other notification
+    function sandboxPictureOf(x) {
+        const entry = x?.pictureFromSandbox !== undefined ? x : history.find(h => h.live === x);
+        return entry?.pictureFromSandbox ? (entry.image ?? "") : null;
     }
     function imageKept(key, ok) {
         pendingImages = pendingImages.filter(p => p.key !== key);
@@ -335,18 +376,26 @@ Singleton {
 
         onNotification: n => {
             // After a reload of the shell the server hands over the notifications that
-            // are still open once more: link them to their entry again, nothing new
-            // (entries saved before ids were kept: same text is enough). The shell being
-            // replaced hears it too, and has them already – nothing to do there (before, it
-            // took them for new ones: banners again, and its list written over the file).
+            // are still open once more (lastGeneration): link them to their entry again,
+            // nothing new (entries saved before ids were kept: same text is enough). The
+            // shell being replaced hears it too – its entries still hold the old objects,
+            // so the entry is found linked or not (before, that shell took them for new
+            // ones: one entry more on every reload). Carried over without an entry (removed
+            // from the centre meanwhile): not kept. Not carried over: always new – also when
+            // an old entry has the same id and text (after a restart ids start again).
             if (root.history.some(h => h.live === n))
                 return;
-            const known = root.history.find(h => !h.live && (h.id === n.id || h.id === undefined)
-                && h.appName === n.appName && h.summary === n.summary && h.body === n.body);
-            if (known) {
-                n.tracked = true;
-                known.live = n;
-                n.closed.connect(() => known.live = null);
+            if (n.lastGeneration) {
+                const known = root.history.find(h => (h.id === n.id || h.id === undefined)
+                    && h.appName === n.appName && h.summary === n.summary && h.body === n.body);
+                if (known) {
+                    n.tracked = true;
+                    known.live = n;
+                    n.closed.connect(() => {
+                        if (known.live === n)
+                            known.live = null;
+                    });
+                }
                 return;
             }
             const app = root.remember(n);

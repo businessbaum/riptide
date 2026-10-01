@@ -15,7 +15,9 @@ depends=('hyprland' 'quickshell' 'python' 'python-gobject' 'bubblewrap' 'xdg-dbu
 makedepends=('git' 'gcc' 'wayland-protocols')
 options=('!debug' '!strip')
 
-_repo=$(cd "$startdir/../.." && pwd)
+# (packaging/build.sh builds in a copy of this folder – makepkg writes pkgver into the
+# PKGBUILD – and names the repo)
+_repo=${RIPTIDE_REPO:-$(cd "$startdir/../.." && pwd)}
 _tree=(shell hypr session bin data systemd wireplumber sandbox plugin)
 
 pkgver() {
