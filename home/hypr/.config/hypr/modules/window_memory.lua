@@ -11,8 +11,11 @@
 -- Stored per app (window class; some windows of an app on their own: "class#kind") in
 -- ~/.local/state/macos/window-frames.tsv, one line per app: class, x, y (from the screen's
 -- top left corner), width, height, snap ("-" = none), for a snapped window its old
--- x, y, width, height, and last "@" and the screen's name. It survives restarts.
--- (Older lines have only class and x, y, w, h on the whole desktop; they are converted.)
+-- x, y, width, height, and last "@" and the screen's description (make, model, serial:
+-- connector names like DP-2 change between starts – the left screen was DP-2 one day and
+-- DP-1 the next). It survives restarts.
+-- (Older lines have only class and x, y, w, h on the whole desktop; they are converted.
+-- Lines with a connector name are found by it until the window closes again.)
 
 local snapping = require("modules.snapping")
 
@@ -26,11 +29,21 @@ local frames = {}
 ---- HELPERS ----
 -----------------
 
--- A connected screen by its name (nil if not connected)
-local function monitor_named(name)
-    if not name then return nil end
+-- What a screen is stored as: its description with the serial number (stays the same
+-- across starts), else its connector name
+local function screen_id(m)
+    return (m.description and m.description ~= "") and m.description or m.name
+end
+
+-- A connected screen by what it was stored as (nil if not connected); older lines name
+-- the connector
+local function monitor_named(id)
+    if not id then return nil end
     for _, m in ipairs(hl.get_monitors()) do
-        if m.name == name then return m end
+        if screen_id(m) == id then return m end
+    end
+    for _, m in ipairs(hl.get_monitors()) do
+        if m.name == id then return m end
     end
 end
 
@@ -220,13 +233,13 @@ hl.on("window.close", function(w)
         -- one from before (what leaving full screen goes back to)
         local before = frames[key(w)]
         local old = before and (before.kind and before.old or before)
-        local r = { x = 0, y = 0, w = m.width, h = m.height, kind = "fullscreen", mon = m.name }
+        local r = { x = 0, y = 0, w = m.width, h = m.height, kind = "fullscreen", mon = screen_id(m) }
         if old and old.w then r.old = { x = old.x, y = old.y, w = old.w, h = old.h } end
         frames[key(w)] = r
         save()
         return
     end
-    local r = { x = w.at.x - m.x, y = w.at.y - m.y, w = w.size.x, h = w.size.y, mon = m.name }
+    local r = { x = w.at.x - m.x, y = w.at.y - m.y, w = w.size.x, h = w.size.y, mon = screen_id(m) }
     local kind, old = snapping.snapped(w)
     if kind then
         r.kind = kind
