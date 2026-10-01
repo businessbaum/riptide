@@ -1,0 +1,24 @@
+#!/bin/sh
+# Developer mode, like turning off SIP on a Mac (docs/os-plan.md): the riptide tree named
+# in /etc/riptide/developer (this repo) is bound read-only over /usr/lib/riptide, so the
+# system runs the code being worked on – and whatever runs as the user can change it (System
+# Settings says so). Only root can name the tree: the file must be root's. Without it, or
+# when anything is off, nothing is bound and the installed package runs.
+set -eu
+conf=/etc/riptide/developer
+target=/usr/lib/riptide
+[ -f "$conf" ] || exit 0
+[ "$(stat -c %u "$conf")" = 0 ] || { echo "developer-mount: $conf is not root's" >&2; exit 1; }
+tree=$(head -n 1 "$conf")
+case "$tree" in
+    /*) ;;
+    *) echo "developer-mount: no absolute path in $conf" >&2; exit 1 ;;
+esac
+for part in shell hypr session bin data systemd; do
+    [ -d "$tree/$part" ] || { echo "developer-mount: $tree is no riptide tree ($part missing)" >&2; exit 1; }
+done
+mountpoint -q "$target" && exit 0
+mkdir -p "$target"
+mount --bind "$tree" "$target"
+mount -o remount,bind,ro "$target"
+echo "developer-mount: $tree over $target (read-only)"

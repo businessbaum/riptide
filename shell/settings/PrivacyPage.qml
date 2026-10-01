@@ -170,6 +170,16 @@ Page {
                 : page.security.secureBoot === false ? "Aus – wird im BIOS eingeschaltet (mit eigenen Schlüsseln, sbctl)"
                 : "Nicht verfügbar"
         }
+        // honest: only the package is root's; developer mode and the home folder are not
+        SettingRow {
+            glyph: "\u{f0250}"
+            glyphColour: page.security.systemFiles === "root" ? "#30d158" : "#ff9f0a"
+            title: "Systemdateien"
+            subtitle: page.security.systemFiles === "root" ? "Gehören dem System (root) – dein Benutzerordner verweist noch auf sie"
+                : page.security.systemFiles === "developer" ? "Entwicklermodus – das System läuft aus dem Repo, Programme in deinem Namen können es ändern"
+                : page.security.systemFiles === "home" ? "Im Benutzerordner – Programme in deinem Namen können sie ändern"
+                : ""
+        }
         SettingRow {
             glyph: "\u{f1a11}"
             glyphColour: page.security.firewall.running ? "#30d158" : "#ff9f0a"

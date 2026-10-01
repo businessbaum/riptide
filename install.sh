@@ -23,13 +23,17 @@ link)
     stow --dir=home --target="$HOME" $(ls home | grep -vxF -f <(printf '%s\n' "${shared[@]}"))
     stow --dir=home --target="$HOME" --restow --no-folding "${shared[@]}"
 
-    # The software (shell/, hypr/, session/, bin/, data/, systemd/, wireplumber/): one day
-    # the package in /usr/lib/riptide (docs/os-plan.md); until then it runs from this repo,
-    # each place in the home folder a link into it. A link is swapped in one step (rename),
-    # so nothing reads a missing folder in between; a folder that holds only links (and
-    # Python's caches) may be replaced by one link, anything else is left alone.
-    place() { # place <path in this repo> <path in $HOME>
-        local target="$PWD/$1" link="$HOME/$2" parent
+    # The software (shell/, hypr/, session/, bin/, data/, systemd/, wireplumber/) runs from
+    # /usr/lib/riptide once that is there – the package (packaging/), or this repo bound
+    # over it read-only in developer mode (docs/os-plan.md); before that from this repo.
+    # Each place in the home folder is a link into it. A link is swapped in one step
+    # (rename), so nothing reads a missing folder in between; a folder that holds only
+    # links (and Python's caches) may be replaced by one link, anything else is left alone.
+    root=$PWD
+    [[ -d /usr/lib/riptide/shell && -d /usr/lib/riptide/session ]] && root=/usr/lib/riptide
+    echo "Software aus: $root"
+    place() { # place <path in the tree> <path in $HOME>
+        local target="$root/$1" link="$HOME/$2" parent
         parent=$(dirname "$link")
         [[ -L "$parent" && ! -e "$parent" ]] && rm -f -- "$parent" # (a stow link to a folder that moved)
         mkdir -p "$parent"
@@ -48,12 +52,12 @@ link)
     place session/desktop_shell .local/lib/desktop_shell
     place wireplumber/scripts/macos .local/share/wireplumber/scripts/macos
     place data/portals/hyprland-portals.conf .config/xdg-desktop-portal/hyprland-portals.conf
-    for f in bin/*; do place "$f" ".local/bin/${f#bin/}"; done
-    for f in systemd/*.service systemd/*.timer systemd/*.d/*; do place "$f" ".config/systemd/user/${f#systemd/}"; done
-    for f in data/applications/*; do place "$f" ".local/share/applications/${f##*/}"; done
-    for f in data/icons/hicolor/scalable/apps/*; do place "$f" ".local/share/icons/hicolor/scalable/apps/${f##*/}"; done
-    for f in data/dbus-1/services/*; do place "$f" ".local/share/dbus-1/services/${f##*/}"; done
-    for f in wireplumber/conf.d/*; do place "$f" ".config/wireplumber/wireplumber.conf.d/${f##*/}"; done
+    for f in "$root"/bin/*; do f=${f#"$root"/}; place "$f" ".local/bin/${f#bin/}"; done
+    for f in "$root"/systemd/*.service "$root"/systemd/*.timer "$root"/systemd/*.d/*; do f=${f#"$root"/}; place "$f" ".config/systemd/user/${f#systemd/}"; done
+    for f in "$root"/data/applications/*; do place "${f#"$root"/}" ".local/share/applications/${f##*/}"; done
+    for f in "$root"/data/icons/hicolor/scalable/apps/*; do place "${f#"$root"/}" ".local/share/icons/hicolor/scalable/apps/${f##*/}"; done
+    for f in "$root"/data/dbus-1/services/*; do place "${f#"$root"/}" ".local/share/dbus-1/services/${f##*/}"; done
+    for f in "$root"/wireplumber/conf.d/*; do place "${f#"$root"/}" ".config/wireplumber/wireplumber.conf.d/${f##*/}"; done
     # start links of enabled services that point where a unit file was before: to its
     # place in the home folder (what is disabled stays disabled)
     for w in "$HOME"/.config/systemd/user/*.wants/riptide-*; do

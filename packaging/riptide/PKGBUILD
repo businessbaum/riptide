@@ -1,0 +1,42 @@
+# riptide – the software that runs the system, root-owned in /usr/lib/riptide
+# (docs/os-plan.md "System files root-owned"): shell, Hyprland config, session services,
+# commands, the software's data, user units, the WirePlumber policy, sandbox helpers and
+# the plugin's sources. Apps and the user's settings stay in the home folder.
+# Built from this repo's last commit (uncommitted changes are not in it):
+#   ~/dotfiles/packaging/build.sh        as the user; sudo ~/dotfiles/system/setup-os.sh installs it
+pkgname=riptide
+pkgver=r215.8d70f44
+pkgrel=1
+pkgdesc="riptide: shell, session services and window behaviour of a macOS-style operating system"
+arch=('x86_64')
+license=('custom')
+depends=('hyprland' 'quickshell' 'python' 'python-gobject' 'bubblewrap' 'xdg-dbus-proxy'
+         'uwsm' 'wireplumber' 'wayland')
+makedepends=('git' 'gcc' 'wayland-protocols')
+options=('!debug' '!strip')
+
+_repo=$(cd "$startdir/../.." && pwd)
+_tree=(shell hypr session bin data systemd wireplumber sandbox plugin)
+
+pkgver() {
+    printf 'r%s.%s' "$(git -C "$_repo" rev-list --count HEAD)" "$(git -C "$_repo" rev-parse --short HEAD)"
+}
+
+prepare() {
+    rm -rf "$srcdir/tree"
+    mkdir -p "$srcdir/tree"
+    git -C "$_repo" archive HEAD "${_tree[@]}" | tar -x -C "$srcdir/tree"
+}
+
+build() {
+    bash "$srcdir/tree/sandbox/build.sh"
+    python -m compileall -q -d /usr/lib/riptide/session "$srcdir/tree/session"
+}
+
+package() {
+    install -d "$pkgdir/usr/lib/riptide"
+    cp -a "$srcdir/tree/." "$pkgdir/usr/lib/riptide/"
+    # developer mode – outside the tree, so a tree bound over it can never swap it
+    install -Dm755 "$startdir/developer-mount" "$pkgdir/usr/lib/riptide-system/developer-mount"
+    install -Dm644 "$startdir/riptide-developer.service" "$pkgdir/usr/lib/systemd/system/riptide-developer.service"
+}

@@ -11,23 +11,26 @@
 #   4. the root helper riptide-helper (the only root part of the desktop) with its polkit
 #      rules and the list of protected system packages; the old appstore-helper goes
 #   5. our portal backend (riptide.portal): the portal's questions in our dialog
-#   6. remote login (SSH) off – not used here (2026-09-26); a switch in
+#   6. riptide itself: the package built from this repo (packaging/build.sh first, as
+#      the user) in /usr/lib/riptide, root's; developer mode binds this repo over it
+#      read-only (riptide-developer.service), so edits stay live
+#   7. remote login (SSH) off – not used here (2026-09-26); a switch in
 #      System Settings follows
-#   7. printing and scanning: CUPS (started on demand) and Avahi – printers and scanners
+#   8. printing and scanning: CUPS (started on demand) and Avahi – printers and scanners
 #      in the home network are found by themselves (driverless IPP/AirPrint, eSCL), and
 #      names like drucker.local resolve (nss-mdns before the other lookups); Wi-Fi gets the
 #      country Germany (wireless-regdb): without it the card found no network
-#   8. security: the firewall lets mDNS in (finding printers and devices) and no longer SSH
+#   9. security: the firewall lets mDNS in (finding printers and devices) and no longer SSH
 #      (remote login is off); snapshots of the system are readable for the user (their
 #      date in System Settings; later Time Machine)
-#   9. Time Machine, local part: hourly snapshots of /home (snapper config "home": the
+#  10. Time Machine, local part: hourly snapshots of /home (snapper config "home": the
 #      last 24 hours, 7 days, 4 weeks, 6 months), readable for the user – "Frühere Versionen"
-#  10. the login (greetd): at boot the session starts locked and its lock screen is the
+#  11. the login (greetd): at boot the session starts locked and its lock screen is the
 #      login window – one passage into the desktop; our login screen for someone else;
 #      should nothing come up, a text login takes its place
-#  11. the boot menu (Limine): shown for 3 s to choose riptide, Windows, the reserve kernel or
+#  12. the boot menu (Limine): shown for 3 s to choose riptide, Windows, the reserve kernel or
 #      the "Notfallmodus" – the LTS kernel up to the text login only, no graphics; no editor
-#  12. the mainboard's boot menu (F11 at power-on): Windows, riptide, the Notfallmodus and the
+#  13. the mainboard's boot menu (F11 at power-on): Windows, riptide, the Notfallmodus and the
 #      reserve kernel to choose from
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -91,6 +94,37 @@ step "Chromium: Links öffnen im Standardbrowser"
 # program force an extension into WhatsApp. A new web app adds its sites to the greylist.
 install -D -o root -g root -m 644 system/files/etc/chromium/policies/managed/riptide.json \
     /etc/chromium/policies/managed/riptide.json
+
+step "riptide: die Software root-eigen (/usr/lib/riptide) und der Entwicklermodus"
+# The software that runs the system is a package built from this repo (packaging/build.sh,
+# as the user, before this script): root's, in /usr/lib/riptide, every file known to pacman
+# (pacman -Qkk riptide checks them). Developer mode, like turning off SIP on a Mac: while
+# /etc/riptide/developer names this repo, riptide-developer.service binds it read-only over
+# /usr/lib/riptide before anyone logs in – the system runs the code being worked on, and
+# what runs as the user can change it. Turned off, the file is developer.off and this script
+# leaves it so. The home folder links to /usr/lib/riptide (install.sh link, as the user).
+pkg=$(ls -t packaging/out/riptide-*.pkg.tar.zst 2>/dev/null | head -1 || true)
+if [[ -z "$pkg" ]]; then
+    echo "  kein Paket gebaut – erst ~/dotfiles/packaging/build.sh (ohne sudo)"
+else
+    ver=$(pacman -Qp "$pkg" | awk '{print $2}')
+    if [[ "$(pacman -Q riptide 2>/dev/null | awk '{print $2}' || true)" == "$ver" ]]; then
+        echo "  riptide $ver: schon installiert"
+    else
+        pacman -U --noconfirm "$pkg"
+    fi
+fi
+if [[ ! -e /etc/riptide/developer && ! -e /etc/riptide/developer.off ]]; then
+    install -d -m 755 /etc/riptide
+    printf '%s\n' "$PWD" > /etc/riptide/developer
+    chmod 644 /etc/riptide/developer
+    echo "  Entwicklermodus an: $PWD über /usr/lib/riptide"
+fi
+if [[ -f /usr/lib/systemd/system/riptide-developer.service ]]; then
+    systemctl daemon-reload
+    systemctl enable --now riptide-developer.service
+    findmnt -no SOURCE,OPTIONS /usr/lib/riptide 2>/dev/null | sed 's/^/  eingehängt: /' || true
+fi
 
 step "Entfernte Anmeldung (SSH) aus"
 if systemctl is-enabled --quiet sshd.service 2>/dev/null || systemctl is-active --quiet sshd.service; then

@@ -1,0 +1,16 @@
+# Developer mode (docs/os-plan.md): the tree named in /etc/riptide/developer over
+# /usr/lib/riptide, before anyone logs in (developer-mount)
+[Unit]
+Description=riptide developer mode: the repo over /usr/lib/riptide
+ConditionPathExists=/etc/riptide/developer
+RequiresMountsFor=/home /usr/lib
+Before=systemd-user-sessions.service greetd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/riptide-system/developer-mount
+ExecStop=-/usr/bin/umount /usr/lib/riptide
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,5 @@
 # riptide-wm – built against the installed Hyprland headers (pacman: hyprland).
-# plugins/build.sh runs this after every Hyprland update.
+# plugin/build.sh runs this after every Hyprland update.
 CXXFLAGS ?= -O2
 CXXFLAGS += -shared -fPIC -std=c++2b -Wno-c++11-narrowing
 ifeq ($(CXX),g++)

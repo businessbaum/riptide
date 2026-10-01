@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How safe this computer is set up, for System Settings → Datenschutz & Sicherheit:
-disk encryption, Secure Boot, the firewall and what it lets in, remote login (SSH), the
-newest snapshot. JSON, read without root; changes go through riptide-helper.
+disk encryption, Secure Boot, who may change the system files, the firewall and what it
+lets in, remote login (SSH), the newest snapshot. JSON, read without root; changes go through riptide-helper.
 """
 
 import json
@@ -62,6 +62,23 @@ def remote_login():
     return {"enabled": enabled == "enabled", "active": active == "active"}
 
 
+def system_files():
+    """Where the software that runs the system lies (docs/os-plan.md "System files
+    root-owned"): "home" – in the home folder, changeable by every program of the user's;
+    "developer" – developer mode, the repo bound over /usr/lib/riptide (just as
+    changeable); "root" – the package, root's (the home folder still links to it until
+    the last step, so a program could point those links elsewhere)."""
+    shell = Path.home() / ".config/quickshell"
+    try:
+        target = str(shell.resolve())
+    except OSError:
+        target = ""
+    if not target.startswith("/usr/lib/riptide/"):
+        return "home"
+    code, source = run("findmnt", "-no", "SOURCE", "/usr/lib/riptide")
+    return "developer" if code == 0 and source else "root"
+
+
 def snapshot():
     """The newest snapshot of the system (snapper; needs ALLOW_USERS, setup-os.sh)"""
     code, out = run("snapper", "--csvout", "-c", "root", "list", "--columns", "number,date,description",
@@ -78,6 +95,7 @@ def snapshot():
 print(json.dumps({
     "encryption": encryption(),
     "secureBoot": secure_boot(),
+    "systemFiles": system_files(),
     "firewall": firewall(),
     "remoteLogin": remote_login(),
     "snapshot": snapshot(),
