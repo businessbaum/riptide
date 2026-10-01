@@ -5,7 +5,8 @@
     video      MP4, MKV, WebM, MOV, AVI, GIF …           play with controls
     PDF        read, search, mark up, fill forms, sign, rearrange pages (pdf_document.py)
 
-Every file opens in its own window. Without a file an "Open" dialog appears.
+Files open as tabs of one window, like Preview on a Mac (a file open already: its tab).
+Without a file an "Open" dialog appears.
 Shortcuts (⌘ is translated to ⌃ by Hyprland): ⌘O open, ⌘S save, ⌘⇧S save as,
 ⌘Z undo, ⌘C copy marked text, ⌘F find, ⌘+ / ⌘- / ⌘0 zoom, ⌘W close, space play/pause.
 """
@@ -49,6 +50,10 @@ def content_type(gfile):
         return info.get_content_type() or ""
     except GLib.Error:
         return Gio.content_type_guess(gfile.get_basename(), None)[0] or ""
+
+
+def pages_text(count):
+    return "1 Seite" if count == 1 else f"{count} Seiten"
 
 
 def kind_of(gfile):
@@ -554,7 +559,7 @@ class PdfView:
         self.widget = box
         self.build_header()
         self.rebuild()
-        window.set_file(gfile, f"{len(self.doc)} Seiten")
+        window.set_file(gfile, pages_text(len(self.doc)))
         GLib.idle_add(self.fit_width)
 
     @property
@@ -865,7 +870,7 @@ class PdfView:
             count = self.doc.insert_pdf(gfile.get_path(), n)
             self.changed(rebuild=True, keep_page=n + 1)
             self.window.toast(f"{count} Seiten eingefügt")
-        dialog.open(self.window, None, chosen)
+        dialog.open(self.window.parent_window, None, chosen)
 
     def undo(self):
         if not self.doc.can_undo():
@@ -902,7 +907,7 @@ class PdfView:
         except Exception as e:  # noqa: BLE001 – show every problem to the user
             self.window.toast(f"Sichern fehlgeschlagen: {e}")
             return False
-        self.window.set_file(Gio.File.new_for_path(self.doc.path), f"{len(self.doc)} Seiten")
+        self.window.set_file(Gio.File.new_for_path(self.doc.path), pages_text(len(self.doc)))
         return True
 
 
@@ -916,30 +921,77 @@ def pdf_filter():
 # Window and app
 # ======================================================================
 
-class Window(Adw.ApplicationWindow):
-    def __init__(self, app, gfile):
-        super().__init__(application=app, default_width=1000, default_height=720)
+class HeaderPart:
+    """A tab's own buttons for the window's header bar (pack_start / pack_end, as on a
+    Gtk.HeaderBar): they stand there while the tab is in front."""
+
+    def __init__(self, document):
+        self.document = document
+        self.start, self.end = [], []
+
+    def pack_start(self, widget):
+        self.start.append(widget)
+        if self.document.in_front():
+            self.document.window.header.pack_start(widget)
+
+    def pack_end(self, widget):
+        self.end.append(widget)
+        if self.document.in_front():
+            self.document.window.header.pack_end(widget)
+
+
+class Document:
+    """One open file, a tab of the window. It offers the views (ImageView, PdfView …) what
+    they had from a window of their own: a header for their buttons, the content with its
+    own top bars, actions and key handling that work while the tab is in front, the
+    title, toasts, "save as" and closing."""
+
+    def __init__(self, window, gfile):
+        self.window = window
+        self.parent_window = window  # (for dialogs: a real window)
         self.gfile = gfile
         self.subtitle = ""
-        self.header = Adw.HeaderBar()
-        self.title = Adw.WindowTitle()
-        self.header.set_title_widget(self.title)
-        self.content = Adw.ToolbarView()
-        self.content.add_top_bar(self.header)
-        self.toasts = Adw.ToastOverlay(child=self.content)
-        self.set_content(self.toasts)
         self.view = None
+        self.page = None
+        self.content = Adw.ToolbarView()
+        self.header = HeaderPart(self)
+        self.actions = {}
+        self.controllers = []
+        self.closing = []
 
-        for name, callback in (("save", self.save), ("save-as", self.save_as), ("undo", self.undo),
-                               ("find", self.find), ("zoom-in", lambda: self.call("zoom_in")),
-                               ("zoom-out", lambda: self.call("zoom_out")),
-                               ("zoom-reset", lambda: self.call("zoom_reset")), ("close", self.close),
-                               ("copy", lambda: self.call("copy"))):
-            action = Gio.SimpleAction.new(name, None)
-            action.connect("activate", lambda *_, c=callback: c())
-            self.add_action(action)
-        self.connect("close-request", self.on_close_request)
-        self.open_file(gfile)
+    def in_front(self):
+        return self.window.current is self
+
+    # what the views ask of "their window"
+    def add_action(self, action):
+        self.actions[action.get_name()] = action
+        if self.in_front():
+            self.window.add_action(action)
+
+    def add_controller(self, controller):
+        self.controllers.append(controller)
+        if self.in_front():
+            self.window.add_controller(controller)
+
+    def connect(self, signal, callback):
+        if signal == "close-request":  # (video and audio stop when their tab goes)
+            self.closing.append(callback)
+
+    def toast(self, text):
+        self.window.toast(text)
+
+    def close(self):
+        if self.page:
+            self.window.tabs.close_page(self.page)
+
+    def closed(self):
+        for callback in self.closing:
+            callback(self)
+        self.window.get_application().documents.pop(self.content, None)
+
+    @property
+    def dirty(self):
+        return self.view is not None and getattr(self.view, "dirty", False)
 
     def open_file(self, gfile, password=None):
         kind = kind_of(gfile)
@@ -982,7 +1034,7 @@ class Window(Adw.ApplicationWindow):
             else:
                 self.close()
         dialog.connect("response", answered)
-        dialog.present(self)
+        dialog.present(self.window)
 
     # ---------- title ----------
 
@@ -994,25 +1046,20 @@ class Window(Adw.ApplicationWindow):
 
     def update_title(self):
         name = self.gfile.get_basename()
-        edited = self.view is not None and getattr(self.view, "dirty", False)
-        self.title.set_title(name + (" – Bearbeitet" if edited else ""))
-        self.title.set_subtitle(self.subtitle)
-        self.set_title(name)
-
-    def toast(self, text):
-        self.toasts.add_toast(Adw.Toast(title=text, timeout=3))
+        edited = self.dirty
+        if self.page:
+            self.page.set_title(name + (" – Bearbeitet" if edited else ""))
+            self.page.set_tooltip(self.gfile.get_path() or name)
+        if self.in_front():
+            self.window.title.set_title(name + (" – Bearbeitet" if edited else ""))
+            self.window.title.set_subtitle(self.subtitle)
+            self.window.set_title(name)
 
     # ---------- actions ----------
 
     def call(self, method):
         if self.view and hasattr(self.view, method):
             getattr(self.view, method)()
-
-    def undo(self):
-        self.call("undo")
-
-    def find(self):
-        self.call("find_start")
 
     def save(self):
         if self.view and hasattr(self.view, "save") and self.view.dirty:
@@ -1034,12 +1081,104 @@ class Window(Adw.ApplicationWindow):
                 return
             if self.view.save(target.get_path()):
                 self.update_title()
-        dialog.save(self, None, chosen)
+        dialog.save(self.window, None, chosen)
 
-    def on_close_request(self, _window):
-        if not (self.view and getattr(self.view, "dirty", False)):
-            return False
-        dialog = Adw.AlertDialog(heading=f"Änderungen an „{self.gfile.get_basename()}“ sichern?",
+
+class Window(Adw.ApplicationWindow):
+    """One window, the files in it as tabs, like Preview on a Mac: the tab bar shows from
+    the second file on; the header bar carries the buttons of the tab in front."""
+
+    def __init__(self, app):
+        super().__init__(application=app, default_width=1000, default_height=720)
+        self.header = Adw.HeaderBar()
+        self.title = Adw.WindowTitle()
+        self.header.set_title_widget(self.title)
+        self.tabs = Adw.TabView()
+        self.tabbar = Adw.TabBar(view=self.tabs, autohide=True)
+        frame = Adw.ToolbarView()
+        frame.add_top_bar(self.header)
+        frame.add_top_bar(self.tabbar)
+        frame.set_content(self.tabs)
+        self.toasts = Adw.ToastOverlay(child=frame)
+        self.set_content(self.toasts)
+        self.current = None
+        self.closing_window = False
+
+        for name, callback in (("save", lambda: self.current and self.current.save()),
+                               ("save-as", lambda: self.current and self.current.save_as()),
+                               ("undo", lambda: self.current and self.current.call("undo")),
+                               ("find", lambda: self.current and self.current.call("find_start")),
+                               ("zoom-in", lambda: self.current and self.current.call("zoom_in")),
+                               ("zoom-out", lambda: self.current and self.current.call("zoom_out")),
+                               ("zoom-reset", lambda: self.current and self.current.call("zoom_reset")),
+                               ("copy", lambda: self.current and self.current.call("copy")),
+                               ("close", lambda: self.current and self.current.close())):
+            action = Gio.SimpleAction.new(name, None)
+            action.connect("activate", lambda *_, c=callback: c())
+            self.add_action(action)
+        self.tabs.connect("notify::selected-page", lambda *_: self.bring_to_front(self.tabs.get_selected_page()))
+        self.tabs.connect("close-page", self.on_close_page)
+        self.tabs.connect("page-attached", self.on_page_came)
+        self.tabs.connect("page-detached", self.on_page_gone)
+        self.connect("close-request", self.on_close_request)
+
+    def document(self, page):
+        """The document of a tab (the app knows them by their content: a tab dragged to
+        another window keeps it)."""
+        return self.get_application().documents.get(page.get_child()) if page else None
+
+    def pages(self):
+        return [self.tabs.get_nth_page(i) for i in range(self.tabs.get_n_pages())]
+
+    def open(self, gfile):
+        """A file as a new tab of this window."""
+        document = Document(self, gfile)
+        self.get_application().documents[document.content] = document  # (before the tab:
+        page = self.tabs.append(document.content)                     #  the first one is in front at once)
+        document.page = page
+        document.open_file(gfile)
+        document.update_title()
+        self.tabs.set_selected_page(page)
+
+    def bring_to_front(self, page):
+        document = self.document(page)
+        if document is self.current:
+            return
+        before = self.current
+        if before:
+            for widget in before.header.start + before.header.end:
+                if widget.get_parent():
+                    self.header.remove(widget)
+            for name in before.actions:
+                self.remove_action(name)
+            for controller in before.controllers:
+                self.remove_controller(controller)
+        self.current = document
+        if document:
+            for widget in document.header.start:
+                self.header.pack_start(widget)
+            for widget in document.header.end:
+                self.header.pack_end(widget)
+            for action in document.actions.values():
+                self.add_action(action)
+            for controller in document.controllers:
+                self.add_controller(controller)
+            document.update_title()
+
+    def toast(self, text):
+        self.toasts.add_toast(Adw.Toast(title=text, timeout=3))
+
+    # ---------- closing ----------
+
+    def on_close_page(self, tabs, page):
+        document = self.document(page)
+        if not (document and document.dirty):
+            if document:
+                document.closed()
+            tabs.close_page_finish(page, True)
+            return True
+        tabs.set_selected_page(page)
+        dialog = Adw.AlertDialog(heading=f"Änderungen an „{document.gfile.get_basename()}“ sichern?",
                                  body="Ohne Sichern gehen die Änderungen verloren.",
                                  default_response="save", close_response="cancel")
         dialog.add_response("cancel", "Abbrechen")
@@ -1049,18 +1188,48 @@ class Window(Adw.ApplicationWindow):
         dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
 
         def answered(_d, response):
-            if response == "save" and self.view.save():
-                self.destroy()
-            elif response == "discard":
-                self.destroy()
+            done = (response == "save" and document.view.save()) or response == "discard"
+            if done:
+                document.closed()
+            else:
+                self.closing_window = False
+            tabs.close_page_finish(page, done)
         dialog.connect("response", answered)
         dialog.present(self)
+        return True
+
+    def on_page_came(self, _tabs, page, _position):
+        document = self.document(page)
+        if document and document.window is not self:  # dragged over from another window
+            document.window = document.parent_window = self
+
+    def on_page_gone(self, _tabs, page, _position):
+        document = self.document(page)
+        if document is None or document is self.current:
+            self.bring_to_front(None)
+            self.bring_to_front(self.tabs.get_selected_page())
+        if self.tabs.get_n_pages() == 0:
+            self.destroy()  # the last tab closes the window
+        elif self.closing_window:
+            self.close()  # (closing the window: on to the next tab)
+
+    def on_close_request(self, _window):
+        """Closing the window closes every tab; one with changes asks first."""
+        dirty = [page for page in self.pages() if self.document(page) and self.document(page).dirty]
+        if not dirty:
+            for page in self.pages():
+                if self.document(page):
+                    self.document(page).closed()
+            return False
+        self.closing_window = True
+        self.tabs.close_page(dirty[0])
         return True
 
 
 class Preview(Adw.Application):
     def __init__(self):
         super().__init__(application_id="org.riptide.Preview", flags=Gio.ApplicationFlags.HANDLES_OPEN)
+        self.documents = {}  # a tab's content → its Document
 
     def do_startup(self):
         Adw.Application.do_startup(self)
@@ -1079,13 +1248,28 @@ class Preview(Adw.Application):
                              ("win.zoom-reset", ["<Control>0"]), ("win.copy", ["<Control>c"])):
             self.set_accels_for_action(action, keys)
 
+    def window(self):
+        """The window files open in: the one in front, else a new one."""
+        return self.get_active_window() or next(iter(self.get_windows()), None) or Window(self)
+
     def do_activate(self):
         if not self.get_windows():
             self.choose_file()
 
+    def show(self, gfile):
+        """A file as a tab of the window in front – or the tab it is open in already."""
+        for document in self.documents.values():
+            if document.gfile.equal(gfile) and document.page:
+                document.window.tabs.set_selected_page(document.page)
+                document.window.present()
+                return
+        window = self.window()
+        window.open(gfile)
+        window.present()
+
     def do_open(self, files, _n_files, _hint):
         for gfile in files:
-            Window(self, gfile).present()
+            self.show(gfile)
 
     def choose_file(self):
         dialog = Gtk.FileDialog(title="Öffnen")
@@ -1097,7 +1281,7 @@ class Preview(Adw.Application):
                 gfile = d.open_finish(result)
             except GLib.Error:
                 return
-            Window(self, gfile).present()
+            self.show(gfile)
         dialog.open(self.get_active_window(), None, chosen)
 
 
