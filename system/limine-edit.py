@@ -3,6 +3,8 @@
 
     limine-edit.py <limine.conf> <output> uki|linux
 
+Windows is the default entry (2026-10-12): `default_entry` names the first top-level
+entry whose title contains "windows"; nothing is changed when there is none.
 Global options: the menu shows for 3 s (2026-09-28: choose the system right there –
 a hidden menu could not be reached), no editor. Adds "/Notfallmodus (Textanmeldung)":
   uki    (the kernel images of Secure Boot stage 1 exist): chainloads
@@ -44,6 +46,13 @@ def main():
     # "init=/bin/sh" added there would be a way in without any password (with Secure Boot
     # and a sealed config Limine switches it off anyway)
     set_option(head, "editor_enabled", "no")
+    win = next((b[0][1:] for b in blocks if "windows" in b[0].lower()), None)
+    if win:
+        set_option(head, "default_entry", re.sub(r"([/\\#])", r"\\\1", win))
+        set_option(head, "remember_last_entry", "no") # else the last booted system would win
+        print(f"  Standard: {win}")
+    else:
+        print("  Standard: kein Windows-Eintrag gefunden – unverändert")
     head.append("")
 
     old = [b for b in blocks if b[0].startswith("/Notfallmodus")]
