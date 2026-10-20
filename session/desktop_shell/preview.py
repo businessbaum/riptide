@@ -3,11 +3,11 @@
     pictures   PNG, JPEG, WebP, HEIC, SVG, TIFF, BMP …  zoom, rotate, ←/→ through the folder
     audio      MP3, FLAC, OGG, WAV, M4A …                play with controls
     video      MP4, MKV, WebM, MOV, AVI, GIF …           play with controls
-    PDF        read, search, mark up, fill forms, sign, rearrange pages (pdf_document.py)
+    PDF        read, search, mark up, fill forms, sign, rearrange pages, print (pdf_document.py)
 
 Files open as tabs of one window, like Preview on a Mac (a file open already: its tab).
 Without a file an "Open" dialog appears.
-Shortcuts (⌘ is translated to ⌃ by Hyprland): ⌘O open, ⌘S save, ⌘⇧S save as,
+Shortcuts (⌘ is translated to ⌃ by Hyprland): ⌘O open, ⌘S save, ⌘⇧S save as, ⌘P print,
 ⌘Z undo, ⌘C copy marked text, ⌘F find, ⌘+ / ⌘- / ⌘0 zoom, ⌘W close, space play/pause.
 """
 
@@ -599,6 +599,9 @@ class PdfView:
         undo = Gtk.Button(icon_name="edit-undo-symbolic", tooltip_text="Widerrufen (⌘Z)")
         undo.connect("clicked", lambda *_: self.undo())
         header.pack_end(undo)
+        printer = Gtk.Button(icon_name="printer-symbolic", tooltip_text="Drucken (⌘P)")
+        printer.connect("clicked", lambda *_: self.print_dialog())
+        header.pack_end(printer)
 
         actions = {"page-rotate-left": lambda: self.page_op(lambda n: self.doc.rotate_page(n, -90)),
                    "page-rotate-right": lambda: self.page_op(lambda n: self.doc.rotate_page(n, 90)),
@@ -910,6 +913,50 @@ class PdfView:
         self.window.set_file(Gio.File.new_for_path(self.doc.path), pages_text(len(self.doc)))
         return True
 
+    # ---------- printing ----------
+
+    print_settings = None  # the last choices in the print dialog, for every PDF
+
+    def print_dialog(self):
+        """⌘P: the system's print dialog. The pages print as shown, markup and filled forms
+        included (unsaved changes too); a landscape page is turned across the paper, a page
+        larger than the printable area shrunk to fit."""
+        operation = Gtk.PrintOperation(job_name=self.window.gfile.get_basename(), unit=Gtk.Unit.POINTS,
+                                       embed_page_setup=True, allow_async=True)
+        operation.set_n_pages(len(self.doc))
+        operation.set_current_page(self.current_page())
+        if PdfView.print_settings:
+            operation.set_print_settings(PdfView.print_settings)
+        operation.connect("request-page-setup", self.on_print_page_setup)
+        operation.connect("draw-page", self.on_print_page)
+        operation.connect("done", self.on_print_done)
+        self.print_operation = operation  # (kept until it is done)
+        try:
+            operation.run(Gtk.PrintOperationAction.PRINT_DIALOG, self.window.parent_window)
+        except GLib.Error as e:
+            self.print_operation = None
+            self.window.toast(f"Drucken fehlgeschlagen: {e.message}")
+
+    def on_print_page_setup(self, _operation, _context, n, setup):
+        w, h = self.doc.page_size(n)
+        setup.set_orientation(Gtk.PageOrientation.LANDSCAPE if w > h else Gtk.PageOrientation.PORTRAIT)
+
+    def on_print_page(self, _operation, context, n):
+        # the printer's resolution: sharp text without hundreds of megabytes per page
+        dpi = min(max(context.get_dpi_x(), 300), 600)
+        self.doc.draw_for_print(context.get_cairo_context(), n, context.get_width(), context.get_height(), dpi)
+
+    def on_print_done(self, operation, result):
+        self.print_operation = None
+        if result == Gtk.PrintOperationResult.APPLY:
+            PdfView.print_settings = operation.get_print_settings()
+            self.window.toast("An den Drucker gesendet")
+        elif result == Gtk.PrintOperationResult.ERROR:
+            try:
+                operation.get_error()
+            except GLib.Error as e:
+                self.window.toast(f"Drucken fehlgeschlagen: {e.message}")
+
 
 def pdf_filter():
     f = Gtk.FileFilter(name="PDF-Dokumente")
@@ -1106,6 +1153,7 @@ class Window(Adw.ApplicationWindow):
 
         for name, callback in (("save", lambda: self.current and self.current.save()),
                                ("save-as", lambda: self.current and self.current.save_as()),
+                               ("print", lambda: self.current and self.current.call("print_dialog")),
                                ("undo", lambda: self.current and self.current.call("undo")),
                                ("find", lambda: self.current and self.current.call("find_start")),
                                ("zoom-in", lambda: self.current and self.current.call("zoom_in")),
@@ -1241,7 +1289,8 @@ class Preview(Adw.Application):
         open_action.connect("activate", lambda *_: self.choose_file())
         self.add_action(open_action)
         for action, keys in (("app.open", ["<Control>o"]), ("win.save", ["<Control>s"]),
-                             ("win.save-as", ["<Control><Shift>s"]), ("win.undo", ["<Control>z"]),
+                             ("win.save-as", ["<Control><Shift>s"]), ("win.print", ["<Control>p"]),
+                             ("win.undo", ["<Control>z"]),
                              ("win.find", ["<Control>f"]), ("win.close", ["<Control>w"]),
                              ("win.zoom-in", ["<Control>plus", "<Control>equal", "<Control>KP_Add"]),
                              ("win.zoom-out", ["<Control>minus", "<Control>KP_Subtract"]),

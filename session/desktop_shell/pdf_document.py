@@ -12,6 +12,7 @@ Every change is undoable: before a change the whole document is kept in memory
 import os
 import tempfile
 
+import cairo
 import pymupdf as fitz
 
 UNDO_STEPS = 30
@@ -344,6 +345,30 @@ class PdfDocument:
                 r = self._rect_to_display(page, rect)
                 hits.append((n, (r.x0, r.y0, r.x1, r.y1)))
         return hits
+
+    # ---------- printing ----------
+
+    def draw_for_print(self, cr, n, width, height, dpi):
+        """Draw page n as shown (markup and filled forms included) onto a cairo context in
+        points: shrunk to fit width × height when larger, centred, as pixels at the
+        printer's resolution `dpi` (PyMuPDF cannot draw onto cairo itself)."""
+        page = self.doc[n]
+        pw, ph = page.rect.width, page.rect.height
+        scale = min(width / pw, height / ph, 1.0)
+        pix = page.get_pixmap(matrix=fitz.Matrix(scale * dpi / 72, scale * dpi / 72), alpha=False)
+        w, h = pix.width, pix.height
+        # cairo wants 32-bit pixels, in memory blue, green, red, unused (little endian)
+        data = bytearray(w * h * 4)
+        rgb = pix.samples
+        data[0::4], data[1::4], data[2::4] = rgb[2::3], rgb[1::3], rgb[0::3]
+        del pix, rgb
+        image = cairo.ImageSurface.create_for_data(data, cairo.FORMAT_RGB24, w, h, w * 4)
+        cr.save()
+        cr.translate((width - pw * scale) / 2, (height - ph * scale) / 2)
+        cr.scale(72 / dpi, 72 / dpi)
+        cr.set_source_surface(image, 0, 0)
+        cr.paint()
+        cr.restore()
 
     # ---------- saving ----------
 
