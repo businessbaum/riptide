@@ -9,7 +9,7 @@ pkgver=r215.8d70f44
 pkgrel=1
 pkgdesc="riptide: shell, session services and window behaviour of a macOS-style operating system"
 arch=('x86_64')
-license=('custom')
+license=('MIT')
 depends=('hyprland' 'quickshell' 'python' 'python-gobject' 'bubblewrap' 'xdg-dbus-proxy'
          'uwsm' 'wireplumber' 'wayland')
 makedepends=('git' 'gcc' 'wayland-protocols')
