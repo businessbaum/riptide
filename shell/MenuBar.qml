@@ -141,10 +141,14 @@ PanelWindow {
 
         BarButton {
             id: logo
-            text: "" // Apple logo (Symbols Nerd Font)
-            symbol: true
+            implicitWidth: tree.width + 20
             active: appleMenu.visible
             onClicked: appleMenu.toggle()
+
+            TreeLogo {
+                id: tree
+                anchors.centerIn: parent
+            }
         }
 
         BarButton {
